@@ -20,6 +20,7 @@ import { checkCreateLimits, PLAN_LIMITS, type PlanTier } from "../_shared/limits
 import { ProviderError } from "../_shared/providers/types.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { planDrip } from "../_shared/schedule.ts";
+import { CURRENT_TERMS_VERSION } from "../_shared/terms.ts";
 
 const ACTIVE_STATUSES = ["scheduled", "running", "paused"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -118,11 +119,14 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (!connection) throw new HttpError(404, "Connection not found.");
 
   const [{ data: profile, error: profileError }, { count: activeDrips, error: countError }] = await Promise.all([
-    db.from("profiles").select("plan").eq("user_id", userId).maybeSingle(),
+    db.from("profiles").select("plan, agreed_terms_version").eq("user_id", userId).maybeSingle(),
     db.from("drips").select("id", { count: "exact", head: true }).eq("user_id", userId).in("status", ACTIVE_STATUSES),
   ]);
   if (profileError) throw new Error(profileError.message);
   if (countError) throw new Error(countError.message);
+  if (profile?.agreed_terms_version !== CURRENT_TERMS_VERSION) {
+    throw new HttpError(403, "Please read and agree to the Responsible Use Agreement before writing.");
+  }
   const plan = (profile?.plan ?? "free") as PlanTier;
 
   const words = countWords(text);

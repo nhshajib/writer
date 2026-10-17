@@ -1,0 +1,114 @@
+// Stripe billing for signed-in users.
+//
+//   POST /billing/checkout   { interval: "month" | "year" }  ->  { url }
+//   POST /billing/portal                                     ->  { url }
+//
+// Checkout starts a Pro subscription. The 7-day trial (card required) is only
+// offered if this person's normalized email has never claimed one.
+
+import { requireUser } from "../_shared/auth.ts";
+import { adminClient, requireEnv } from "../_shared/env.ts";
+import { HttpError, json, readJson, serve } from "../_shared/http.ts";
+import { StripeError, stripeRequest } from "../_shared/stripe.ts";
+
+const TRIAL_DAYS = "7";
+
+serve(async (req) => {
+  if (req.method !== "POST") throw new HttpError(405, "Method not allowed.");
+  const user = await requireUser(req);
+  const action = new URL(req.url).pathname.split("/").filter(Boolean).pop();
+
+  const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!secretKey) throw new HttpError(503, "Payments are not configured yet.");
+  const appUrl = requireEnv("APP_URL").replace(/\/$/, "");
+
+  try {
+    if (action === "checkout") return await checkout(user, secretKey, appUrl, req);
+    if (action === "portal") return await portal(user.id, secretKey, appUrl);
+  } catch (error) {
+    if (error instanceof StripeError) {
+      console.error("Stripe error", error.status, error.message);
+      throw new HttpError(502, "The payment provider returned an error. Please try again.");
+    }
+    throw error;
+  }
+  throw new HttpError(404, "Not found.");
+});
+
+async function checkout(
+  user: { id: string; email: string | null },
+  secretKey: string,
+  appUrl: string,
+  req: Request,
+): Promise<Response> {
+  const { interval } = await readJson<{ interval?: string }>(req);
+  const price = interval === "year"
+    ? requireEnv("STRIPE_PRICE_YEARLY")
+    : interval === "month"
+    ? requireEnv("STRIPE_PRICE_MONTHLY")
+    : null;
+  if (!price) throw new HttpError(400, 'interval must be "month" or "year".');
+  if (!user.email) throw new HttpError(400, "Your account has no email address.");
+
+  const db = adminClient();
+  const { data: profile, error } = await db
+    .from("profiles")
+    .select("stripe_customer_id, subscription_status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (profile?.subscription_status === "active" || profile?.subscription_status === "trialing") {
+    throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
+  }
+
+  const customerId = profile?.stripe_customer_id ?? await createCustomer(user, secretKey);
+
+  const { data: trialAvailable, error: trialError } = await db.rpc("trial_available", { email: user.email });
+  if (trialError) throw new Error(trialError.message);
+
+  const params: Record<string, string> = {
+    mode: "subscription",
+    customer: customerId,
+    client_reference_id: user.id,
+    "line_items[0][price]": price,
+    "line_items[0][quantity]": "1",
+    success_url: `${appUrl}/account?checkout=success`,
+    cancel_url: `${appUrl}/pricing?checkout=canceled`,
+    // Always collect a card, including for the trial.
+    payment_method_collection: "always",
+    "subscription_data[metadata][user_id]": user.id,
+  };
+  if (trialAvailable) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
+
+  const session = await stripeRequest<{ url: string }>(secretKey, "checkout/sessions", params);
+  return json({ url: session.url, trial: Boolean(trialAvailable) });
+}
+
+async function createCustomer(user: { id: string; email: string | null }, secretKey: string): Promise<string> {
+  const customer = await stripeRequest<{ id: string }>(secretKey, "customers", {
+    email: user.email ?? "",
+    "metadata[user_id]": user.id,
+  });
+  const { error } = await adminClient()
+    .from("profiles")
+    .update({ stripe_customer_id: customer.id })
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+  return customer.id;
+}
+
+async function portal(userId: string, secretKey: string, appUrl: string): Promise<Response> {
+  const { data: profile, error } = await adminClient()
+    .from("profiles")
+    .select("stripe_customer_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!profile?.stripe_customer_id) throw new HttpError(404, "You don't have a billing account yet.");
+
+  const session = await stripeRequest<{ url: string }>(secretKey, "billing_portal/sessions", {
+    customer: profile.stripe_customer_id,
+    return_url: `${appUrl}/account`,
+  });
+  return json({ url: session.url });
+}
