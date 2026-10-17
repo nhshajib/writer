@@ -169,6 +169,31 @@ them read (`update notifications set read_at = now()`), and switch email off wit
 `update profiles set email_notifications = false`. Nothing else in those tables is
 writable from the client.
 
+## Approval, insertion units and timing
+
+`POST /drips` only accepts text the user has approved. The client shows the exact
+text, the user ticks a checkbox, and the client sends:
+
+```json
+"approval": { "confirmed": true, "text_sha256": "<hex SHA-256 of the exact text>" }
+```
+
+If the hash doesn't match the text (for example, the text was edited after
+approval), the server returns 409 and asks for a new approval. The approval, the
+hash and the time are stored on the drip and written to the activity log as an
+`approved` event.
+
+Other options on `POST /drips`:
+
+| Field | Values | Meaning |
+|---|---|---|
+| `insertion_unit` | `chunk` (default), `sentence`, `paragraph` | What the text is split on. Each step adds whole units; units are only grouped when there are more units than minutes. |
+| `mode` | `scheduled` (default), `as_soon_as_possible` | `scheduled` spreads the steps over `duration_minutes`. `as_soon_as_possible` writes the whole text on the next worker run (within about a minute). |
+
+Writer writes only into the Google Doc, in these steps. It doesn't type
+character by character or word by word into the document, and every insertion is
+logged and labelled as automated.
+
 ### Plan limits (`_shared/limits.ts`)
 
 | | Free | Pro |
