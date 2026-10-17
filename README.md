@@ -12,6 +12,44 @@ This repo currently holds the **backend** (Supabase). The frontend comes next.
 - `test` provider: writes into a database table so the whole pipeline can be
   exercised without Google
 
+## Frontend (`web/`)
+
+A Next.js 15 app (React 19, TypeScript) in `web/`, designed for keyboard and screen-reader use: skip link,
+visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass axe (WCAG 2.1 AA) in light and dark mode.
+
+| Route | What it does |
+|---|---|
+| `/`, `/pricing`, `/responsible-use` | Public pages (pricing starts Stripe checkout) |
+| `/signup`, `/login` | Account creation (personal email only, agreement required) and sign-in |
+| `/app` | Dashboard: agreement check, connect Google, list of sessions with progress |
+| `/app/sessions/[id]` | Live progress, countdown, text entered so far, pause / resume / stop, activity log (CSV export) |
+| `/account` | Plan, billing portal, email notifications, change password |
+
+```bash
+cd web
+cp .env.example .env.local   # Supabase URL and publishable key (safe in the browser)
+npm install
+npm run dev
+```
+
+**Not built yet:** the screen for starting a new session (choose the document, enter text, approve it with
+the checkbox, pick step size and timing). It has to call `POST /drips` as described in "Approval, insertion units
+and timing" below; the backend, dashboard and session view are ready for it.
+
+## Launch checklist
+
+1. **Stripe:** create a Pro product with a $15 monthly and a $108 yearly price. Add Edge Function secrets
+   `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`. Create a webhook to
+   `https://<project-ref>.supabase.co/functions/v1/stripe-webhook` for `customer.subscription.created`,
+   `.updated` and `.deleted`, and add its signing secret as `STRIPE_WEBHOOK_SECRET`. Enable the Customer Portal.
+2. **Deploy `web/` to Vercel** (root directory `web`, env vars from `web/.env.example`).
+3. **Supabase secrets:** `APP_URL` = the deployed site, `TOKEN_ENCRYPTION_KEY`, `ENABLE_TEST_PROVIDER=false`;
+   optionally `RESEND_API_KEY` and `EMAIL_FROM` for email.
+4. **Supabase Auth:** add the site to Authentication → URL Configuration; turn on leaked-password protection;
+   keep the "Before User Created" hook on `public.hook_before_user_created`.
+5. **Google:** add the site origin to the OAuth client and publish the consent screen for real users.
+6. Test Stripe in test mode end to end (trial starts, plan becomes Pro, second trial refused, cancel returns to Free).
+
 ## How it works
 
 ```

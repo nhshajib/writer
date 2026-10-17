@@ -9,7 +9,7 @@ export default function ResponsibleUsePage() {
     <article style={{ maxWidth: 720, margin: "0 auto" }}>
       <h1>Responsible Use Agreement</h1>
       <p className="muted">Version {CURRENT_TERMS_VERSION}. Everyone agrees to this before using Writer.</p>
-      <Agreement />
+      <Agreement headingLevel={2} />
     </article>
   );
 }

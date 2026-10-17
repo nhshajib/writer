@@ -24,7 +24,7 @@ export function AgreementGate({ onAgreed }: { onAgreed: () => void }) {
     <section className="form" aria-labelledby="gate-title" style={{ maxWidth: 640 }}>
       <h1 id="gate-title">Responsible Use Agreement</h1>
       <p>Please read and accept the agreement to continue.</p>
-      <Agreement id="gate-agreement" compact />
+      <Agreement id="gate-agreement" compact headingLevel={2} />
       <label className="choice" htmlFor="gate-agree">
         <input id="gate-agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
         <span>I have read the Responsible Use Agreement and agree to follow it.</span>
