@@ -64,14 +64,19 @@ export async function runDripStep(drip: DripRow, provider: DocProvider, now: Dat
 
   const written = index + 1;
   const done = written >= drip.total_chunks;
-  const events: DripEvent[] = [{ kind: "chunk_written", detail: { index, chars: chunk.length } }];
+  const nextRunAt = done ? null : addSeconds(now, drip.interval_seconds).toISOString();
+  // Progress rides along on the event so live clients can update without refetching the row.
+  const events: DripEvent[] = [{
+    kind: "chunk_written",
+    detail: { index, chars: chunk.length, written, total: drip.total_chunks, next_run_at: nextRunAt },
+  }];
   if (done) events.push({ kind: "completed", detail: {} });
 
   return {
     update: {
       chunks_written: written,
       status: done ? "completed" : "running",
-      next_run_at: done ? null : addSeconds(now, drip.interval_seconds).toISOString(),
+      next_run_at: nextRunAt,
       attempts: 0,
       last_error: null,
       completed_at: done ? now.toISOString() : null,

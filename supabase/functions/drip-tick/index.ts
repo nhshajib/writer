@@ -5,8 +5,23 @@ import { loadConnectionsByIds, providerFor } from "../_shared/connections.ts";
 import { safeEqual } from "../_shared/crypto.ts";
 import { adminClient, getSecret } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
+import {
+  buildEmail,
+  buildNotification,
+  emailConfigFromEnv,
+  type NotificationKind,
+  sendEmail,
+} from "../_shared/notify.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
-import { type DripRow, runDripStep, type StepResult } from "../_shared/tick.ts";
+import { type DripRow, type DripUpdate, runDripStep, type StepResult } from "../_shared/tick.ts";
+
+/** The claimed row is a full `drips` row; these are the fields beyond what the step needs. */
+type ClaimedDrip = DripRow & {
+  connection_id: string;
+  document_title: string | null;
+  document_url: string | null;
+  word_count: number;
+};
 
 const BATCH_SIZE = 25;
 const CONCURRENCY = 5;
@@ -23,7 +38,7 @@ serve(async (req) => {
   const { data, error } = await db.rpc("claim_due_drips", { max_rows: BATCH_SIZE });
   if (error) throw new Error(error.message);
 
-  const drips = (data ?? []) as (DripRow & { connection_id: string })[];
+  const drips = (data ?? []) as ClaimedDrip[];
   const connections = await loadConnectionsByIds([...new Set(drips.map((d) => d.connection_id))]);
 
   const results: { id: string; status: string }[] = [];
@@ -39,7 +54,7 @@ serve(async (req) => {
 });
 
 async function processDrip(
-  drip: DripRow & { connection_id: string },
+  drip: ClaimedDrip,
   connection: Parameters<typeof providerFor>[0] | undefined,
 ): Promise<string> {
   const now = new Date();
@@ -64,11 +79,62 @@ async function processDrip(
     };
   }
 
-  await saveResult(drip, result);
-  return result.update.status;
+  const applied = await saveResult(drip, result);
+  const status = result.update.status;
+  if (applied && (status === "completed" || status === "failed")) {
+    await notifyUser(drip, status === "completed" ? "drip_completed" : "drip_failed", result.update);
+  }
+  return status;
 }
 
-async function saveResult(drip: DripRow, result: StepResult): Promise<void> {
+/** Records an in-app notification (once per drip and kind) and emails the user if configured. */
+async function notifyUser(drip: ClaimedDrip, kind: NotificationKind, update: DripUpdate): Promise<void> {
+  try {
+    const db = adminClient();
+    const notifyDrip = {
+      document_title: drip.document_title,
+      document_url: drip.document_url,
+      word_count: drip.word_count,
+      chunks_written: update.chunks_written,
+      total_chunks: drip.total_chunks,
+      last_error: update.last_error,
+    };
+    const content = buildNotification(kind, notifyDrip);
+
+    const { data: inserted, error } = await db
+      .from("notifications")
+      .upsert(
+        { user_id: drip.user_id, drip_id: drip.id, kind, title: content.title, body: content.body },
+        { onConflict: "drip_id,kind", ignoreDuplicates: true },
+      )
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!inserted?.length) return; // already notified
+
+    const { data: profile } = await db.from("profiles").select("email_notifications").eq("user_id", drip.user_id)
+      .maybeSingle();
+    if (profile && profile.email_notifications === false) return;
+
+    const { data: userData } = await db.auth.admin.getUserById(drip.user_id);
+    const email = userData?.user?.email;
+    if (!email) return;
+
+    const result = await sendEmail(
+      email,
+      buildEmail(content, notifyDrip, Deno.env.get("APP_URL")),
+      emailConfigFromEnv(),
+    );
+    if (result === "sent") {
+      await db.from("notifications").update({ email_sent_at: new Date().toISOString() }).eq("id", inserted[0].id);
+    }
+  } catch (error) {
+    // Never let a notification problem affect the drip itself.
+    console.error("Failed to notify user", drip.id, error);
+  }
+}
+
+/** Returns true if the update was applied (the drip hadn't been paused or canceled meanwhile). */
+async function saveResult(drip: DripRow, result: StepResult): Promise<boolean> {
   const db = adminClient();
 
   // Only apply the new status if nobody paused or canceled the drip while the
@@ -81,7 +147,8 @@ async function saveResult(drip: DripRow, result: StepResult): Promise<void> {
     .select("id");
   if (error) console.error("Failed to save drip", drip.id, error.message);
 
-  if (!error && (data ?? []).length === 0) {
+  const applied = !error && (data ?? []).length > 0;
+  if (!error && !applied) {
     // Paused/canceled mid-step: keep that status but record the progress made.
     const { error: progressError } = await db
       .from("drips")
@@ -96,4 +163,5 @@ async function saveResult(drip: DripRow, result: StepResult): Promise<void> {
     );
     if (eventError) console.error("Failed to log drip events", drip.id, eventError.message);
   }
+  return applied;
 }

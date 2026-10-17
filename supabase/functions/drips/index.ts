@@ -1,8 +1,8 @@
 // User-facing API for drips, document connections and documents.
 //
-//   GET  /drips                     list my drips
+//   GET  /drips                     list my drips (with progress)
 //   POST /drips                     create a drip
-//   GET  /drips/:id                 one drip with recent events
+//   GET  /drips/:id                 one drip with progress, the text written so far, and recent events
 //   POST /drips/:id/pause           pause
 //   POST /drips/:id/resume          resume
 //   POST /drips/:id/cancel          cancel
@@ -17,6 +17,7 @@ import { adminClient, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { checkCreateLimits, PLAN_LIMITS, type PlanTier } from "../_shared/limits.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
+import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { planDrip } from "../_shared/schedule.ts";
 
 const ACTIVE_STATUSES = ["scheduled", "running", "paused"];
@@ -157,27 +158,36 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   return json({ drip }, 201);
 }
 
+/** Selects a drip row plus its chunks (needed to derive progress) and attaches `progress`. */
+type DripWithChunks = ProgressInput & Record<string, unknown>;
+
+function withProgress(row: DripWithChunks, includeText: boolean) {
+  const { chunks: _chunks, ...drip } = row;
+  const { written_text, ...progress } = computeProgress(row, new Date());
+  return { ...drip, progress: includeText ? { ...progress, written_text } : progress };
+}
+
 async function listDrips(userId: string): Promise<Response> {
   const { data, error } = await adminClient()
     .from("drips")
-    .select(DRIP_COLUMNS)
+    .select(`${DRIP_COLUMNS}, chunks`)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(error.message);
-  return json({ drips: data });
+  return json({ drips: (data as unknown as DripWithChunks[]).map((row) => withProgress(row, false)) });
 }
 
 async function getDrip(userId: string, id: string): Promise<Response> {
   const db = adminClient();
-  const { data: drip, error } = await db
+  const { data: row, error } = await db
     .from("drips")
-    .select(DRIP_COLUMNS)
+    .select(`${DRIP_COLUMNS}, chunks`)
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!drip) throw new HttpError(404, "Drip not found.");
+  if (!row) throw new HttpError(404, "Drip not found.");
 
   const { data: events } = await db
     .from("drip_events")
@@ -185,7 +195,7 @@ async function getDrip(userId: string, id: string): Promise<Response> {
     .eq("drip_id", id)
     .order("created_at", { ascending: false })
     .limit(50);
-  return json({ drip, events: events ?? [] });
+  return json({ drip: withProgress(row as unknown as DripWithChunks, true), events: events ?? [] });
 }
 
 async function pauseDrip(userId: string, id: string): Promise<Response> {

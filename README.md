@@ -80,6 +80,8 @@ Edge Function secrets (Dashboard → Edge Functions → Secrets):
 | `TICK_SECRET` | optional | overrides Vault `tick_secret` (must match what cron sends) |
 | `GOOGLE_REDIRECT_URI` | optional | defaults to `<SUPABASE_URL>/functions/v1/google-oauth-callback` |
 | `ENABLE_TEST_PROVIDER` | optional | set to `false` in production to disable the `test` provider |
+| `RESEND_API_KEY` | for email | from [resend.com](https://resend.com); without it, notifications are in-app only |
+| `EMAIL_FROM` | for email | sender, e.g. `Writer <noreply@yourdomain.com>` (needs a verified domain in Resend). Defaults to Resend's test sender, which only delivers to your own Resend account email. |
 
 ## Connecting Google (to do)
 
@@ -108,8 +110,8 @@ needs `Authorization: Bearer <user access token>` and `apikey: <publishable key>
 | `POST /drips/connections/test` | | `{ connection }` (test provider) |
 | `POST /drips/documents` | `{ connection_id, title }` | `{ document: { id, title, url } }` |
 | `POST /drips` | `{ connection_id, text, duration_minutes, document_id \| new_document_title }` | `201 { drip }` |
-| `GET /drips` | | `{ drips: [...] }` |
-| `GET /drips/:id` | | `{ drip, events }` |
+| `GET /drips` | | `{ drips: [...] }`, each with `progress` |
+| `GET /drips/:id` | | `{ drip, events }`; `drip.progress` includes `written_text` |
 | `POST /drips/:id/pause` · `/resume` · `/cancel` | | `{ drip }` |
 
 Errors are `{ "error": "message" }` with 400/401/404/409/422/503.
@@ -126,6 +128,46 @@ curl -X POST "$BASE/drips" \
 Clients can also read their own `drips`, `drip_events`, `profiles` and
 `provider_connections` (token columns excluded) directly with supabase-js, e.g.
 to show live progress via Realtime.
+
+## Live progress, preview and notifications
+
+Everything a status page needs is already served; the UI itself belongs to the frontend.
+
+**Progress and preview.** `GET /drips/:id` returns `drip.progress`:
+
+```json
+{
+  "percent": 33, "words_written": 6, "words_total": 18,
+  "chunks_written": 1, "chunks_total": 3,
+  "next_chunk_at": "2026-10-17T03:11:00Z", "seconds_until_next_chunk": 34,
+  "finish_at": "2026-10-17T03:12:00Z",
+  "written_text": "One two three four five six. "
+}
+```
+
+`next_chunk_at` and `finish_at` are `null` when the drip is paused or finished.
+Drive the countdown from `next_chunk_at` on the client clock instead of polling.
+`GET /drips` returns the same `progress` without `written_text`.
+
+**Live updates.** `drip_events` and `notifications` are in the Realtime
+publication, and Row Level Security means each user only receives their own rows.
+Every `chunk_written` event carries `{ written, total, next_run_at }`; refetch the
+drip on each event to get the new `written_text`:
+
+```ts
+supabase.channel(`drip-${id}`)
+  .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'drip_events', filter: `drip_id=eq.${id}` },
+      () => refetchDrip())
+  .subscribe()
+```
+
+**Notifications.** When a drip completes or fails, the worker adds a row to
+`notifications` (one per drip and outcome) and, if `RESEND_API_KEY` is set and the
+user hasn't opted out, emails them. Clients can read their own notifications, mark
+them read (`update notifications set read_at = now()`), and switch email off with
+`update profiles set email_notifications = false`. Nothing else in those tables is
+writable from the client.
 
 ### Plan limits (`_shared/limits.ts`)
 
