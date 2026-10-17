@@ -23,26 +23,42 @@ export function countWords(text: string): number {
   return tokenize(text).length;
 }
 
+/** What a drip is split on: words (the default), sentences, or paragraphs. */
+export type InsertionUnit = "chunk" | "sentence" | "paragraph";
+
 /**
- * Splits text into `count` chunks with word counts as even as possible
- * (they differ by at most one). `count` is clamped to [1, words].
+ * Splits text at sentence or paragraph ends. Every character is kept, so the
+ * parts join back to the input exactly.
  */
-export function splitIntoChunks(text: string, count: number): string[] {
-  const tokens = tokenize(text);
-  if (tokens.length === 0) {
+export function splitIntoUnits(text: string, unit: "sentence" | "paragraph"): string[] {
+  const boundary = unit === "paragraph" ? /(?<=\n\s*\n)/u : /(?<=[.!?]["')\]]*\s+)/u;
+  return text.split(boundary).filter((part) => part.length > 0);
+}
+
+/**
+ * Joins consecutive parts into `count` groups whose sizes differ by at most one.
+ * `count` is clamped to [1, parts.length].
+ */
+export function groupEvenly(parts: string[], count: number): string[] {
+  if (parts.length === 0) {
     return [];
   }
 
-  const n = Math.max(1, Math.min(Math.floor(count), tokens.length));
-  const base = Math.floor(tokens.length / n);
-  const extra = tokens.length % n;
+  const n = Math.max(1, Math.min(Math.floor(count), parts.length));
+  const base = Math.floor(parts.length / n);
+  const extra = parts.length % n;
 
-  const chunks: string[] = [];
+  const groups: string[] = [];
   let index = 0;
   for (let i = 0; i < n; i++) {
     const size = base + (i < extra ? 1 : 0);
-    chunks.push(tokens.slice(index, index + size).join(""));
+    groups.push(parts.slice(index, index + size).join(""));
     index += size;
   }
-  return chunks;
+  return groups;
+}
+
+/** Splits text into `count` word-based chunks with word counts as even as possible. */
+export function splitIntoChunks(text: string, count: number): string[] {
+  return groupEvenly(tokenize(text), count);
 }

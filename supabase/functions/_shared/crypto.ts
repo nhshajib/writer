@@ -98,3 +98,9 @@ export function safeEqual(a: string, b: string): boolean {
   }
   return diff === 0;
 }
+
+/** Hex SHA-256 of a UTF-8 string. Used to tie an approval to the exact text. */
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}

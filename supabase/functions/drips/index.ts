@@ -11,7 +11,8 @@
 //   POST /drips/documents           create a new document in a connected account
 
 import { requireUser } from "../_shared/auth.ts";
-import { countWords, splitIntoChunks } from "../_shared/chunker.ts";
+import { countWords, groupEvenly, type InsertionUnit, splitIntoUnits, tokenize } from "../_shared/chunker.ts";
+import { sha256Hex } from "../_shared/crypto.ts";
 import { loadConnection, providerFor } from "../_shared/connections.ts";
 import { adminClient, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
@@ -27,7 +28,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DRIP_COLUMNS =
   "id, connection_id, provider, document_id, document_title, document_url, word_count, total_chunks, " +
   "chunks_written, interval_seconds, duration_seconds, status, next_run_at, attempts, last_error, " +
-  "created_at, updated_at, completed_at";
+  "created_at, updated_at, completed_at, insertion_unit, mode, text_sha256, approved_at";
 
 serve(async (req) => {
   const user = await requireUser(req);
@@ -74,17 +75,40 @@ interface CreateDripBody {
   new_document_title?: string;
   text?: string;
   duration_minutes?: number;
+  insertion_unit?: InsertionUnit;
+  mode?: "scheduled" | "as_soon_as_possible";
+  approval?: { confirmed?: boolean; text_sha256?: string };
 }
+
+const INSERTION_UNITS: InsertionUnit[] = ["chunk", "sentence", "paragraph"];
 
 async function createDrip(userId: string, req: Request): Promise<Response> {
   const body = await readJson<CreateDripBody>(req);
   const text = typeof body.text === "string" ? body.text : "";
   const durationMinutes = Number(body.duration_minutes);
+  const unit = body.insertion_unit ?? "chunk";
+  const mode = body.mode ?? "scheduled";
 
   if (!body.connection_id || !UUID_RE.test(body.connection_id)) {
     throw new HttpError(400, "connection_id is required.");
   }
-  if (!Number.isFinite(durationMinutes)) throw new HttpError(400, "duration_minutes must be a number.");
+  if (!INSERTION_UNITS.includes(unit)) throw new HttpError(400, "insertion_unit must be chunk, sentence or paragraph.");
+  if (mode !== "scheduled" && mode !== "as_soon_as_possible") {
+    throw new HttpError(400, "mode must be scheduled or as_soon_as_possible.");
+  }
+  if (mode === "scheduled" && !Number.isFinite(durationMinutes)) {
+    throw new HttpError(400, "duration_minutes must be a number.");
+  }
+
+  // The user has to approve this exact text. The hash ties the approval to it,
+  // so editing the text after approval forces a new approval.
+  if (body.approval?.confirmed !== true) {
+    throw new HttpError(400, "Confirm that you have read and approve this exact text before Writer writes it.");
+  }
+  const textHash = await sha256Hex(text);
+  if (body.approval.text_sha256 !== textHash) {
+    throw new HttpError(409, "The text changed after you approved it. Review it again and confirm.");
+  }
   if (!body.document_id && !body.new_document_title) {
     throw new HttpError(400, "Provide document_id or new_document_title.");
   }
@@ -102,7 +126,8 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   const plan = (profile?.plan ?? "free") as PlanTier;
 
   const words = countWords(text);
-  const durationSeconds = Math.round(durationMinutes * 60);
+  // "As soon as possible" writes the whole text on the next worker run (within about a minute).
+  const durationSeconds = mode === "as_soon_as_possible" ? 60 : Math.round(durationMinutes * 60);
   const limitError = checkCreateLimits({
     plan,
     words,
@@ -127,8 +152,11 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (reserveError) throw new Error(reserveError.message);
   if (!reserved) throw new HttpError(422, `Your plan allows ${PLAN_LIMITS[plan].dailyWords} words per day.`);
 
-  const { steps, intervalSeconds } = planDrip(words, durationSeconds);
-  const chunks = splitIntoChunks(text, steps);
+  const parts = unit === "chunk" ? tokenize(text) : splitIntoUnits(text, unit);
+  const { steps, intervalSeconds } = mode === "as_soon_as_possible"
+    ? { steps: 1, intervalSeconds: 0 }
+    : planDrip(parts.length, durationSeconds);
+  const chunks = groupEvenly(parts, steps);
 
   const { data: drip, error } = await db
     .from("drips")
@@ -145,6 +173,10 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
       total_chunks: chunks.length,
       interval_seconds: intervalSeconds,
       duration_seconds: durationSeconds,
+      insertion_unit: unit,
+      mode,
+      text_sha256: textHash,
+      approved_at: new Date().toISOString(),
       status: "scheduled",
       next_run_at: new Date().toISOString(),
     })
@@ -154,6 +186,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
 
   // DRIP_COLUMNS is a concatenated string, so supabase-js can't infer the row type.
   const dripId = (drip as unknown as { id: string }).id;
+  await logEvent(dripId, userId, "approved", { text_sha256: textHash, words, insertion_unit: unit, mode });
   await logEvent(dripId, userId, "created", { words, chunks: chunks.length, interval_seconds: intervalSeconds });
   return json({ drip }, 201);
 }
