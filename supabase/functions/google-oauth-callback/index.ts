@@ -3,9 +3,9 @@
 // Deployed with verify_jwt = false: the signed `state` identifies the user.
 
 import { encrypt, verify } from "../_shared/crypto.ts";
-import { adminClient, encryptionKey, requireEnv } from "../_shared/env.ts";
+import { adminClient, encryptionKey } from "../_shared/env.ts";
 import { serve } from "../_shared/http.ts";
-import { googleRedirectUri, type OAuthState } from "../_shared/oauth.ts";
+import { googleClientConfig, googleRedirectUri, type OAuthState } from "../_shared/oauth.ts";
 import { exchangeCode, fetchGoogleEmail } from "../_shared/providers/google.ts";
 
 serve(async (req) => {
@@ -27,10 +27,7 @@ serve(async (req) => {
     );
   }
 
-  const tokens = await exchangeCode(code, googleRedirectUri(), {
-    clientId: requireEnv("GOOGLE_CLIENT_ID"),
-    clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
-  });
+  const tokens = await exchangeCode(code, googleRedirectUri(), googleClientConfig());
   if (!tokens.refresh_token) {
     return finish(state.redirect_to, "error", "Google did not return a refresh token. Please try connecting again.");
   }

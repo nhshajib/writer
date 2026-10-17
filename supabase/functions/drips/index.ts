@@ -213,7 +213,8 @@ async function transition(
   update: Record<string, unknown>,
   eventKind: string,
 ): Promise<Response> {
-  const { data, error } = await adminClient()
+  const db = adminClient();
+  const { data, error } = await db
     .from("drips")
     .update(update)
     .eq("id", id)
@@ -222,7 +223,14 @@ async function transition(
     .select(DRIP_COLUMNS)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new HttpError(409, `Drip can't be ${eventKind} from its current state.`);
+  if (!data) {
+    const { count } = await db.from("drips").select("id", { count: "exact", head: true }).eq("id", id).eq(
+      "user_id",
+      userId,
+    );
+    if (!count) throw new HttpError(404, "Drip not found.");
+    throw new HttpError(409, `Drip can't be ${eventKind} from its current state.`);
+  }
 
   await logEvent(id, userId, eventKind, {});
   return json({ drip: data });

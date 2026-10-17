@@ -7,15 +7,16 @@
 
 import { requireUser } from "../_shared/auth.ts";
 import { sign } from "../_shared/crypto.ts";
-import { encryptionKey, requireEnv } from "../_shared/env.ts";
+import { encryptionKey } from "../_shared/env.ts";
 import { json, serve } from "../_shared/http.ts";
 import { GOOGLE_AUTH_URL, GOOGLE_SCOPES } from "../_shared/providers/google.ts";
-import { allowedRedirect, googleRedirectUri, type OAuthState } from "../_shared/oauth.ts";
+import { allowedRedirect, googleClientConfig, googleRedirectUri, type OAuthState } from "../_shared/oauth.ts";
 
 const STATE_TTL_SECONDS = 10 * 60;
 
 serve(async (req) => {
   const user = await requireUser(req);
+  const { clientId } = googleClientConfig();
   const redirectTo = allowedRedirect(new URL(req.url).searchParams.get("redirect_to"));
 
   const state: OAuthState = {
@@ -27,7 +28,7 @@ serve(async (req) => {
 
   const url = new URL(GOOGLE_AUTH_URL);
   url.search = new URLSearchParams({
-    client_id: requireEnv("GOOGLE_CLIENT_ID"),
+    client_id: clientId,
     redirect_uri: googleRedirectUri(),
     response_type: "code",
     scope: GOOGLE_SCOPES.join(" "),

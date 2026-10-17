@@ -1,5 +1,6 @@
 import { decrypt, encrypt } from "./crypto.ts";
-import { adminClient, encryptionKey, requireEnv } from "./env.ts";
+import { adminClient, encryptionKey } from "./env.ts";
+import { googleClientConfig } from "./oauth.ts";
 import { GoogleDocsProvider, refreshAccessToken } from "./providers/google.ts";
 import { TestDocProvider } from "./providers/test.ts";
 import { type DocProvider, ProviderError } from "./providers/types.ts";
@@ -70,10 +71,7 @@ async function googleAccessToken(connection: ConnectionRow, force: boolean): Pro
   }
 
   const refreshToken = await decrypt(connection.refresh_token_enc, key);
-  const tokens = await refreshAccessToken(refreshToken, {
-    clientId: requireEnv("GOOGLE_CLIENT_ID"),
-    clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
-  });
+  const tokens = await refreshAccessToken(refreshToken, googleClientConfig());
 
   connection.access_token_enc = await encrypt(tokens.access_token, key);
   connection.access_token_expires_at = new Date(Date.now() + tokens.expires_in * 1000).toISOString();

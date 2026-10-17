@@ -1,0 +1,15 @@
+project_id = "jopggisumjlfitapkgjh"
+
+# Called by pg_cron with the x-tick-secret header, not a user JWT.
+[functions.drip-tick]
+verify_jwt = false
+
+# Google redirects the browser here; the signed OAuth `state` identifies the user.
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.drips]
+verify_jwt = true
+
+[functions.google-oauth-start]
+verify_jwt = true
