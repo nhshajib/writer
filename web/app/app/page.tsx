@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { Connections } from "@/components/dashboard/Connections";
 import { api } from "@/lib/api";
+import { recordPendingAgreement } from "@/lib/googleAuth";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 import { type Connection, type Drip, STATUS_LABEL } from "@/lib/types";
@@ -17,16 +18,20 @@ export default function DashboardPage() {
   const [drips, setDrips] = useState<Drip[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
+  const [plan, setPlan] = useState<"free" | "pro">("free");
 
   const load = useCallback(async () => {
     try {
       const client = supabase();
       const [{ data: profile }, { data: conns }, list] = await Promise.all([
-        client.from("profiles").select("agreed_terms_version").maybeSingle(),
+        client.from("profiles").select("agreed_terms_version, plan").maybeSingle(),
         client.from("provider_connections").select("id, provider, account_email"),
         api<{ drips: Drip[] }>("drips"),
       ]);
-      setAgreed(profile?.agreed_terms_version === CURRENT_TERMS_VERSION);
+      // Someone who ticked the agreement before choosing Google has it recorded now.
+      const agreedNow = profile?.agreed_terms_version === CURRENT_TERMS_VERSION || await recordPendingAgreement();
+      setAgreed(agreedNow);
+      setPlan(profile?.plan === "pro" ? "pro" : "free");
       setConnections((conns ?? []) as Connection[]);
       setDrips(list.drips);
     } catch (e) {
@@ -49,7 +54,14 @@ export default function DashboardPage() {
 
   return (
     <>
-      <h1>Your dashboard</h1>
+      <div className="page-head">
+        <div>
+          <h1>Your dashboard</h1>
+          <p className="muted" style={{ margin: "0.5rem 0 0" }}>
+            {plan === "pro" ? <span className="pill pro">Pro</span> : <span className="pill">Free plan</span>}
+          </p>
+        </div>
+      </div>
 
       {googleStatus === "connected" && (
         <p className="notice success" role="status">Your Google account is connected.</p>
@@ -59,6 +71,15 @@ export default function DashboardPage() {
       )}
 
       <div className="stack">
+        {plan === "free" && (
+          <section className="upsell" aria-labelledby="upsell-title">
+            <div>
+              <h2 id="upsell-title">Writing something long?</h2>
+              <p>Free includes 250 words a day. Pro gives you unlimited words, week-long sessions and 3 documents at once.</p>
+            </div>
+            <Link href="/pricing" className="button pro">Try Pro free for 7 days</Link>
+          </section>
+        )}
         <Connections connections={connections} />
 
         <section aria-labelledby="sessions-title">

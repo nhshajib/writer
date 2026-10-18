@@ -109,7 +109,7 @@ export default function AccountPage() {
         <section className="card" aria-labelledby="plan-title">
           <h2 id="plan-title" style={{ fontSize: "1.3rem" }}>Your plan</h2>
           <p>
-            <strong>{isPro ? "Pro" : "Free"}</strong>
+            <span className={isPro ? "pill pro" : "pill"}>{isPro ? "Pro" : "Free"}</span>
             {profile.subscription_status && <> · {STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status}</>}
           </p>
           {isPro
@@ -118,7 +118,15 @@ export default function AccountPage() {
                 {busy ? "Opening…" : "Manage billing"}
               </button>
             )
-            : <Link href="/pricing" className="button">See Pro and start your free trial</Link>}
+            : (
+              <div className="upsell" style={{ marginTop: "0.5rem" }}>
+                <div>
+                  <h3 style={{ margin: "0 0 0.25rem" }}>Upgrade to Pro</h3>
+                  <p>Unlimited words, sessions up to a week and 3 documents at once. Free for 7 days.</p>
+                </div>
+                <Link href="/pricing" className="button pro">Start free trial</Link>
+              </div>
+            )}
         </section>
 
         <section className="card" aria-labelledby="email-title">

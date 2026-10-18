@@ -48,7 +48,12 @@ and timing" below; the backend, dashboard and session view are ready for it.
 4. **Supabase Auth:** set Site URL to `https://typewit.com` and add it to Authentication → URL Configuration; turn on leaked-password protection;
    keep the "Before User Created" hook on `public.hook_before_user_created`.
 5. **Google:** add the site origin to the OAuth client and publish the consent screen for real users.
-6. Test Stripe in test mode end to end (trial starts, plan becomes Pro, second trial refused, cancel returns to Free).
+6. **Sign in with Google:** in Supabase → Authentication → Sign In / Providers, enable Google with the same OAuth
+   client ID and secret, and add `https://jopggisumjlfitapkgjh.supabase.co/auth/v1/callback` to the client's authorized
+   redirect URIs in Google Cloud. The Before User Created hook still applies, so Google Workspace (business/school)
+   accounts are refused. People who tick the agreement before choosing Google have it recorded on first visit to the
+   dashboard; everyone else is asked there.
+7. Test Stripe in test mode end to end (trial starts, plan becomes Pro, second trial refused, cancel returns to Free).
 
 ## How it works
 
