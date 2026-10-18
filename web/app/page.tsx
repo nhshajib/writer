@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeroIllustration } from "@/components/HeroIllustration";
 import { Icon, Sparkle } from "@/components/Icons";
 
 const steps = [
@@ -53,13 +54,7 @@ export default function Home() {
           <Sparkle className="sparkle s1" />
           <Sparkle className="sparkle s2" />
           <Sparkle className="sparkle s3" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/illustrations/writing.png" alt="" width={522} height={554} />
-          <div className="float-card">
-            <strong>History essay</strong>
-            <div className="progress-track"><div className="progress-fill" style={{ width: "62%" }} /></div>
-            <span className="muted">62% entered · next sentence in 0:42</span>
-          </div>
+          <HeroIllustration className="hero-svg" />
         </div>
       </section>
 

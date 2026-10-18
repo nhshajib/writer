@@ -823,3 +823,12 @@ a, button, summary, label { -webkit-tap-highlight-color: transparent; }
 .panel-head { min-height: 44px; }
 .log li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0.75rem; }
 .log time { min-width: 0; }
+
+/* Hero illustration colours, per theme. */
+:root { --ill-ink: #1f1f1f; --ill-paper: #ffffff; --ill-line: #3c4043; --ill-pending: #dadce0; }
+@media (prefers-color-scheme: dark) {
+  :root { --ill-ink: #e3e3e3; --ill-paper: #28292a; --ill-line: #bdc1c6; --ill-pending: #5f6368; }
+}
+.hero-svg { position: relative; width: 100%; height: auto; display: block; }
+.hero-svg .caret { animation: caret-blink 1.1s steps(1) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }

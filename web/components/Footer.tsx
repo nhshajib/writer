@@ -54,8 +54,7 @@ export function Footer() {
           </nav>
         </div>
         <p className="footer-bottom">
-          © {new Date().getFullYear()} TypeWit. Payments are processed securely by Stripe. Illustration by{" "}
-          <a href="https://storyset.com" rel="noopener noreferrer">Storyset</a>.
+          © {new Date().getFullYear()} TypeWit. Payments are processed securely by Stripe.
         </p>
       </div>
     </footer>
