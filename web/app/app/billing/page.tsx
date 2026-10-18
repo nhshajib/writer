@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 
@@ -62,140 +63,111 @@ export default function BillingPage() {
     }
   }
 
+  const tick = (t: React.ReactNode, key: string) => <li key={key}><Icon.check /><span>{t}</span></li>;
+
   return (
     <>
-      <div className="dash-head">
+      <div className="page-head">
         <div>
-          <h1>Plan & billing</h1>
-          <p>Your plan, today's usage and payments.</p>
+          <h1>Plan &amp; billing</h1>
+          <p>Your plan, today&apos;s usage and payments.</p>
         </div>
       </div>
 
-      {checkout === "success" && (
-        <p className="notice success" role="status">
-          Thank you! {isPro ? "You're on Pro." : "Your plan is updating; this can take a few seconds."}{" "}
-          {!isPro && <button type="button" className="link-button" onClick={refresh}>Refresh</button>}
-        </p>
-      )}
-      {checkout === "canceled" && <p className="notice" role="status">Checkout was canceled. You haven't been charged.</p>}
-      {profile.subscription_status === "past_due" && (
-        <p className="notice error" role="alert">
-          Your last payment didn't go through. Update your card in Manage billing to keep Pro.
-        </p>
-      )}
-      {error && <p className="notice error" role="alert">{error}</p>}
+      <div className="stack" style={{ marginBottom: "1.25rem" }}>
+        {checkout === "success" && (
+          <p className="alert alert-success" role="status">
+            <span>Thank you! {isPro ? "You're on Pro." : "Your plan is updating; this can take a few seconds."}{" "}
+              {!isPro && <button type="button" className="link-btn" onClick={refresh}>Refresh</button>}</span>
+          </p>
+        )}
+        {checkout === "canceled" && <p className="alert alert-info" role="status">Checkout was canceled. You haven&apos;t been charged.</p>}
+        {profile.subscription_status === "past_due" && (
+          <p className="alert alert-error" role="alert">Your last payment didn&apos;t go through. Update your card in Manage billing to keep Pro.</p>
+        )}
+        {error && <p className="alert alert-error" role="alert">{error}</p>}
+      </div>
 
-      <div className="dash-grid cols-2" style={{ marginBottom: "1.25rem" }}>
-        <section className={isPro ? "panel" : "panel"} aria-labelledby="plan-title">
-          <div className="panel-head">
+      <div className="grid-2" style={{ marginBottom: "1.5rem" }}>
+        <section className="card" aria-labelledby="plan-title">
+          <div className="card-head">
             <h2 id="plan-title">Current plan</h2>
+            {profile.subscription_status && <span className="badge">{STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status}</span>}
           </div>
-          <p className="price" style={{ fontSize: "2.4rem", margin: "0 0 0.25rem" }}>
-            {isPro ? "Pro" : "Free"}
+          <p style={{ fontSize: "1.75rem", fontWeight: 650, letterSpacing: "-0.03em" }}>{isPro ? "Pro" : "Free"}</p>
+          <p className="small muted" style={{ marginTop: "0.25rem" }}>
+            {isPro ? "Unlimited words, sessions up to a week, 3 at once." : "250 words a day, sessions up to 1 hour, one at a time."}
           </p>
-          <p className="muted">
-            {profile.subscription_status ? STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status : "No subscription"}
-          </p>
-          {isPro
-            ? (
-              <>
-                <p className="muted">
-                  Change your card, download invoices, switch off renewal or cancel, all in Stripe's secure billing page.
-                </p>
-                <button type="button" className="button" onClick={openPortal} disabled={busy}>
-                  {busy ? "Opening…" : "Manage billing"}
-                </button>
-              </>
-            )
-            : (
-              <p className="muted">250 words a day, sessions up to 1 hour, one session at a time.</p>
-            )}
-          {!isPro && profile.subscription_status === "canceled" && (
-            <p className="fine-print">
-              Need an old invoice? <button type="button" className="link-button" onClick={openPortal}>Open billing history</button>
-            </p>
+          {(isPro || profile.subscription_status === "canceled") && (
+            <div className="row" style={{ marginTop: "1.25rem" }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={openPortal} disabled={busy}>
+                {busy ? "Opening…" : isPro ? "Manage billing" : "Billing history"}
+              </button>
+              {isPro && <span className="small muted">Card, invoices and cancellation</span>}
+            </div>
           )}
         </section>
 
-        <section className="panel" aria-labelledby="usage-title">
-          <div className="panel-head">
-            <h2 id="usage-title">Usage</h2>
-            <span className="row-sub">Resets at midnight UTC</span>
+        <section className="card" aria-labelledby="usage-title">
+          <div className="card-head">
+            <h2 id="usage-title">Usage today</h2>
+            <span className="small muted">Resets at midnight UTC</span>
           </div>
-          <dl className="kv">
-            <dt>Words today</dt>
-            <dd>{wordsToday.toLocaleString()} {limits.dailyWords ? `of ${limits.dailyWords}` : "(unlimited)"}</dd>
-            <dt>Active sessions</dt>
-            <dd>{active} of {limits.activeSessions}</dd>
-            <dt>Longest session</dt>
-            <dd>{isPro ? "1 week" : "1 hour"}</dd>
-          </dl>
+          <p style={{ fontSize: "1.75rem", fontWeight: 650, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>
+            {wordsToday.toLocaleString()} <span className="small muted" style={{ fontWeight: 450, letterSpacing: 0 }}>{limits.dailyWords ? `of ${limits.dailyWords} words` : "words · unlimited"}</span>
+          </p>
           {limits.dailyWords && (
-            <div
-              className={`meter${usagePercent >= 90 ? " warn" : ""}`}
-              role="meter"
-              aria-label="Words used today"
-              aria-valuemin={0}
-              aria-valuemax={limits.dailyWords}
-              aria-valuenow={wordsToday}
-              style={{ marginTop: "1rem" }}
-            >
+            <div className={`progress lg${usagePercent >= 90 ? " warn" : ""}`} role="meter" aria-label="Words used today"
+              aria-valuemin={0} aria-valuemax={limits.dailyWords} aria-valuenow={wordsToday} style={{ marginTop: "0.9rem" }}>
               <span style={{ width: `${usagePercent}%` }} />
             </div>
           )}
+          <dl className="kv" style={{ marginTop: "1.25rem" }}>
+            <dt>Active sessions</dt><dd>{active} of {limits.activeSessions}</dd>
+            <dt>Longest session</dt><dd>{isPro ? "1 week" : "1 hour"}</dd>
+          </dl>
         </section>
       </div>
 
       {!isPro && (
-        <section className="pro-band" aria-labelledby="upgrade-title" style={{ padding: "2rem" }}>
-          <div className="dash-head" style={{ marginBottom: "1rem" }}>
+        <section className="plan featured" aria-labelledby="upgrade-title" style={{ marginBottom: "1.5rem" }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <p className="eyebrow" style={{ marginBottom: "0.4rem" }}>TypeWit Pro</p>
-              <h2 id="upgrade-title" style={{ fontSize: "1.9rem", margin: 0 }}>Write without limits</h2>
+              <div className="plan-top" style={{ justifyContent: "flex-start", gap: "0.6rem" }}>
+                <h2 id="upgrade-title">Upgrade to Pro</h2><span className="badge badge-blue">7 days free</span>
+              </div>
+              <p className="desc">For essays, reports and anything long.</p>
             </div>
-            <div className="toggle" role="group" aria-label="Billing period" data-active={interval === "month" ? "2" : "1"}>
+            <div className="seg" role="group" aria-label="Billing period" style={{ "--n": 2, "--i": interval === "year" ? 0 : 1 } as React.CSSProperties}>
               <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · save 40%</button>
               <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
             </div>
           </div>
-          <div className="dash-grid cols-2">
-            <ul className="plan-features" style={{ margin: 0 }}>
-              <li><span><strong>Unlimited</strong> words every day</span></li>
-              <li><span>Sessions up to <strong>1 week</strong></span></li>
-              <li><span><strong>3 documents</strong> in progress at once</span></li>
-              <li><span><strong>Priority</strong> email support</span></li>
+          <div className="grid-2" style={{ alignItems: "end", marginTop: "0.5rem" }}>
+            <ul className="ticks" style={{ margin: "1rem 0 0" }}>
+              {tick(<><strong>Unlimited</strong> words every day</>, "a")}
+              {tick(<>Sessions up to <strong>1 week</strong></>, "b")}
+              {tick(<><strong>3 documents</strong> at once</>, "c")}
+              {tick(<><strong>Priority</strong> email support</>, "d")}
             </ul>
             <div>
-              <p className="price" style={{ margin: 0 }}>
-                {interval === "year" ? "$9" : "$15"} <small>/ month</small>
-              </p>
-              <p style={{ minHeight: "1.6em" }}>
-                {interval === "year" ? <span className="saving">Billed $108 a year. Save $72</span> : <span className="muted">Billed monthly</span>}
-              </p>
-              <button type="button" className="button pro large block" onClick={startTrial} disabled={busy}>
+              <div className="price" style={{ marginTop: "1rem" }}><strong>{interval === "year" ? "$9" : "$15"}</strong><span>/ month</span></div>
+              <p className="price-note" style={{ marginBottom: "1rem" }}>{interval === "year" ? <span className="save">$108 billed yearly · save 40%</span> : "Billed monthly"}</p>
+              <button type="button" className="btn btn-primary btn-block" onClick={startTrial} disabled={busy}>
                 {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
               </button>
-              <p className="fine-print">Nothing to pay today. Cancel any time before the trial ends and you won't be charged.</p>
+              <p className="price-note center" style={{ marginTop: "0.6rem" }}>Nothing to pay today.</p>
             </div>
           </div>
         </section>
       )}
 
-      <section className="panel" aria-labelledby="billing-faq-title" style={{ marginTop: "1.25rem" }}>
-        <h2 id="billing-faq-title" style={{ fontSize: "1.15rem" }}>Billing questions</h2>
+      <section aria-labelledby="billing-faq-title">
+        <h2 id="billing-faq-title" style={{ fontSize: "0.9375rem", marginBottom: "0.5rem" }}>Questions</h2>
         <div className="faq">
-          <details>
-            <summary>How do I cancel?</summary>
-            <p>Choose Manage billing, then Cancel plan. You keep Pro until the end of the period you've paid for.</p>
-          </details>
-          <details>
-            <summary>Where are my invoices?</summary>
-            <p>In Manage billing. Stripe keeps every invoice and receipt for you to download.</p>
-          </details>
-          <details>
-            <summary>Something looks wrong with a charge</summary>
-            <p>Email us from the <Link href="/support">support page</Link> and we'll look into it.</p>
-          </details>
+          <details><summary>How do I cancel?</summary><p>Choose Manage billing, then Cancel plan. You keep Pro until the end of the period you&apos;ve paid for.</p></details>
+          <details><summary>Where are my invoices?</summary><p>In Manage billing. Stripe keeps every invoice and receipt for you to download.</p></details>
+          <details><summary>Something looks wrong with a charge</summary><p>Email us from the <Link href="/support">support page</Link> and we&apos;ll look into it.</p></details>
         </div>
       </section>
     </>

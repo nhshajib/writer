@@ -21,18 +21,22 @@ export function AgreementGate({ onAgreed }: { onAgreed: () => void }) {
   }
 
   return (
-    <section className="form" aria-labelledby="gate-title" style={{ maxWidth: 640 }}>
-      <h1 id="gate-title">Responsible Use Agreement</h1>
-      <p>Please read and accept the agreement to continue.</p>
-      <Agreement id="gate-agreement" compact headingLevel={2} />
-      <label className="choice" htmlFor="gate-agree">
-        <input id="gate-agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-        <span>I have read the Responsible Use Agreement and agree to follow it.</span>
-      </label>
-      {error && <p className="error" role="alert">{error}</p>}
-      <button type="button" className="button" disabled={!agreed || busy} onClick={confirm}>
-        {busy ? "Saving…" : "Agree and continue"}
-      </button>
-    </section>
+    <main id="main" className="auth" tabIndex={-1}>
+      <section className="auth-box wide" aria-labelledby="gate-title">
+        <h1 id="gate-title">One last step</h1>
+        <p className="sub">Please read and accept the Responsible Use Agreement to continue.</p>
+        <div className="auth-form">
+          <Agreement id="gate-agreement" compact headingLevel={2} />
+          <label className="check" htmlFor="gate-agree">
+            <input id="gate-agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+            <span>I&apos;ve read the Responsible Use Agreement and agree to follow it.</span>
+          </label>
+          {error && <p className="alert alert-error" role="alert">{error}</p>}
+          <button type="button" className="btn btn-primary btn-lg btn-block" disabled={!agreed || busy} onClick={confirm}>
+            {busy ? "Saving…" : "Agree and continue"}
+          </button>
+        </div>
+      </section>
+    </main>
   );
 }

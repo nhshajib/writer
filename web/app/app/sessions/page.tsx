@@ -2,24 +2,23 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { SessionRow } from "@/components/app/SessionRow";
+import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
-import { useDashboard } from "@/lib/dashboard";
+import { formatRelative, useDashboard } from "@/lib/dashboard";
 import { type Drip, STATUS_LABEL } from "@/lib/types";
 
-type Filter = "all" | "active" | "paused" | "completed" | "stopped";
+type Filter = "all" | "active" | "done" | "stopped";
 
 const FILTERS: { key: Filter; label: string; match: (d: Drip) => boolean }[] = [
   { key: "all", label: "All", match: () => true },
-  { key: "active", label: "In progress", match: (d) => d.status === "scheduled" || d.status === "running" },
-  { key: "paused", label: "Paused", match: (d) => d.status === "paused" },
-  { key: "completed", label: "Finished", match: (d) => d.status === "completed" },
+  { key: "active", label: "Active", match: (d) => ["scheduled", "running", "paused"].includes(d.status) },
+  { key: "done", label: "Finished", match: (d) => d.status === "completed" },
   { key: "stopped", label: "Stopped", match: (d) => d.status === "canceled" || d.status === "failed" },
 ];
 
-function csvCell(value: string | number): string {
-  return `"${String(value).replace(/"/g, '""')}"`;
-}
+const UNIT: Record<Drip["insertion_unit"], string> = { sentence: "Sentences", paragraph: "Paragraphs", chunk: "Even parts" };
+
+const csvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
 export default function SessionsPage() {
   const { drips } = useDashboard();
@@ -35,60 +34,84 @@ export default function SessionsPage() {
   function exportCsv() {
     const rows = [
       ["Document", "Status", "Words entered", "Words total", "Started", "Document link"],
-      ...drips.map((d) => [
-        d.document_title ?? "Untitled document",
-        STATUS_LABEL[d.status],
-        d.progress.words_written,
-        d.progress.words_total,
-        new Date(d.created_at).toISOString(),
-        d.document_url ?? "",
-      ]),
+      ...drips.map((d) => [d.document_title ?? "Untitled document", STATUS_LABEL[d.status], d.progress.words_written,
+        d.progress.words_total, new Date(d.created_at).toISOString(), d.document_url ?? ""]),
     ];
-    const blob = new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" });
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
+    link.href = URL.createObjectURL(new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" }));
     link.download = "typewit-sessions.csv";
     link.click();
     URL.revokeObjectURL(link.href);
   }
 
+  const index = FILTERS.findIndex((f) => f.key === filter);
+
   return (
     <>
-      <div className="dash-head">
+      <div className="page-head">
         <div>
           <h1>Sessions</h1>
-          <p>Everything you've asked TypeWit to enter, newest first.</p>
+          <p>Everything you&apos;ve asked TypeWit to enter.</p>
         </div>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={drips.length === 0}>Export CSV</button>
       </div>
 
-      <div className="toolbar">
-        <div className="tabs" role="group" aria-label="Filter sessions" style={{ margin: 0 }}>
-          {FILTERS.map((f) => (
-            <button key={f.key} type="button" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
-              {f.label}<span className="count">{drips.filter(f.match).length}</span>
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          <label htmlFor="search" className="sr-only">Search by document title</label>
-          <input id="search" type="search" placeholder="Search documents" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button type="button" className="button quiet small" onClick={exportCsv} disabled={drips.length === 0}>Export CSV</button>
-        </div>
-      </div>
-
-      <section className="panel" aria-label="Session list">
-        <p className="sr-only" role="status">{visible.length} sessions shown</p>
-        {visible.length === 0
-          ? (
-            <div className="empty">
-              <span className="icon-badge"><Icon.list /></span>
-              <p>{drips.length === 0 ? "No sessions yet." : "No sessions match."}</p>
-              {drips.length === 0 && <Link href="/app/new" className="button small">Start your first session</Link>}
+      {drips.length === 0
+        ? (
+          <div className="card empty">
+            <div className="icon"><Icon.list /></div>
+            <h3>No sessions yet</h3>
+            <p>Start a session to see its progress here.</p>
+            <Link href="/app/new" className="btn btn-primary btn-sm"><Icon.plus /> New session</Link>
+          </div>
+        )
+        : (
+          <>
+            <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div className="seg" role="group" aria-label="Filter sessions" style={{ "--n": FILTERS.length, "--i": index } as React.CSSProperties}>
+                {FILTERS.map((f) => (
+                  <button key={f.key} type="button" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
+                    {f.label} <span className="muted">{drips.filter(f.match).length}</span>
+                  </button>
+                ))}
+              </div>
+              <div style={{ width: "min(280px, 100%)" }}>
+                <label htmlFor="search" className="sr-only">Search by document title</label>
+                <input id="search" type="search" placeholder="Search documents" value={query} onChange={(e) => setQuery(e.target.value)} />
+              </div>
             </div>
-          )
-          : <ul className="row-list">{visible.map((d) => <li key={d.id}><SessionRow drip={d} /></li>)}</ul>}
-      </section>
-      {drips.length >= 100 && <p className="fine-print">Showing your 100 most recent sessions.</p>}
+            <p className="sr-only" role="status">{visible.length} sessions shown</p>
+
+            <div className="table-wrap">
+              {visible.length === 0
+                ? <div className="empty"><p>No sessions match.</p></div>
+                : (
+                  <table className="table">
+                    <thead>
+                      <tr><th scope="col">Document</th><th scope="col">Status</th><th scope="col">Progress</th><th scope="col">Words</th><th scope="col">Started</th></tr>
+                    </thead>
+                    <tbody>
+                      {visible.map((d) => (
+                        <tr key={d.id}>
+                          <td>
+                            <Link href={`/app/session?id=${d.id}`} className="title">{d.document_title ?? "Untitled document"}</Link>
+                            <div className="small muted">{d.mode === "as_soon_as_possible" ? "All at once" : UNIT[d.insertion_unit]}</div>
+                          </td>
+                          <td><StatusBadge status={d.status} /></td>
+                          <td className="hide-sm">
+                            <div className="progress" aria-hidden="true"><span style={{ width: `${d.progress.percent}%` }} /></div>
+                          </td>
+                          <td className="num">{d.progress.words_written} / {d.progress.words_total}</td>
+                          <td className="num">{formatRelative(d.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+            </div>
+            {drips.length >= 100 && <p className="hint" style={{ marginTop: "0.75rem" }}>Showing your 100 most recent sessions.</p>}
+          </>
+        )}
     </>
   );
 }

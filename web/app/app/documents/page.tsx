@@ -94,67 +94,56 @@ export default function DocumentsPage() {
 
   return (
     <>
-      <div className="dash-head">
+      <div className="page-head">
         <div>
           <h1>Documents</h1>
           <p>Your Google accounts and the documents TypeWit has written into.</p>
         </div>
+        {google.length > 0 && <button type="button" className="btn btn-secondary btn-sm" onClick={connect} disabled={busy}>Connect another account</button>}
       </div>
 
-      {notice && <p className="notice success" role="status">{notice}</p>}
-      {error && <p className="notice error" role="alert">{error}</p>}
+      {notice && <p className="alert alert-success" role="status" style={{ marginBottom: "1.25rem" }}>{notice}</p>}
+      {error && <p className="alert alert-error" role="alert" style={{ marginBottom: "1.25rem" }}>{error}</p>}
 
-      <section className="panel" aria-labelledby="accounts-title" style={{ marginBottom: "1.25rem" }}>
-        <div className="panel-head">
-          <h2 id="accounts-title">Google accounts</h2>
-          {google.length > 0 && (
-            <button type="button" className="button quiet small" onClick={connect} disabled={busy}>Connect another</button>
-          )}
-        </div>
+      <section className="card card-flush" aria-labelledby="accounts-title" style={{ marginBottom: "1.5rem" }}>
+        <div className="card-head"><h2 id="accounts-title">Google accounts</h2></div>
         {google.length === 0
           ? (
             <div className="empty">
-              <span className="icon-badge"><Icon.doc /></span>
-              <p>Connect Google so TypeWit can create documents and add your approved text to them.</p>
-              <button type="button" className="button" onClick={connect} disabled={busy}>
-                {busy ? "Opening Google…" : "Connect Google Docs"}
-              </button>
+              <div className="icon"><Icon.doc /></div>
+              <h3>Connect Google Docs</h3>
+              <p>TypeWit can then create documents and add your approved text. It can&apos;t see anything else in your Drive.</p>
+              <button type="button" className="btn btn-primary btn-sm" onClick={connect} disabled={busy}>{busy ? "Opening Google…" : "Connect Google"}</button>
             </div>
           )
           : (
-            <ul className="row-list">
+            <ul className="list">
               {google.map((conn) => {
                 const live = conn.connected !== false;
                 return (
                   <li key={conn.id}>
-                    <div className="row">
-                      <div className="grow">
-                        <strong>{conn.account_email ?? "Google account"}</strong>
-                        <div className="row-sub">
-                          <span className={live ? "status-dot" : "status-dot off"}>{live ? "Connected" : "Disconnected"}</span>
-                          {conn.created_at && <> · added {formatDate(conn.created_at)}</>}
-                        </div>
+                    <div className="list-item">
+                      <span className="avatar" aria-hidden="true">{(conn.account_email ?? "G").charAt(0).toUpperCase()}</span>
+                      <div className="main">
+                        <span className="title">{conn.account_email ?? "Google account"}</span>
+                        <div className="meta">{conn.created_at ? `Added ${formatDate(conn.created_at)}` : "Google Docs"}</div>
                       </div>
+                      <span className={`badge ${live ? "badge-green" : "badge-red"}`}><span className="dot" aria-hidden="true" />{live ? "Connected" : "Disconnected"}</span>
                       {live
-                        ? (
-                          <button type="button" className="button danger small" onClick={() => setConfirming(conn.id)} disabled={busy}>
-                            Disconnect
-                          </button>
-                        )
-                        : <button type="button" className="button small" onClick={connect} disabled={busy}>Reconnect</button>}
+                        ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirming(conn.id)} disabled={busy}>Disconnect</button>
+                        : <button type="button" className="btn btn-secondary btn-sm" onClick={connect} disabled={busy}>Reconnect</button>}
                     </div>
                     {confirming === conn.id && (
-                      <div className="confirm" role="alertdialog" aria-labelledby={`dc-${conn.id}`} aria-describedby={`dcd-${conn.id}`}>
-                        <p id={`dc-${conn.id}`} style={{ fontWeight: 650, margin: "0 0 0.25rem" }}>Disconnect {conn.account_email}?</p>
-                        <p id={`dcd-${conn.id}`} className="muted">
-                          TypeWit loses access to this Google account and any active sessions on it stop. Your documents
-                          and history stay. You can reconnect at any time.
+                      <div className="confirm" role="alertdialog" aria-labelledby={`dc-${conn.id}`} aria-describedby={`dcd-${conn.id}`} style={{ margin: "0 1.25rem 1.25rem" }}>
+                        <p id={`dc-${conn.id}`}>Disconnect {conn.account_email}?</p>
+                        <p id={`dcd-${conn.id}`} className="small muted">
+                          TypeWit loses access and any active sessions on this account stop. Your documents and history stay.
                         </p>
-                        <div className="controls" style={{ marginTop: "0.5rem" }}>
-                          <button type="button" className="button danger small" onClick={() => disconnect(conn)} disabled={busy} autoFocus>
+                        <div className="row">
+                          <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => disconnect(conn)} disabled={busy} autoFocus>
                             {busy ? "Disconnecting…" : "Disconnect"}
                           </button>
-                          <button type="button" className="button quiet small" onClick={() => setConfirming(null)}>Keep connected</button>
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirming(null)}>Cancel</button>
                         </div>
                       </div>
                     )}
@@ -163,46 +152,53 @@ export default function DocumentsPage() {
               })}
             </ul>
           )}
-        <p className="fine-print" style={{ marginBottom: 0 }}>
-          TypeWit can only open documents it creates for you. It can't see anything else in your Drive.
-        </p>
       </section>
 
       <section aria-labelledby="docs-title">
-        <h2 id="docs-title" style={{ fontSize: "1.15rem", marginBottom: "1rem" }}>Your documents</h2>
+        <h2 id="docs-title" style={{ fontSize: "0.9375rem", marginBottom: "0.75rem" }}>Documents</h2>
         {docs.length === 0
           ? (
-            <div className="panel empty">
-              <span className="icon-badge"><Icon.doc /></span>
+            <div className="card empty">
+              <h3>No documents yet</h3>
               <p>Documents appear here after your first session.</p>
-              <Link href="/app/new" className="button small">Start a session</Link>
+              <Link href="/app/new" className="btn btn-primary btn-sm"><Icon.plus /> New session</Link>
             </div>
           )
           : (
-            <ul className="doc-grid" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {docs.map((doc) => (
-                <li key={doc.key} className="panel doc-card">
-                  <span className="icon-badge" style={{ marginBottom: "0.25rem" }}><Icon.doc /></span>
-                  <h3>{doc.title}</h3>
-                  <p className="row-sub" style={{ margin: 0 }}>
-                    {doc.sessions} session{doc.sessions === 1 ? "" : "s"} · {doc.words.toLocaleString()} words · {formatRelative(doc.lastUsed)}
-                  </p>
-                  <p className="row-sub" style={{ margin: 0 }}>{doc.account}{doc.active && " · in progress"}</p>
-                  <div className="actions-row">
-                    {doc.url && (
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="button quiet small">
-                        Open <Icon.external /><span className="sr-only">{doc.title} in Google Docs (opens in a new tab)</span>
-                      </a>
-                    )}
-                    {doc.connected && (
-                      <Link href={`/app/new?doc=${encodeURIComponent(doc.key)}`} className="button small">
-                        Add text<span className="sr-only"> to {doc.title}</span>
-                      </Link>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr><th scope="col">Title</th><th scope="col">Account</th><th scope="col">Sessions</th><th scope="col">Last used</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+                </thead>
+                <tbody>
+                  {docs.map((doc) => (
+                    <tr key={doc.key}>
+                      <td>
+                        <span className="title">{doc.title}</span>
+                        {doc.active && <div className="small" style={{ color: "var(--accent)" }}>In progress</div>}
+                      </td>
+                      <td className="num hide-sm">{doc.account}</td>
+                      <td className="num">{doc.sessions} · {doc.words.toLocaleString()} words</td>
+                      <td className="num">{formatRelative(doc.lastUsed)}</td>
+                      <td>
+                        <div className="row" style={{ justifyContent: "flex-end", gap: "0.25rem", flexWrap: "nowrap" }}>
+                          {doc.url && (
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                              Open<span className="sr-only"> {doc.title} in Google Docs (opens in a new tab)</span> <Icon.external />
+                            </a>
+                          )}
+                          {doc.connected && (
+                            <Link href={`/app/new?doc=${encodeURIComponent(doc.key)}`} className="btn btn-secondary btn-sm">
+                              Add text<span className="sr-only"> to {doc.title}</span>
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
       </section>
     </>

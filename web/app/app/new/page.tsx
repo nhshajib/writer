@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { Icon } from "@/components/Icons";
 import { api, sha256Hex } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard";
 
@@ -29,9 +30,9 @@ const DURATIONS: { minutes: number; label: string }[] = [
 ];
 
 const UNITS: { value: Unit; label: string; hint: string }[] = [
-  { value: "sentence", label: "Sentence by sentence", hint: "Each step adds whole sentences." },
-  { value: "paragraph", label: "Paragraph by paragraph", hint: "Each step adds whole paragraphs." },
-  { value: "chunk", label: "Even parts", hint: "Steps of roughly equal length." },
+  { value: "sentence", label: "Sentences", hint: "Whole sentences each step." },
+  { value: "paragraph", label: "Paragraphs", hint: "Whole paragraphs each step." },
+  { value: "chunk", label: "Even parts", hint: "Steps of equal length." },
 ];
 
 function countWords(text: string): number {
@@ -158,153 +159,146 @@ export default function NewSessionPage() {
 
   if (connections.length === 0) {
     return (
-      <div className="new-session">
-        <div className="dash-head"><h1>New session</h1></div>
-        <div className="card">
-          <h2 style={{ fontSize: "1.3rem" }}>Connect Google first</h2>
-          <p className="muted">TypeWit needs your permission to create and add to Google Docs.</p>
-          <Link href="/app/documents" className="button">Connect Google Docs</Link>
+      <>
+        <div className="page-head"><div><h1>New session</h1></div></div>
+        <div className="card empty">
+          <div className="icon"><Icon.doc /></div>
+          <h3>Connect Google first</h3>
+          <p>TypeWit needs your permission to create documents and add your text to them.</p>
+          <Link href="/app/documents" className="btn btn-primary btn-sm">Connect Google Docs</Link>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <form className="new-session stack" onSubmit={onSubmit} noValidate aria-labelledby="new-title">
-      <div className="dash-head" style={{ marginBottom: 0 }}>
+    <>
+      <div className="crumbs"><Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span>New</span></div>
+      <div className="page-head">
         <div>
           <h1 id="new-title">New session</h1>
+          <p>Choose a document, add your text and set the pace.</p>
         </div>
-        {plan === "pro" ? <span className="pill pro">Pro</span> : <span className="pill">Free plan</span>}
       </div>
 
-      <fieldset className="step-card">
-        <legend>1. Choose the document</legend>
-        {connections.length > 1 && (
-          <div className="field" style={{ marginBottom: "1rem" }}>
-            <label htmlFor="account">Google account</label>
-            <select id="account" value={connectionId} onChange={(e) => { setConnectionId(e.target.value); setPastDocKey(""); }}>
-              {connections.map((c) => <option key={c.id} value={c.id}>{c.account_email ?? "Google account"}</option>)}
-            </select>
-          </div>
-        )}
-        <div className="options" role="radiogroup" aria-label="Document">
-          <label className="option">
-            <input type="radio" name="target" value="new" checked={target === "new"} onChange={() => setTarget("new")} />
-            <span>A new Google Doc<small>TypeWit creates it in your Drive.</small></span>
-          </label>
-          <label className="option">
-            <input type="radio" name="target" value="existing" checked={target === "existing"}
-              onChange={() => setTarget("existing")} disabled={docsForAccount.length === 0} />
-            <span>
-              A document from a past session
-              <small>{docsForAccount.length ? "Text is added at the end." : "None yet."}</small>
-            </span>
-          </label>
-        </div>
-        {target === "new"
-          ? (
-            <div className="field" style={{ marginTop: "1rem" }}>
-              <label htmlFor="title">Document title</label>
-              <input id="title" type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)}
-                placeholder="For example: History essay" />
-            </div>
-          )
-          : (
-            <div className="field" style={{ marginTop: "1rem" }}>
-              <label htmlFor="doc">Document</label>
-              <select id="doc" value={pastDocKey} onChange={(e) => setPastDocKey(e.target.value)}>
-                <option value="">Choose a document</option>
-                {docsForAccount.map((d) => <option key={d.key} value={d.key}>{d.title}</option>)}
+      <form className="card card-flush" onSubmit={onSubmit} noValidate aria-labelledby="new-title" style={{ maxWidth: 820 }}>
+        <fieldset className="form-section">
+          <legend className="sr-only">Document</legend>
+          <h2 aria-hidden="true">Document</h2>
+          <p className="muted">Where the text should go.</p>
+          {connections.length > 1 && (
+            <div className="field" style={{ marginBottom: "1rem", maxWidth: 420 }}>
+              <label className="label" htmlFor="account">Google account</label>
+              <select id="account" value={connectionId} onChange={(e) => { setConnectionId(e.target.value); setPastDocKey(""); }}>
+                {connections.map((c) => <option key={c.id} value={c.id}>{c.account_email ?? "Google account"}</option>)}
               </select>
             </div>
           )}
-      </fieldset>
-
-      <fieldset className="step-card">
-        <legend>2. Add your text</legend>
-        <div className="field">
-          <label htmlFor="text">Text to enter</label>
-          <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
-          <span id="text-count" className={`hint counter${overWords ? " over" : ""}`} aria-live="polite">
-            {words} {words === 1 ? "word" : "words"}
-            {plan === "free" && ` of ${limits.words} a day on Free`}
-          </span>
-        </div>
-        {overWords && (
-          <p className="upsell" style={{ marginTop: "1rem" }}>
-            <span>Pro has no daily word limit.</span>
-            <Link href="/pricing" className="button pro small">Try Pro free for 7 days</Link>
-          </p>
-        )}
-      </fieldset>
-
-      <fieldset className="step-card">
-        <legend>3. Choose how it's added</legend>
-        <div className="options" role="radiogroup" aria-label="Step size">
-          {UNITS.map((u) => (
-            <label key={u.value} className="option">
-              <input type="radio" name="unit" value={u.value} checked={unit === u.value} onChange={() => setUnit(u.value)} />
-              <span>{u.label}<small>{u.hint}</small></span>
+          <div className="choices" role="radiogroup" aria-label="Document">
+            <label className="choice">
+              <input type="radio" name="target" value="new" checked={target === "new"} onChange={() => setTarget("new")} />
+              <span><strong>New Google Doc</strong><small>Created in your Drive.</small></span>
             </label>
-          ))}
-        </div>
-
-        <div className="options" role="radiogroup" aria-label="Timing" style={{ marginTop: "1rem" }}>
-          <label className="option">
-            <input type="radio" name="timing" value="spread" checked={timing === "spread"} onChange={() => setTiming("spread")} />
-            <span>Spread over time<small>Steps arrive evenly over the time you choose.</small></span>
-          </label>
-          <label className="option">
-            <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => setTiming("asap")} />
-            <span>All at once<small>Everything is added within about a minute.</small></span>
-          </label>
-        </div>
-
-        {timing === "spread" && (
-          <div className="field" style={{ marginTop: "1rem" }}>
-            <label htmlFor="duration">Finish within</label>
-            <select id="duration" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}
-              aria-describedby="duration-hint">
-              {DURATIONS.map((d) => (
-                <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>
-                  {d.label}{d.minutes > limits.minutes ? " (Pro)" : ""}
-                </option>
-              ))}
-            </select>
-            <span id="duration-hint" className="hint">
-              {schedule
-                ? `${schedule.steps} ${schedule.steps === 1 ? "step" : "steps"}${schedule.steps > 1 ? `, ${describeInterval(schedule.interval)}` : ""}.`
-                : "Add text to see the steps."}
-              {plan === "free" && " Free sessions can last up to 1 hour."}
-            </span>
+            <label className="choice">
+              <input type="radio" name="target" value="existing" checked={target === "existing"} onChange={() => setTarget("existing")} disabled={docsForAccount.length === 0} />
+              <span><strong>Existing document</strong><small>{docsForAccount.length ? "Added at the end." : "None from past sessions yet."}</small></span>
+            </label>
           </div>
-        )}
-      </fieldset>
+          <div className="field" style={{ marginTop: "1rem", maxWidth: 520 }}>
+            {target === "new"
+              ? (
+                <>
+                  <label className="label" htmlFor="title">Title</label>
+                  <input id="title" type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="History essay" />
+                </>
+              )
+              : (
+                <>
+                  <label className="label" htmlFor="doc">Document</label>
+                  <select id="doc" value={pastDocKey} onChange={(e) => setPastDocKey(e.target.value)}>
+                    <option value="">Choose a document</option>
+                    {docsForAccount.map((d) => <option key={d.key} value={d.key}>{d.title}</option>)}
+                  </select>
+                </>
+              )}
+          </div>
+        </fieldset>
 
-      <fieldset className="step-card">
-        <legend>4. Review and approve</legend>
-        <p className="muted">TypeWit will enter exactly this text. If you change it, you'll need to approve it again.</p>
-        <div className="preview" tabIndex={0} role="region" aria-label="Text to approve">
-          {text || <span className="pending">Your text will appear here.</span>}
+        <div className="form-section">
+          <h2>Text</h2>
+          <p className="muted">Paste or dictate it here. You&apos;ll review it before anything is entered.</p>
+          <div className="field">
+            <label className="sr-only" htmlFor="text">Text to enter</label>
+            <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span id="text-count" className={overWords ? "error-text" : "hint"} aria-live="polite">
+                {words.toLocaleString()} {words === 1 ? "word" : "words"}{plan === "free" && ` · ${limits.words} a day on Free`}
+              </span>
+              {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
+            </div>
+          </div>
         </div>
-        <div className="approve-box" style={{ marginTop: "1rem" }}>
-          <label className="choice" htmlFor="approve">
-            <input id="approve" type="checkbox" checked={approved} disabled={words === 0}
-              onChange={(e) => setApproved(e.target.checked)} />
-            <span>I've read this exact text and approve TypeWit entering it into my document.</span>
+
+        <fieldset className="form-section">
+          <legend className="sr-only">Pace</legend>
+          <h2 aria-hidden="true">Pace</h2>
+          <p className="muted">How each step is sized and when it arrives.</p>
+          <div className="choices" role="radiogroup" aria-label="Step size">
+            {UNITS.map((u) => (
+              <label key={u.value} className="choice">
+                <input type="radio" name="unit" value={u.value} checked={unit === u.value} onChange={() => setUnit(u.value)} />
+                <span><strong>{u.label}</strong><small>{u.hint}</small></span>
+              </label>
+            ))}
+          </div>
+          <div className="choices" role="radiogroup" aria-label="Timing" style={{ marginTop: "0.75rem" }}>
+            <label className="choice">
+              <input type="radio" name="timing" value="spread" checked={timing === "spread"} onChange={() => setTiming("spread")} />
+              <span><strong>Spread over time</strong><small>Steps arrive evenly.</small></span>
+            </label>
+            <label className="choice">
+              <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => setTiming("asap")} />
+              <span><strong>All at once</strong><small>Within about a minute.</small></span>
+            </label>
+          </div>
+          {timing === "spread" && (
+            <div className="field" style={{ marginTop: "1rem", maxWidth: 320 }}>
+              <label className="label" htmlFor="duration">Finish within</label>
+              <select id="duration" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} aria-describedby="duration-hint">
+                {DURATIONS.map((d) => (
+                  <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>
+                    {d.label}{d.minutes > limits.minutes ? " (Pro)" : ""}
+                  </option>
+                ))}
+              </select>
+              <span id="duration-hint" className="hint">
+                {schedule
+                  ? `${schedule.steps} ${schedule.steps === 1 ? "step" : "steps"}${schedule.steps > 1 ? `, ${describeInterval(schedule.interval)}` : ""}.`
+                  : "Add text to see the steps."}
+                {plan === "free" && " Free sessions last up to 1 hour."}
+              </span>
+            </div>
+          )}
+        </fieldset>
+
+        <div className="form-section">
+          <h2>Review and approve</h2>
+          <p className="muted">TypeWit enters exactly this text. Editing it clears your approval.</p>
+          <div className="preview" tabIndex={0} role="region" aria-label="Text to approve">
+            {text || <span className="pending">Your text will appear here.</span>}
+          </div>
+          <label className="check" htmlFor="approve" style={{ marginTop: "0.75rem" }}>
+            <input id="approve" type="checkbox" checked={approved} disabled={words === 0} onChange={(e) => setApproved(e.target.checked)} />
+            <span>I&apos;ve read this exact text and approve TypeWit entering it into my document.</span>
           </label>
+          {error && <p className="alert alert-error" role="alert" style={{ marginTop: "0.75rem" }}>{error}</p>}
         </div>
-      </fieldset>
 
-      {error && <p className="error" role="alert">{error}</p>}
-
-      <div className="controls" style={{ marginTop: 0 }}>
-        <button type="submit" className="button large" disabled={busy}>
-          {busy ? "Starting…" : "Start session"}
-        </button>
-        <Link href="/app" className="button large quiet">Cancel</Link>
-      </div>
-    </form>
+        <div className="form-actions">
+          <Link href="/app" className="btn btn-ghost">Cancel</Link>
+          <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Starting…" : "Start session"}</button>
+        </div>
+      </form>
+    </>
   );
 }

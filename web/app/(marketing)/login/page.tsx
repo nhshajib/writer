@@ -57,35 +57,32 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-card">
-      <form className="form" onSubmit={onSubmit} aria-labelledby="login-title">
-        <div>
-          <h1 id="login-title">Welcome back</h1>
-          <p className="subtitle">Sign in to TypeWit.</p>
-        </div>
-        <button type="button" className="button google block large" onClick={google} disabled={busy}>
-          <GoogleMark />
-          Continue with Google
-        </button>
-        <p className="divider">or use email</p>
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input id="email" type="email" autoComplete="email" required value={email}
-            onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="current-password" required value={password}
-            onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        {error && <p className="error" role="alert">{error}</p>}
-        {notice && <p className="notice" role="status">{notice}</p>}
-        <button type="submit" className="button block large" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-        <button type="button" className="button quiet block" onClick={resetPassword}>Forgot password</button>
-        <p className="muted" style={{ textAlign: "center", margin: 0 }}>
-          New to TypeWit? <Link href="/signup">Create a free account</Link>
-        </p>
-      </form>
+    <div className="auth">
+      <div className="auth-box">
+        <h1 id="login-title">Welcome back</h1>
+        <p className="sub">Sign in to TypeWit.</p>
+        <form className="auth-form" onSubmit={onSubmit} aria-labelledby="login-title">
+          <button type="button" className="btn btn-google btn-lg btn-block" onClick={google} disabled={busy}>
+            <GoogleMark /> Continue with Google
+          </button>
+          <p className="or">or with email</p>
+          <div className="field">
+            <label className="label" htmlFor="email">Email</label>
+            <input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="field">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <label className="label" htmlFor="password">Password</label>
+              <button type="button" className="link-btn" onClick={resetPassword}>Forgot password?</button>
+            </div>
+            <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {error && <p className="alert alert-error" role="alert">{error}</p>}
+          {notice && <p className="alert alert-info" role="status">{notice}</p>}
+          <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+          <p className="small muted center">New to TypeWit? <Link href="/signup">Create a free account</Link></p>
+        </form>
+      </div>
     </div>
   );
 }

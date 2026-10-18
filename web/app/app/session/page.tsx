@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
+import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { type Drip, type DripEvent, EVENT_LABEL, STATUS_LABEL } from "@/lib/types";
 import { useRequireSession } from "@/lib/useRequireSession";
@@ -122,129 +123,105 @@ function SessionView() {
     URL.revokeObjectURL(url);
   }
 
-  if (!session) return <p role="status">Loading…</p>;
+  if (!session) return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading…</div>;
   if (!id) {
     return (
-      <div className="panel empty" role="alert">
-        <p>No session was chosen.</p>
-        <Link href="/app/sessions" className="button small">See all sessions</Link>
+      <div className="card empty" role="alert">
+        <h3>No session was chosen</h3>
+        <p>Pick one from your list of sessions.</p>
+        <Link href="/app/sessions" className="btn btn-primary btn-sm">See sessions</Link>
       </div>
     );
   }
-  if (error && !drip) return <p className="notice error" role="alert">{error}</p>;
-  if (!drip) return <div className="app-loading" role="status"><span className="spinner" aria-hidden="true" />Loading session…</div>;
+  if (error && !drip) return <p className="alert alert-error" role="alert">{error}</p>;
+  if (!drip) return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading session…</div>;
 
   const { progress } = drip;
   const active = ACTIVE.has(drip.status);
-  const countdown = progress.next_chunk_at
-    ? Math.max(0, Math.ceil((Date.parse(progress.next_chunk_at) - now) / 1000))
-    : null;
+  const countdown = progress.next_chunk_at ? Math.max(0, Math.ceil((Date.parse(progress.next_chunk_at) - now) / 1000)) : null;
   const finish = progress.finish_at ? when(progress.finish_at) : null;
   const title = drip.document_title ?? "Untitled document";
 
   return (
     <>
       <nav aria-label="Breadcrumb" className="crumbs">
-        <Link href="/app/sessions">Sessions</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{title}</span>
+        <Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span aria-current="page">{title}</span>
       </nav>
-      <div className="dash-head">
+      <div className="page-head">
         <div>
           <h1>{title}</h1>
-          <p>
-            <span className={`pill ${drip.status}`}>{STATUS_LABEL[drip.status]}</span>
-            <span className="row-sub" style={{ marginLeft: "0.6rem" }}>Started {when(drip.created_at)}</span>
-          </p>
+          <div className="row" style={{ marginTop: "0.5rem", gap: "0.6rem" }}>
+            <StatusBadge status={drip.status} />
+            <span className="small muted">Started {when(drip.created_at)}</span>
+          </div>
         </div>
-        {drip.document_url && (
-          <a href={drip.document_url} target="_blank" rel="noopener noreferrer" className="button quiet">
-            Open in Google Docs <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
-          </a>
-        )}
+        <div className="row">
+          {drip.document_url && (
+            <a href={drip.document_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
+              Open in Google Docs <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+          {active && <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
+          {drip.status === "paused" && <button type="button" className="btn btn-primary btn-sm" onClick={() => control("resume")} disabled={busy}>Resume</button>}
+          {(active || drip.status === "paused") && !confirmStop && (
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
+          )}
+        </div>
       </div>
 
       {/* Polite live region: announces each part entered and each status change. */}
       <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
 
-      {drip.status === "failed" && drip.last_error && (
-        <p className="notice error" role="alert">Writing stopped: {drip.last_error}</p>
-      )}
-      {error && <p className="notice error" role="alert">{error}</p>}
-
-      <section className="panel" aria-labelledby="progress-title" style={{ marginBottom: "1.25rem" }}>
-        <div className="panel-head">
-          <h2 id="progress-title" ref={progressHeading} tabIndex={-1}>Progress</h2>
-          <span className="row-sub">{progress.percent}%</span>
-        </div>
-        <div
-          className="progress-track"
-          role="progressbar"
-          aria-label="Words entered"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress.percent}
-          aria-valuetext={`${progress.words_written} of ${progress.words_total} words`}
-          style={{ height: 10 }}
-        >
-          <div className="progress-fill" style={{ width: `${progress.percent}%` }} />
-        </div>
-        <dl className="stats">
-          <div><dt>Words entered</dt><dd>{progress.words_written} <small className="row-sub">of {progress.words_total}</small></dd></div>
-          <div><dt>Steps done</dt><dd>{progress.chunks_written} <small className="row-sub">of {progress.chunks_total}</small></dd></div>
-          {countdown !== null && (
-            <div>
-              <dt>Next step in</dt>
-              <dd aria-hidden="true">{countdown === 0 ? "Any moment" : clock(countdown)}</dd>
-              <dd className="sr-only">at {when(progress.next_chunk_at!)}</dd>
-            </div>
-          )}
-          {finish && <div><dt>{drip.status === "completed" ? "Finished" : "Expected to finish"}</dt><dd style={{ fontSize: "1.1rem" }}>{finish}</dd></div>}
-        </dl>
-
-        {(active || drip.status === "paused") && (
-          <div className="controls" role="group" aria-label="Session controls">
-            {active && <button type="button" className="button" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
-            {drip.status === "paused" && (
-              <button type="button" className="button" onClick={() => control("resume")} disabled={busy}>Resume</button>
-            )}
-            {!confirmStop && (
-              <button type="button" className="button danger" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
-            )}
-          </div>
-        )}
-
+      <div className="stack" style={{ marginBottom: confirmStop || error || drip.status === "failed" ? "1.25rem" : 0 }}>
         {confirmStop && (
-          <div className="confirm" role="alertdialog" aria-labelledby="stop-title" aria-describedby="stop-desc">
-            <p id="stop-title" style={{ fontWeight: 650, margin: "0 0 0.25rem" }}>Stop this session?</p>
-            <p id="stop-desc" className="muted">Nothing more will be entered. What's already in your document stays.</p>
-            <div className="controls" style={{ marginTop: "0.5rem" }}>
-              <button type="button" className="button danger small" onClick={() => control("cancel")} autoFocus>Yes, stop</button>
-              <button type="button" className="button quiet small" onClick={() => setConfirmStop(false)}>Keep going</button>
+          <div className="confirm" role="alertdialog" aria-labelledby="stop-title" aria-describedby="stop-desc" style={{ marginTop: 0 }}>
+            <p id="stop-title">Stop this session?</p>
+            <p id="stop-desc" className="small muted">Nothing more will be entered. What&apos;s already in your document stays.</p>
+            <div className="row">
+              <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => control("cancel")} autoFocus>Stop session</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmStop(false)}>Keep going</button>
             </div>
           </div>
         )}
+        {drip.status === "failed" && drip.last_error && <p className="alert alert-error" role="alert">Writing stopped: {drip.last_error}</p>}
+        {error && <p className="alert alert-error" role="alert">{error}</p>}
+      </div>
+
+      <section aria-labelledby="progress-title" style={{ marginBottom: "1.5rem" }}>
+        <h2 id="progress-title" ref={progressHeading} tabIndex={-1} className="sr-only">Progress</h2>
+        <dl className="stats">
+          <div>
+            <dt>Progress</dt>
+            <dd>
+              {progress.percent}%
+              <div className="progress" role="progressbar" aria-label="Words entered" aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={progress.percent} aria-valuetext={`${progress.words_written} of ${progress.words_total} words`}>
+                <span style={{ width: `${progress.percent}%` }} />
+              </div>
+            </dd>
+          </div>
+          <div><dt>Words entered</dt><dd>{progress.words_written} <small>/ {progress.words_total}</small></dd></div>
+          <div>
+            <dt>Next step in</dt>
+            <dd aria-hidden="true">{countdown === null ? "—" : countdown === 0 ? "Any moment" : clock(countdown)}</dd>
+            {countdown !== null && <dd className="sr-only">at {when(progress.next_chunk_at!)}</dd>}
+          </div>
+          <div><dt>{drip.status === "completed" ? "Finished" : "Expected finish"}</dt><dd style={{ fontSize: "1.0625rem", marginTop: "0.6rem" }}>{finish ?? "—"}</dd></div>
+        </dl>
       </section>
 
-      <div className="dash-grid cols-2">
-        <section className="panel" aria-labelledby="entered-title">
-          <div className="panel-head"><h2 id="entered-title">Text entered so far</h2></div>
+      <div className="grid-2">
+        <section className="card" aria-labelledby="entered-title">
+          <div className="card-head"><h2 id="entered-title">Text entered so far</h2><span className="small muted">Step {progress.chunks_written} of {progress.chunks_total}</span></div>
           <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
             {progress.written_text ? progress.written_text : <span className="pending">Nothing has been entered yet.</span>}
           </div>
         </section>
-
-        <section className="panel" aria-labelledby="log-title">
-          <div className="panel-head">
-            <h2 id="log-title">Activity log</h2>
-            <button type="button" className="link-button" onClick={downloadLog}>Download CSV</button>
-          </div>
+        <section className="card" aria-labelledby="log-title">
+          <div className="card-head"><h2 id="log-title">Activity log</h2><button type="button" className="link-btn" onClick={downloadLog}>Download CSV</button></div>
           <ol className="log">
             {events.map((event, i) => (
-              <li key={`${event.created_at}-${i}`}>
-                <time dateTime={event.created_at}>{when(event.created_at)}</time>
-                <span>{describe(event)}</span>
-              </li>
+              <li key={`${event.created_at}-${i}`}><time dateTime={event.created_at}>{when(event.created_at)}</time><span>{describe(event)}</span></li>
             ))}
           </ol>
         </section>

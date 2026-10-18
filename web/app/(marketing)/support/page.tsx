@@ -7,17 +7,17 @@ export const metadata: Metadata = { title: "Support" };
 export default function SupportPage() {
   return (
     <article className="prose">
-      <p className="eyebrow">Support</p>
+      <p className="kicker">Support</p>
       <h1>How can we help?</h1>
-      <p className="lead" style={{ margin: "0 0 2rem" }}>
+      <p className="updated" style={{ fontSize: "1.0625rem", marginBottom: "2rem" }}>
         Email us and a real person will reply. Pro members get priority.
       </p>
 
-      <div className="card raised" style={{ textAlign: "center", padding: "2rem" }}>
+      <div className="card center" style={{ padding: "2rem" }}>
         <h2 style={{ marginTop: 0 }}>Email support</h2>
         <p className="muted">Tell us what you were doing and what happened. Screenshots help.</p>
-        <a className="button large" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-        <p className="fine-print">Please don't send passwords or card numbers. We'll never ask for them.</p>
+        <a className="btn btn-primary" style={{ marginTop: "1rem" }} href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        <p className="hint" style={{ marginTop: "1rem", marginBottom: 0 }}>Please don't send passwords or card numbers. We'll never ask for them.</p>
       </div>
 
       <h2>Quick answers</h2>
