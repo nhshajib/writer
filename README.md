@@ -27,7 +27,7 @@ visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass ax
 
 ```bash
 cd web
-cp .env.example .env.local   # Supabase URL and publishable key (safe in the browser)
+cp .env.example .env.local   # then fill in your Supabase URL and publishable key
 npm install
 npm run dev
 ```

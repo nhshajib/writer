@@ -1,0 +1,13 @@
+# Netlify settings for the Writer web app (set "Base directory" to `web` in Netlify).
+# Settings in this file take precedence over the ones typed into the Netlify UI.
+
+[build]
+  command = "npm run build"
+  # Next.js output. Netlify's Next.js support picks it up from here.
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # These two values are public by design: they are compiled into the browser bundle,
+  # and Row Level Security in Supabase protects the data. Don't let the secret scanner fail the build on them.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
