@@ -104,7 +104,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   // The user has to approve this exact text. The hash ties the approval to it,
   // so editing the text after approval forces a new approval.
   if (body.approval?.confirmed !== true) {
-    throw new HttpError(400, "Confirm that you have read and approve this exact text before Writer writes it.");
+    throw new HttpError(400, "Confirm that you have read and approve this exact text before TypeWit writes it.");
   }
   const textHash = await sha256Hex(text);
   if (body.approval.text_sha256 !== textHash) {
@@ -332,8 +332,8 @@ async function withProviderErrors<T>(fn: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof ProviderError) {
       if (error.kind === "auth") throw new HttpError(401, `Reconnect your account: ${error.message}`);
-      if (error.status === 404) throw new HttpError(404, "Document not found or not shared with Writer.");
-      if (error.status === 403) throw new HttpError(403, "Writer doesn't have access to that document.");
+      if (error.status === 404) throw new HttpError(404, "Document not found or not shared with TypeWit.");
+      if (error.status === 403) throw new HttpError(403, "TypeWit doesn't have access to that document.");
       throw new HttpError(502, error.message);
     }
     throw error;

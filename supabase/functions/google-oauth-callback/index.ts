@@ -60,7 +60,7 @@ function finish(redirectTo: string | null, status: "connected" | "error", messag
   }
   const escaped = message.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
   return new Response(
-    `<!doctype html><meta charset="utf-8"><title>Writer</title><p style="font-family:sans-serif">${escaped}</p>`,
+    `<!doctype html><meta charset="utf-8"><title>TypeWit</title><p style="font-family:sans-serif">${escaped}</p>`,
     { status: status === "connected" ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
 }

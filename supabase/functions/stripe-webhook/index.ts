@@ -58,7 +58,7 @@ async function syncSubscription(subscription: Subscription, eventType: string): 
   const db = adminClient();
   const userId = await findUserId(subscription);
   if (!userId) {
-    console.error("No Writer user for Stripe customer", subscription.customer);
+    console.error("No TypeWit user for Stripe customer", subscription.customer);
     return;
   }
 

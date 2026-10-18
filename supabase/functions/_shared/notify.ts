@@ -57,7 +57,7 @@ export interface EmailConfig {
 export function emailConfigFromEnv(): EmailConfig {
   return {
     apiKey: Deno.env.get("RESEND_API_KEY") || undefined,
-    from: Deno.env.get("EMAIL_FROM") || "Writer <onboarding@resend.dev>",
+    from: Deno.env.get("EMAIL_FROM") || "TypeWit <onboarding@resend.dev>",
   };
 }
 

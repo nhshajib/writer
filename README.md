@@ -1,6 +1,6 @@
-# Writer
+# TypeWit
 
-Users paste text, pick a document and a duration, and Writer adds the text to
+Users paste text, pick a document and a duration, and TypeWit adds the text to
 that document in even chunks over the chosen time. Writing happens on the
 server, so it keeps going after the browser is closed. Drips can be paused,
 resumed and canceled.
@@ -43,9 +43,9 @@ and timing" below; the backend, dashboard and session view are ready for it.
    `https://<project-ref>.supabase.co/functions/v1/stripe-webhook` for `customer.subscription.created`,
    `.updated` and `.deleted`, and add its signing secret as `STRIPE_WEBHOOK_SECRET`. Enable the Customer Portal.
 2. **Deploy `web/` to Netlify.** The app is a static export (`npm run build` writes `web/out`). Base directory `web`; `web/netlify.toml` sets the build command and publish directory `out`. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as environment variables.
-3. **Supabase secrets:** `APP_URL` = the deployed site, `TOKEN_ENCRYPTION_KEY`, `ENABLE_TEST_PROVIDER=false`;
+3. **Supabase secrets:** `APP_URL` = `https://typewit.com`, `TOKEN_ENCRYPTION_KEY`, `ENABLE_TEST_PROVIDER=false`;
    optionally `RESEND_API_KEY` and `EMAIL_FROM` for email.
-4. **Supabase Auth:** add the site to Authentication → URL Configuration; turn on leaked-password protection;
+4. **Supabase Auth:** set Site URL to `https://typewit.com` and add it to Authentication → URL Configuration; turn on leaked-password protection;
    keep the "Before User Created" hook on `public.hook_before_user_created`.
 5. **Google:** add the site origin to the OAuth client and publish the consent screen for real users.
 6. Test Stripe in test mode end to end (trial starts, plan becomes Pro, second trial refused, cancel returns to Free).
@@ -96,7 +96,7 @@ deno task test    # unit tests
 deno task check   # typecheck + lint + format check
 ```
 
-## Setup (already done on the `Writer` project)
+## Setup (already done on Supabase project `jopggisumjlfitapkgjh`)
 
 1. Apply `supabase/migrations/*` in order.
 2. Create the Vault secrets used by the cron job and functions (SQL editor):
@@ -119,7 +119,7 @@ Edge Function secrets (Dashboard → Edge Functions → Secrets):
 | `GOOGLE_REDIRECT_URI` | optional | defaults to `<SUPABASE_URL>/functions/v1/google-oauth-callback` |
 | `ENABLE_TEST_PROVIDER` | optional | set to `false` in production to disable the `test` provider |
 | `RESEND_API_KEY` | for email | from [resend.com](https://resend.com); without it, notifications are in-app only |
-| `EMAIL_FROM` | for email | sender, e.g. `Writer <noreply@yourdomain.com>` (needs a verified domain in Resend). Defaults to Resend's test sender, which only delivers to your own Resend account email. |
+| `EMAIL_FROM` | for email | sender, e.g. `TypeWit <noreply@typewit.com>` (needs a verified domain in Resend). Defaults to Resend's test sender, which only delivers to your own Resend account email. |
 
 ## Connecting Google (to do)
 
@@ -127,7 +127,7 @@ Edge Function secrets (Dashboard → Edge Functions → Secrets):
    and enable the **Google Docs API**.
 2. Configure the OAuth consent screen. Add the scopes `openid`, `email` and
    `https://www.googleapis.com/auth/drive.file`. `drive.file` only covers files
-   Writer creates or the user picks, so it needs no restricted-scope review.
+   TypeWit creates or the user picks, so it needs no restricted-scope review.
 3. Create an **OAuth client ID** (Web application). Authorized redirect URI:
    `https://jopggisumjlfitapkgjh.supabase.co/functions/v1/google-oauth-callback`
 4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Edge Function secrets.
@@ -228,7 +228,7 @@ Other options on `POST /drips`:
 | `insertion_unit` | `chunk` (default), `sentence`, `paragraph` | What the text is split on. Each step adds whole units; units are only grouped when there are more units than minutes. |
 | `mode` | `scheduled` (default), `as_soon_as_possible` | `scheduled` spreads the steps over `duration_minutes`. `as_soon_as_possible` writes the whole text on the next worker run (within about a minute). |
 
-Writer writes only into the Google Doc, in these steps. It doesn't type
+TypeWit writes only into the Google Doc, in these steps. It doesn't type
 character by character or word by word into the document, and every insertion is
 logged and labelled as automated.
 

@@ -4,9 +4,10 @@ import { Header } from "@/components/Header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Writer: assistive writing into Google Docs",
+  metadataBase: new URL("https://typewit.com"),
+  title: "TypeWit: assistive writing into Google Docs",
   description:
-    "Writer enters text you approve into your Google Docs, step by step, for people who find typing difficult.",
+    "TypeWit enters text you approve into your Google Docs, step by step, for people who find typing difficult.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav aria-label="Footer">
               <Link href="/responsible-use">Responsible use</Link>
               <Link href="/pricing">Pricing</Link>
-              <span>© {new Date().getFullYear()} Writer</span>
+              <span>© {new Date().getFullYear()} TypeWit</span>
             </nav>
           </div>
         </footer>

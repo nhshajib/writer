@@ -97,7 +97,7 @@ function SessionView() {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `writer-activity-${drip.id}.csv`;
+    link.download = `typewit-activity-${drip.id}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -203,7 +203,7 @@ function SessionView() {
 
       <section className="section" aria-labelledby="log-title">
         <h2 id="log-title" style={{ fontSize: "1.3rem" }}>Activity log</h2>
-        <p className="muted">A record of your approval and every step Writer took, newest first.</p>
+        <p className="muted">A record of your approval and every step TypeWit took, newest first.</p>
         <ol className="log">
           {events.map((event, i) => (
             <li key={`${event.created_at}-${i}`}>

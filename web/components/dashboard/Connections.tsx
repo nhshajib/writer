@@ -31,7 +31,7 @@ export function Connections({ connections }: { connections: Connection[] }) {
             Connected as <strong>{google.map((c) => c.account_email ?? "Google account").join(", ")}</strong>.
           </p>
         )
-        : <p className="muted">Connect your Google account so Writer can create documents and add your text to them.</p>}
+        : <p className="muted">Connect your Google account so TypeWit can create documents and add your text to them.</p>}
       <button type="button" className={google.length ? "button secondary small" : "button"} onClick={connectGoogle}
         disabled={busy}>
         {busy ? "Opening Google…" : google.length ? "Connect another account" : "Connect Google"}

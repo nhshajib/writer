@@ -31,7 +31,7 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="container">
-        <Link href="/" className="brand">Writer</Link>
+        <Link href="/" className="brand">TypeWit</Link>
         <nav className="nav" aria-label="Main">
           {link("/pricing", "Pricing")}
           {link("/responsible-use", "Responsible use")}

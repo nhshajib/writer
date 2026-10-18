@@ -56,7 +56,7 @@ export default function LoginPage() {
       {notice && <p className="notice" role="status">{notice}</p>}
       <button type="submit" className="button" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
       <button type="button" className="button secondary" onClick={resetPassword}>Forgot password</button>
-      <p className="muted">New to Writer? <Link href="/signup">Create an account</Link></p>
+      <p className="muted">New to TypeWit? <Link href="/signup">Create an account</Link></p>
     </form>
   );
 }

@@ -6,7 +6,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Calls a Writer Edge Function as the signed-in user. */
+/** Calls a TypeWit Edge Function as the signed-in user. */
 export async function api<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T> {
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;

@@ -120,12 +120,12 @@ Deno.test("email contains links and escapes HTML", () => {
   const email = buildEmail(
     { title: "T", body: 'Done with <b>"x"</b> & more' },
     finished,
-    "https://writer.example.com",
+    "https://typewit.example.com",
   );
   assertEquals(email.text.includes(finished.document_url), true);
   assertEquals(email.html.includes("<b>"), false);
   assertEquals(email.html.includes("&#60;b&#62;"), true);
-  assertEquals(email.html.includes('href="https://writer.example.com"'), true);
+  assertEquals(email.html.includes('href="https://typewit.example.com"'), true);
 });
 
 Deno.test("sendEmail skips without a key and reports provider outcomes", async () => {

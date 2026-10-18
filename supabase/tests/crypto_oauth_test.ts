@@ -34,13 +34,13 @@ Deno.test("safeEqual", () => {
 });
 
 Deno.test("allowedRedirect only allows the app origin", () => {
-  const app = "https://writer.example.com";
+  const app = "https://typewit.example.com";
   assertEquals(
-    allowedRedirect("https://writer.example.com/settings?x=1", app),
-    "https://writer.example.com/settings?x=1",
+    allowedRedirect("https://typewit.example.com/settings?x=1", app),
+    "https://typewit.example.com/settings?x=1",
   );
   assertEquals(allowedRedirect("https://evil.example.com/", app), null);
   assertEquals(allowedRedirect("javascript:alert(1)", app), null);
-  assertEquals(allowedRedirect("https://writer.example.com/", undefined), null);
+  assertEquals(allowedRedirect("https://typewit.example.com/", undefined), null);
   assertEquals(allowedRedirect(null, app), null);
 });

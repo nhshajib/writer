@@ -63,7 +63,7 @@ function PricingContent() {
         <section className="card raised" aria-labelledby="free-title">
           <h2 id="free-title">Free</h2>
           <p className="price">$0</p>
-          <p className="muted">For trying Writer and short pieces.</p>
+          <p className="muted">For trying TypeWit and short pieces.</p>
           <ul className="plan-features">
             <li>250 words a day</li>
             <li>Sessions up to 1 hour</li>
