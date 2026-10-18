@@ -23,7 +23,9 @@ visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass ax
 | `/signup`, `/login` | Account creation (personal email only, agreement required) and sign-in |
 | `/app` | Dashboard: agreement check, connect Google, list of sessions with progress |
 | `/app/session?id=…` | Live progress, countdown, text entered so far, pause / resume / stop, activity log (CSV export) |
+| `/app/new` | Start a session (document, text, step size, timing, approval) |
 | `/account` | Plan, billing portal, email notifications, change password |
+| `/privacy`, `/terms`, `/support` | Legal pages and help |
 
 ```bash
 cd web
@@ -32,9 +34,9 @@ npm install
 npm run dev
 ```
 
-**Not built yet:** the screen for starting a new session (choose the document, enter text, approve it with
-the checkbox, pick step size and timing). It has to call `POST /drips` as described in "Approval, insertion units
-and timing" below; the backend, dashboard and session view are ready for it.
+`/app/new` starts a session: choose a new Google Doc (or one from a past session), paste the text, pick sentence,
+paragraph or even steps and the timing, then approve the exact text (editing it clears the approval). Legal and help
+pages: `/privacy`, `/terms`, `/support` (support address in `web/lib/site.ts`).
 
 ## Launch checklist
 

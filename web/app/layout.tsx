@@ -53,10 +53,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </ul>
               </nav>
               <nav aria-labelledby="footer-trust">
-                <h2 id="footer-trust">Trust</h2>
+                <h2 id="footer-trust">Company</h2>
                 <ul>
                   <li><Link href="/responsible-use">Responsible use</Link></li>
-                  <li><Link href="/pricing#faq">Questions</Link></li>
+                  <li><Link href="/privacy">Privacy</Link></li>
+                  <li><Link href="/terms">Terms</Link></li>
+                  <li><Link href="/support">Support</Link></li>
                 </ul>
               </nav>
             </div>

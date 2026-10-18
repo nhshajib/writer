@@ -61,6 +61,7 @@ export default function DashboardPage() {
             {plan === "pro" ? <span className="pill pro">Pro</span> : <span className="pill">Free plan</span>}
           </p>
         </div>
+        <Link href="/app/new" className="button large">New session</Link>
       </div>
 
       {googleStatus === "connected" && (
@@ -85,7 +86,12 @@ export default function DashboardPage() {
         <section aria-labelledby="sessions-title">
           <h2 id="sessions-title">Your sessions</h2>
           {drips.length === 0
-            ? <p className="muted">No sessions yet. When you start one, it appears here.</p>
+            ? (
+              <div className="card" style={{ textAlign: "center" }}>
+                <p className="muted">No sessions yet. Start one and it appears here with live progress.</p>
+                <Link href="/app/new" className="button">Start your first session</Link>
+              </div>
+            )
             : (
               <ul className="session-list">
                 {drips.map((drip) => (

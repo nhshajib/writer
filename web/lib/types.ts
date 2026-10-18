@@ -21,6 +21,8 @@ export type DripStatus = "scheduled" | "running" | "paused" | "completed" | "fai
 export interface Drip {
   id: string;
   provider: Connection["provider"];
+  connection_id: string;
+  document_id: string;
   document_title: string | null;
   document_url: string | null;
   word_count: number;

@@ -22,6 +22,7 @@ const COMPARE: { feature: string; free: string; pro: string }[] = [
   { feature: "Live progress and preview", free: "Yes", pro: "Yes" },
   { feature: "Activity log with download", free: "Yes", pro: "Yes" },
   { feature: "Notification when a session finishes", free: "Yes", pro: "Yes" },
+  { feature: "Email support", free: "Yes", pro: "Priority" },
 ];
 
 const FAQ: { q: string; a: string }[] = [
@@ -127,6 +128,7 @@ function PricingContent() {
             <li><span><strong>Unlimited</strong> words every day</span></li>
             <li><span>Sessions up to <strong>1 week</strong></span></li>
             <li><span><strong>3 documents</strong> in progress at once</span></li>
+            <li><span><strong>Priority</strong> email support</span></li>
             <li>Everything in Free</li>
           </ul>
           <button type="button" className="button pro block large" onClick={startPro} disabled={busy}>

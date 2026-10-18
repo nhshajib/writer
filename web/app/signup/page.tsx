@@ -144,6 +144,10 @@ function SignupForm() {
         <button type="submit" className="button block large" disabled={busy}>
           {busy ? "Creating account…" : "Create account with email"}
         </button>
+        <p className="hint" style={{ textAlign: "center", margin: 0 }}>
+          By creating an account you agree to the <Link href="/terms">Terms of Service</Link> and{" "}
+          <Link href="/privacy">Privacy Policy</Link>.
+        </p>
         <p className="muted" style={{ textAlign: "center", margin: 0 }}>
           Already have an account? <Link href="/login">Sign in</Link>
         </p>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Agreement } from "@/components/Agreement";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
-export const metadata: Metadata = { title: "Responsible Use Agreement · TypeWit" };
+export const metadata: Metadata = { title: "Responsible Use Agreement" };
 
 export default function ResponsibleUsePage() {
   return (
