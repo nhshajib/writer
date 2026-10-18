@@ -99,7 +99,6 @@ export default function DocumentsPage() {
           <h1>Documents</h1>
           <p>Your Google accounts and the documents TypeWit has written into.</p>
         </div>
-        <Link href="/app/new" className="button"><Icon.plus /> New session</Link>
       </div>
 
       {notice && <p className="notice success" role="status">{notice}</p>}

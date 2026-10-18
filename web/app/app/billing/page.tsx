@@ -89,7 +89,6 @@ export default function BillingPage() {
         <section className={isPro ? "panel" : "panel"} aria-labelledby="plan-title">
           <div className="panel-head">
             <h2 id="plan-title">Current plan</h2>
-            <span className={isPro ? "pill pro" : "pill"}>{isPro ? "Pro" : "Free"}</span>
           </div>
           <p className="price" style={{ fontSize: "2.4rem", margin: "0 0 0.25rem" }}>
             {isPro ? "Pro" : "Free"}
@@ -154,7 +153,7 @@ export default function BillingPage() {
               <p className="eyebrow" style={{ marginBottom: "0.4rem" }}>TypeWit Pro</p>
               <h2 id="upgrade-title" style={{ fontSize: "1.9rem", margin: 0 }}>Write without limits</h2>
             </div>
-            <div className="toggle" role="group" aria-label="Billing period">
+            <div className="toggle" role="group" aria-label="Billing period" data-active={interval === "month" ? "2" : "1"}>
               <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · save 40%</button>
               <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
             </div>

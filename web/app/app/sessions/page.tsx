@@ -59,7 +59,6 @@ export default function SessionsPage() {
           <h1>Sessions</h1>
           <p>Everything you've asked TypeWit to enter, newest first.</p>
         </div>
-        <Link href="/app/new" className="button"><Icon.plus /> New session</Link>
       </div>
 
       <div className="toolbar">

@@ -68,8 +68,9 @@ export function Header() {
             <span className="brand-mark" aria-hidden="true">T</span>
             TypeWit
           </Link>
-          <nav className="nav nav-center" aria-label="Main">{links}</nav>
-          <div className="nav nav-actions">{actions}</div>
+          {/* Inside the app the sidebar is the navigation; keep the bar quiet. */}
+          {!inApp && <nav className="nav nav-center" aria-label="Main">{links}</nav>}
+          {!inApp && <div className="nav nav-actions">{actions}</div>}
           <button
             type="button"
             className="menu-button"

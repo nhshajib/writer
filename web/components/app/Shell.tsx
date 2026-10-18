@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { Icon } from "@/components/Icons";
 import { DashboardProvider, useDashboardLoader } from "@/lib/dashboard";
@@ -23,6 +24,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname().replace(/\/$/, "") || "/";
   const router = useRouter();
   const { session, state, value } = useDashboardLoader();
+  const ready = state.status === "ready";
+
+  useEffect(() => {
+    if (!ready || window.innerWidth > 900) return;
+    document.querySelector(".sidebar nav [aria-current='page']")?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname, ready]);
 
   if (!session || state.status === "loading") {
     return <div className="app-loading" role="status"><span className="spinner" aria-hidden="true" />Loading your dashboard…</div>;

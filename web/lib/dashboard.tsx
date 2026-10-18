@@ -48,6 +48,7 @@ interface DashboardData {
   refresh: () => Promise<void>;
   setProfile: (update: Partial<Profile>) => void;
   markAllRead: () => Promise<void>;
+  markRead: (id: string) => void;
 }
 
 const DashboardContext = createContext<DashboardData | null>(null);
@@ -141,6 +142,15 @@ export function useDashboardLoader() {
       refresh,
       setProfile: (update) =>
         setState((s) => (s.status === "ready" ? { ...s, profile: { ...s.profile, ...update } } : s)),
+      markRead: (id) => {
+        const now = new Date().toISOString();
+        supabase().from("notifications").update({ read_at: now }).eq("id", id).then(() => undefined);
+        setState((s) =>
+          s.status === "ready"
+            ? { ...s, notifications: s.notifications.map((n) => (n.id === id && !n.read_at ? { ...n, read_at: now } : n)) }
+            : s
+        );
+      },
       markAllRead: async () => {
         const unread = state.notifications.filter((n) => !n.read_at).map((n) => n.id);
         if (unread.length === 0) return;

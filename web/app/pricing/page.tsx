@@ -93,7 +93,7 @@ function PricingContent() {
         {params.get("checkout") === "canceled" && (
           <p className="notice narrow" role="status">Checkout was canceled. You haven't been charged.</p>
         )}
-        <div className="toggle" role="group" aria-label="Billing period">
+        <div className="toggle" role="group" aria-label="Billing period" data-active={interval === "month" ? "2" : "1"}>
           <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>
             Yearly · save 40%
           </button>

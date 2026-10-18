@@ -14,12 +14,12 @@
   --text-muted: #5f6368;
   --border: #dadce0;
   --hairline: rgba(60, 64, 67, 0.12);
-  --accent: #1a73e8;
-  --accent-hover: #1557b0;
+  --accent: #0b57d0;
+  --accent-hover: #0842a0;
   --accent-text: #ffffff;
   --accent-soft: #e8f0fe;
   --pro-from: #1a73e8;
-  --pro-to: #174ea6;
+  --pro-to: #0b57d0;
   --pro-tint: #e8f0fe;
   --g-blue: #4285f4;
   --g-red: #ea4335;
@@ -29,7 +29,7 @@
   --ink-text: #ffffff;
   --success: #188038;
   --danger: #c5221f;
-  --focus: #1a73e8;
+  --focus: #0b57d0;
   --chrome: rgba(255, 255, 255, 0.78);
   --radius-large: 28px;
   --radius: 20px;
@@ -770,3 +770,56 @@ fieldset { border: 1.5px solid var(--border); border-radius: var(--radius-small)
 .arrow-pill.solid { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
 .arrow-pill.solid:hover, .nav .arrow-pill.solid:hover { background: var(--ink); color: var(--ink-text); filter: brightness(1.15); }
 .stats-row strong { white-space: nowrap; }
+.crumbs { display: flex; gap: 0.5rem; align-items: center; font-size: 0.92rem; color: var(--text-muted); margin-bottom: 0.75rem; flex-wrap: wrap; }
+.crumbs a { color: var(--text-muted); }
+.crumbs a:hover { color: var(--accent); }
+.crumbs [aria-current] { color: var(--text); font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+.log { max-height: 340px; overflow-y: auto; }
+.log time { min-width: 8.5rem; }
+h2[tabindex="-1"]:focus { outline: none; }
+.app-footer { border-top: 1px solid var(--hairline); padding: 1.25rem 0; font-size: 0.88rem; color: var(--text-muted); }
+.app-footer .container { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: center; }
+.app-footer a { color: var(--text-muted); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
+.app-footer a:hover { color: var(--text); text-decoration: underline; }
+
+/* Whole rows open their item (bigger, easier targets); other controls stay on top. */
+.row-list > li { position: relative; }
+.row-list .row-title::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-small); }
+.row-list .row-title:focus-visible { outline: none; }
+.row-list .row-title:focus-visible::after { outline: 3px solid var(--focus); outline-offset: 2px; }
+.row-list li button, .row-list li a:not(.row-title), .row-list .confirm { position: relative; z-index: 1; }
+.row-list > li:has(.row-title:hover) .row-title { color: var(--accent); }
+
+/* Segmented control: the thumb slides to the chosen side instead of jumping. */
+.toggle { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; }
+.toggle::before {
+  content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 6px);
+  border-radius: 999px; background: var(--bg-elevated); box-shadow: var(--shadow-small);
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.toggle[data-active="2"]::before { transform: translateX(calc(100% + 4px)); }
+.toggle button { position: relative; z-index: 1; }
+.toggle button[aria-pressed="true"] { background: transparent; box-shadow: none; }
+
+/* FAQ answers expand smoothly where the browser supports animating to auto height. */
+:root { interpolate-size: allow-keywords; }
+.faq details::details-content {
+  block-size: 0; overflow: hidden;
+  transition: block-size 300ms var(--ease), content-visibility 300ms allow-discrete;
+}
+.faq details[open]::details-content { block-size: auto; }
+
+/* Press feedback everywhere, without the grey iOS tap flash. */
+a, button, summary, label { -webkit-tap-highlight-color: transparent; }
+.arrow-pill:active, .tabs button:active, .link-button:active, .option:active { transform: scale(0.97); }
+.arrow-pill, .tabs button, .option { transition: transform 160ms var(--ease), border-color 160ms var(--ease); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .float-card { background: var(--bg-elevated); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .panel, .stat, .float-card { border: 1.5px solid var(--text); }
+}
+.panel-head { min-height: 44px; }
+.log li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0.75rem; }
+.log time { min-width: 0; }

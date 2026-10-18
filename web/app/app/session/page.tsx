@@ -4,16 +4,31 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useDashboard } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
+import { Icon } from "@/components/Icons";
 import { type Drip, type DripEvent, EVENT_LABEL, STATUS_LABEL } from "@/lib/types";
 import { useRequireSession } from "@/lib/useRequireSession";
 
 const ACTIVE = new Set(["scheduled", "running"]);
 
 function clock(seconds: number): string {
-  const m = Math.floor(seconds / 60);
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+  if (d > 0) return `${d} d ${h} h`;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Time of day, plus the date when it isn't today (long sessions span days). */
+function when(iso: string): string {
+  const date = new Date(iso);
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return date.toDateString() === new Date().toDateString()
+    ? time
+    : `${date.toLocaleDateString(undefined, { day: "numeric", month: "short" })}, ${time}`;
 }
 
 function describe(event: DripEvent): string {
@@ -25,6 +40,8 @@ function describe(event: DripEvent): string {
 function SessionView() {
   const id = useSearchParams().get("id") ?? "";
   const session = useRequireSession();
+  const dashboard = useDashboard();
+  const progressHeading = useRef<HTMLHeadingElement>(null);
   const [drip, setDrip] = useState<Drip | null>(null);
   const [events, setEvents] = useState<DripEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -82,11 +99,14 @@ function SessionView() {
     setConfirmStop(false);
     try {
       await api(`drips/${id}/${action}`, { method: "POST", body: {} });
-      await load();
+      await Promise.all([load(), dashboard.refresh()]);
+      setAnnouncement(action === "pause" ? "Session paused." : action === "resume" ? "Session resumed." : "Session stopped.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "That didn't work. Please try again.");
     } finally {
       setBusy(false);
+      // The buttons that had focus may be gone now; keep keyboard users in place.
+      progressHeading.current?.focus();
     }
   }
 
@@ -103,32 +123,46 @@ function SessionView() {
   }
 
   if (!session) return <p role="status">Loading…</p>;
-  if (!id) return <p className="error" role="alert">No session was chosen. <Link href="/app">Go to your dashboard</Link>.</p>;
-  if (error && !drip) return <p className="error" role="alert">{error}</p>;
-  if (!drip) return <p role="status">Loading session…</p>;
+  if (!id) {
+    return (
+      <div className="panel empty" role="alert">
+        <p>No session was chosen.</p>
+        <Link href="/app/sessions" className="button small">See all sessions</Link>
+      </div>
+    );
+  }
+  if (error && !drip) return <p className="notice error" role="alert">{error}</p>;
+  if (!drip) return <div className="app-loading" role="status"><span className="spinner" aria-hidden="true" />Loading session…</div>;
 
   const { progress } = drip;
   const active = ACTIVE.has(drip.status);
   const countdown = progress.next_chunk_at
     ? Math.max(0, Math.ceil((Date.parse(progress.next_chunk_at) - now) / 1000))
     : null;
-  const finish = progress.finish_at ? new Date(progress.finish_at).toLocaleTimeString() : null;
+  const finish = progress.finish_at ? when(progress.finish_at) : null;
+  const title = drip.document_title ?? "Untitled document";
 
   return (
     <>
-      <p><Link href="/app">← Back to dashboard</Link></p>
-      <h1>{drip.document_title ?? "Untitled document"}</h1>
-      <p>
-        <span className={`pill ${drip.status}`}>{STATUS_LABEL[drip.status]}</span>
+      <nav aria-label="Breadcrumb" className="crumbs">
+        <Link href="/app/sessions">Sessions</Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{title}</span>
+      </nav>
+      <div className="dash-head">
+        <div>
+          <h1>{title}</h1>
+          <p>
+            <span className={`pill ${drip.status}`}>{STATUS_LABEL[drip.status]}</span>
+            <span className="row-sub" style={{ marginLeft: "0.6rem" }}>Started {when(drip.created_at)}</span>
+          </p>
+        </div>
         {drip.document_url && (
-          <>
-            {" "}
-            <a href={drip.document_url} target="_blank" rel="noopener noreferrer">
-              Open the document <span className="sr-only">(opens in a new tab)</span>
-            </a>
-          </>
+          <a href={drip.document_url} target="_blank" rel="noopener noreferrer" className="button quiet">
+            Open in Google Docs <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
+          </a>
         )}
-      </p>
+      </div>
 
       {/* Polite live region: announces each part entered and each status change. */}
       <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
@@ -136,10 +170,13 @@ function SessionView() {
       {drip.status === "failed" && drip.last_error && (
         <p className="notice error" role="alert">Writing stopped: {drip.last_error}</p>
       )}
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p className="notice error" role="alert">{error}</p>}
 
-      <section className="card" aria-labelledby="progress-title">
-        <h2 id="progress-title" style={{ fontSize: "1.3rem" }}>Progress</h2>
+      <section className="panel" aria-labelledby="progress-title" style={{ marginBottom: "1.25rem" }}>
+        <div className="panel-head">
+          <h2 id="progress-title" ref={progressHeading} tabIndex={-1}>Progress</h2>
+          <span className="row-sub">{progress.percent}%</span>
+        </div>
         <div
           className="progress-track"
           role="progressbar"
@@ -148,74 +185,70 @@ function SessionView() {
           aria-valuemax={100}
           aria-valuenow={progress.percent}
           aria-valuetext={`${progress.words_written} of ${progress.words_total} words`}
+          style={{ height: 10 }}
         >
           <div className="progress-fill" style={{ width: `${progress.percent}%` }} />
         </div>
         <dl className="stats">
-          <div><dt>Words entered</dt><dd>{progress.words_written} of {progress.words_total}</dd></div>
-          <div><dt>Parts entered</dt><dd>{progress.chunks_written} of {progress.chunks_total}</dd></div>
+          <div><dt>Words entered</dt><dd>{progress.words_written} <small className="row-sub">of {progress.words_total}</small></dd></div>
+          <div><dt>Steps done</dt><dd>{progress.chunks_written} <small className="row-sub">of {progress.chunks_total}</small></dd></div>
           {countdown !== null && (
             <div>
-              <dt>Next part in</dt>
-              <dd aria-hidden="true">{clock(countdown)}</dd>
-              <dd className="sr-only">at {new Date(progress.next_chunk_at!).toLocaleTimeString()}</dd>
+              <dt>Next step in</dt>
+              <dd aria-hidden="true">{countdown === 0 ? "Any moment" : clock(countdown)}</dd>
+              <dd className="sr-only">at {when(progress.next_chunk_at!)}</dd>
             </div>
           )}
-          {finish && <div><dt>{drip.status === "completed" ? "Finished at" : "Expected to finish"}</dt><dd>{finish}</dd></div>}
+          {finish && <div><dt>{drip.status === "completed" ? "Finished" : "Expected to finish"}</dt><dd style={{ fontSize: "1.1rem" }}>{finish}</dd></div>}
         </dl>
 
-        <div className="controls" role="group" aria-label="Session controls">
-          {active && <button type="button" className="button" onClick={() => control("pause")} disabled={busy}>Pause</button>}
-          {drip.status === "paused" && (
-            <button type="button" className="button" onClick={() => control("resume")} disabled={busy}>Resume</button>
-          )}
-          {(active || drip.status === "paused") && !confirmStop && (
-            <button type="button" className="button danger" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
-          )}
-        </div>
+        {(active || drip.status === "paused") && (
+          <div className="controls" role="group" aria-label="Session controls">
+            {active && <button type="button" className="button" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
+            {drip.status === "paused" && (
+              <button type="button" className="button" onClick={() => control("resume")} disabled={busy}>Resume</button>
+            )}
+            {!confirmStop && (
+              <button type="button" className="button danger" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
+            )}
+          </div>
+        )}
 
         {confirmStop && (
-          <div className="notice" role="alertdialog" aria-labelledby="stop-title" aria-describedby="stop-desc">
-            <p id="stop-title"><strong>Stop this session?</strong></p>
-            <p id="stop-desc" className="muted">
-              Nothing more will be entered. What's already in your document stays there.
-            </p>
-            <div className="controls">
-              <button type="button" className="button danger" onClick={() => control("cancel")} autoFocus>
-                Yes, stop
-              </button>
-              <button type="button" className="button secondary" onClick={() => setConfirmStop(false)}>
-                Keep going
-              </button>
+          <div className="confirm" role="alertdialog" aria-labelledby="stop-title" aria-describedby="stop-desc">
+            <p id="stop-title" style={{ fontWeight: 650, margin: "0 0 0.25rem" }}>Stop this session?</p>
+            <p id="stop-desc" className="muted">Nothing more will be entered. What's already in your document stays.</p>
+            <div className="controls" style={{ marginTop: "0.5rem" }}>
+              <button type="button" className="button danger small" onClick={() => control("cancel")} autoFocus>Yes, stop</button>
+              <button type="button" className="button quiet small" onClick={() => setConfirmStop(false)}>Keep going</button>
             </div>
           </div>
         )}
       </section>
 
-      <section className="section" aria-labelledby="entered-title">
-        <h2 id="entered-title" style={{ fontSize: "1.3rem" }}>Text entered so far</h2>
-        <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
-          {progress.written_text
-            ? progress.written_text
-            : <span className="pending">Nothing has been entered yet.</span>}
-        </div>
-      </section>
+      <div className="dash-grid cols-2">
+        <section className="panel" aria-labelledby="entered-title">
+          <div className="panel-head"><h2 id="entered-title">Text entered so far</h2></div>
+          <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
+            {progress.written_text ? progress.written_text : <span className="pending">Nothing has been entered yet.</span>}
+          </div>
+        </section>
 
-      <section className="section" aria-labelledby="log-title">
-        <h2 id="log-title" style={{ fontSize: "1.3rem" }}>Activity log</h2>
-        <p className="muted">A record of your approval and every step TypeWit took, newest first.</p>
-        <ol className="log">
-          {events.map((event, i) => (
-            <li key={`${event.created_at}-${i}`}>
-              <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleTimeString()}</time>
-              <span>{describe(event)}</span>
-            </li>
-          ))}
-        </ol>
-        <button type="button" className="button secondary small" onClick={downloadLog} style={{ marginTop: "1rem" }}>
-          Download the log (CSV)
-        </button>
-      </section>
+        <section className="panel" aria-labelledby="log-title">
+          <div className="panel-head">
+            <h2 id="log-title">Activity log</h2>
+            <button type="button" className="link-button" onClick={downloadLog}>Download CSV</button>
+          </div>
+          <ol className="log">
+            {events.map((event, i) => (
+              <li key={`${event.created_at}-${i}`}>
+                <time dateTime={event.created_at}>{when(event.created_at)}</time>
+                <span>{describe(event)}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
     </>
   );
 }

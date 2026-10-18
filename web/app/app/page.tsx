@@ -14,7 +14,7 @@ function greeting(): string {
 }
 
 export default function OverviewPage() {
-  const { profile, connections, drips, notifications, wordsToday, displayName, markAllRead } = useDashboard();
+  const { profile, connections, drips, notifications, wordsToday, displayName, markAllRead, markRead } = useDashboard();
   const [hello, setHello] = useState("Welcome");
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -56,7 +56,6 @@ export default function OverviewPage() {
           <h1>{hello}, {displayName.split(" ")[0]}</h1>
           <p>{active.length ? `${active.length} session${active.length === 1 ? "" : "s"} in progress.` : "Here's your writing at a glance."}</p>
         </div>
-        <Link href="/app/new" className="button"><Icon.plus /> New session</Link>
       </div>
 
       {googleStatus === "connected" && <p className="notice success" role="status">Your Google account is connected.</p>}
@@ -85,7 +84,7 @@ export default function OverviewPage() {
         </section>
       )}
 
-      <dl className="stat-grid">
+      {drips.length > 0 && <dl className="stat-grid">
         <div className="stat">
           <dt>Words today</dt>
           <dd>
@@ -108,7 +107,7 @@ export default function OverviewPage() {
           <dt>Finished sessions</dt>
           <dd>{finished}</dd>
         </div>
-      </dl>
+      </dl>}
 
       {!isPro && limits.dailyWords && wordsToday >= limits.dailyWords * 0.8 && (
         <section className="upsell" aria-labelledby="limit-title" style={{ marginBottom: "1.25rem" }}>
@@ -120,6 +119,7 @@ export default function OverviewPage() {
         </section>
       )}
 
+      {(drips.length > 0 || notifications.length > 0) && (
       <div className="dash-grid cols-2">
         <section className="panel" aria-labelledby="active-title">
           <div className="panel-head">
@@ -161,7 +161,7 @@ export default function OverviewPage() {
                       <span className={`dot${n.read_at ? " read" : ""}`} aria-hidden="true" />
                       <div className="grow" style={{ minWidth: 0 }}>
                         {n.drip_id
-                          ? <Link href={`/app/session?id=${n.drip_id}`} className="row-title">{n.title}</Link>
+                          ? <Link href={`/app/session?id=${n.drip_id}`} className="row-title" onClick={() => markRead(n.id)}>{n.title}</Link>
                           : <strong>{n.title}</strong>}
                         <div className="row-sub">{n.body}</div>
                         <div className="row-sub">{formatRelative(n.created_at)}{!n.read_at && <span className="sr-only"> (unread)</span>}</div>
@@ -173,6 +173,7 @@ export default function OverviewPage() {
             )}
         </section>
       </div>
+      )}
     </>
   );
 }
