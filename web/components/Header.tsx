@@ -28,7 +28,8 @@ export function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const current = (href: string) => pathname.replace(/\/$/, "") === href ? "page" : undefined;
+  const current = (href: string) => (pathname.replace(/\/$/, "") === href ? "page" : undefined);
+  const inApp = pathname.startsWith("/app");
 
   async function signOut() {
     await supabase().auth.signOut();
@@ -37,25 +38,27 @@ export function Header() {
 
   const links = (
     <>
-      <Link href="/#how" >How it works</Link>
+      <Link href="/#how">How it works</Link>
       <Link href="/pricing" aria-current={current("/pricing")}>Pricing</Link>
-      <Link href="/responsible-use" aria-current={current("/responsible-use")}>Responsible use</Link>
-      {signedIn
-        ? (
-          <>
-            <Link href="/app" aria-current={current("/app")}>Dashboard</Link>
-            <Link href="/app/settings" aria-current={current("/app/settings")}>Settings</Link>
-            <button type="button" className="link-button" onClick={signOut}>Sign out</button>
-          </>
-        )
-        : (
-          <>
-            <Link href="/login" aria-current={current("/login")}>Sign in</Link>
-            <Link href="/signup" className="button small">Start free</Link>
-          </>
-        )}
+      <Link href="/support" aria-current={current("/support")}>Support</Link>
     </>
   );
+  const actions = signedIn
+    ? (
+      <>
+        <Link href="/app" className="arrow-pill" aria-current={inApp ? "page" : undefined}>
+          Dashboard <span className="arrow" aria-hidden="true"><Icon.arrowUpRight /></span>
+        </Link>
+      </>
+    )
+    : (
+      <>
+        <Link href="/login" aria-current={current("/login")}>Sign in</Link>
+        <Link href="/signup" className="arrow-pill solid">
+          Start free <span className="arrow" aria-hidden="true"><Icon.arrowUpRight /></span>
+        </Link>
+      </>
+    );
 
   return (
     <header className="site-header">
@@ -65,7 +68,8 @@ export function Header() {
             <span className="brand-mark" aria-hidden="true">T</span>
             TypeWit
           </Link>
-          <nav className="nav" aria-label="Main">{links}</nav>
+          <nav className="nav nav-center" aria-label="Main">{links}</nav>
+          <div className="nav nav-actions">{actions}</div>
           <button
             type="button"
             className="menu-button"
@@ -79,6 +83,19 @@ export function Header() {
         </div>
         <nav id="mobile-nav" className="mobile-nav" data-open={open} aria-label="Main mobile" hidden={!open}>
           {links}
+          {signedIn
+            ? (
+              <>
+                <Link href="/app" className="button">Dashboard</Link>
+                <button type="button" className="link-button" onClick={signOut}>Sign out</button>
+              </>
+            )
+            : (
+              <>
+                <Link href="/login">Sign in</Link>
+                <Link href="/signup" className="button">Start free</Link>
+              </>
+            )}
         </nav>
       </div>
     </header>

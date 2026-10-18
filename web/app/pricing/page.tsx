@@ -85,9 +85,11 @@ function PricingContent() {
   return (
     <>
       <section className="hero" aria-labelledby="pricing-title">
-        <p className="eyebrow">Pricing</p>
-        <h1 id="pricing-title">Start free. <span className="gradient-text">Go Pro</span> when it matters.</h1>
-        <p className="lead">One simple upgrade. Try every Pro feature free for 7 days, then cancel anytime.</p>
+        <span className="badge-pill center"><span className="g-dots"><i /><i /><i /><i /></span> Pricing</span>
+        <h1 id="pricing-title" style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", margin: "1rem 0 0.75rem" }}>
+          Start free. <span className="gradient-text">Go Pro</span> when it matters.
+        </h1>
+        <p className="lead" style={{ marginBottom: "1.5rem" }}>Try every Pro feature free for 7 days.</p>
         {params.get("checkout") === "canceled" && (
           <p className="notice narrow" role="status">Checkout was canceled. You haven't been charged.</p>
         )}
@@ -143,32 +145,25 @@ function PricingContent() {
 
       <section id="pro-steps" className="section" aria-labelledby="steps-title">
         <div className="section-head">
-          <p className="eyebrow">Getting Pro</p>
           <h2 id="steps-title">Pro in three easy steps.</h2>
-          <p>It takes about a minute. You can use Pro straight away.</p>
         </div>
         <ol className="grid steps">
-          <li className="card">
+          <li className="card dark">
             <span className="step-number" aria-hidden="true">1</span>
             <h3><span className="sr-only">Step 1: </span>Create your account</h3>
-            <p className="muted">Choose Continue with Google, or use a personal email. Read and accept the Responsible Use Agreement.</p>
+            <p className="muted">Continue with Google or a personal email, and accept the Responsible Use Agreement.</p>
           </li>
-          <li className="card">
+          <li className="card outline">
             <span className="step-number" aria-hidden="true">2</span>
             <h3><span className="sr-only">Step 2: </span>Start your free week</h3>
-            <p className="muted">Come back here, choose yearly or monthly, and select Start 7-day free trial. Add a card on Stripe's secure page.</p>
+            <p className="muted">Pick yearly or monthly above and add a card on Stripe's secure page. Nothing is charged today.</p>
           </li>
-          <li className="card">
+          <li className="card outline">
             <span className="step-number" aria-hidden="true">3</span>
             <h3><span className="sr-only">Step 3: </span>Write without limits</h3>
-            <p className="muted">Your account switches to Pro right away. Manage or cancel any time from Account, then Manage billing.</p>
+            <p className="muted">Pro starts right away. Cancel any time in Plan & billing.</p>
           </li>
         </ol>
-        <div className="actions" style={{ marginTop: "2rem" }}>
-          <button type="button" className="button pro large" onClick={startPro} disabled={busy}>
-            {signedIn ? "Start my free week" : "Create account and start"}
-          </button>
-        </div>
       </section>
 
       <section className="section narrow" aria-labelledby="compare-title">
@@ -211,13 +206,6 @@ function PricingContent() {
         </div>
       </section>
 
-      <section className="section cta-band" aria-labelledby="pricing-final-title">
-        <h2 id="pricing-final-title">Try Pro free for a week.</h2>
-        <p className="lead">Unlimited words, week-long sessions and three documents at once.</p>
-        <div className="actions">
-          <button type="button" className="button pro large" onClick={startPro} disabled={busy}>Start 7-day free trial</button>
-        </div>
-      </section>
     </>
   );
 }

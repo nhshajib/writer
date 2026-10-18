@@ -62,7 +62,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </ul>
               </nav>
             </div>
-            <p className="footer-bottom">© {new Date().getFullYear()} TypeWit. Payments are processed securely by Stripe.</p>
+            <p className="footer-bottom">
+              © {new Date().getFullYear()} TypeWit. Payments are processed securely by Stripe. Illustration by{" "}
+              <a href="https://storyset.com" rel="noopener noreferrer">Storyset</a>.
+            </p>
           </div>
         </footer>
       </body>
