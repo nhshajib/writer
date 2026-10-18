@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ul>
                   <li><Link href="/signup">Create account</Link></li>
                   <li><Link href="/login">Sign in</Link></li>
-                  <li><Link href="/account">Billing</Link></li>
+                  <li><Link href="/app/billing">Billing</Link></li>
                 </ul>
               </nav>
               <nav aria-labelledby="footer-trust">

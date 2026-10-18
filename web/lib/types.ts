@@ -2,6 +2,9 @@ export interface Connection {
   id: string;
   provider: "google" | "microsoft" | "test";
   account_email: string | null;
+  /** False once disconnected (or Google access was revoked); history is kept. */
+  connected?: boolean;
+  created_at?: string;
 }
 
 export interface Progress {

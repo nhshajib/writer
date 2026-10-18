@@ -1,120 +1,172 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { AgreementGate } from "@/components/dashboard/AgreementGate";
-import { Connections } from "@/components/dashboard/Connections";
-import { api } from "@/lib/api";
-import { recordPendingAgreement } from "@/lib/googleAuth";
-import { supabase } from "@/lib/supabase";
-import { CURRENT_TERMS_VERSION } from "@/lib/terms";
-import { type Connection, type Drip, STATUS_LABEL } from "@/lib/types";
-import { useRequireSession } from "@/lib/useRequireSession";
+import { useEffect, useState } from "react";
+import { SessionRow } from "@/components/app/SessionRow";
+import { Icon } from "@/components/Icons";
+import { ACTIVE_STATUSES, connectGoogleDocs, formatRelative, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 
-export default function DashboardPage() {
-  const session = useRequireSession();
-  const [agreed, setAgreed] = useState<boolean | null>(null);
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [drips, setDrips] = useState<Drip[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+export default function OverviewPage() {
+  const { profile, connections, drips, notifications, wordsToday, displayName, markAllRead } = useDashboard();
+  const [hello, setHello] = useState("Welcome");
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
-  const [plan, setPlan] = useState<"free" | "pro">("free");
-
-  const load = useCallback(async () => {
-    try {
-      const client = supabase();
-      const [{ data: profile }, { data: conns }, list] = await Promise.all([
-        client.from("profiles").select("agreed_terms_version, plan").maybeSingle(),
-        client.from("provider_connections").select("id, provider, account_email"),
-        api<{ drips: Drip[] }>("drips"),
-      ]);
-      // Someone who ticked the agreement before choosing Google has it recorded now.
-      const agreedNow = profile?.agreed_terms_version === CURRENT_TERMS_VERSION || await recordPendingAgreement();
-      setAgreed(agreedNow);
-      setPlan(profile?.plan === "pro" ? "pro" : "free");
-      setConnections((conns ?? []) as Connection[]);
-      setDrips(list.drips);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't load your dashboard.");
-    }
-  }, []);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session) load();
-  }, [session, load]);
-
-  useEffect(() => {
+    setHello(greeting());
     setGoogleStatus(new URLSearchParams(window.location.search).get("google"));
   }, []);
 
-  if (!session) return <p role="status">Loading…</p>;
-  if (error) return <p className="error" role="alert">{error}</p>;
-  if (agreed === null || drips === null) return <p role="status">Loading your dashboard…</p>;
-  if (!agreed) return <AgreementGate onAgreed={() => setAgreed(true)} />;
+  const isPro = profile.plan === "pro";
+  const limits = PLAN_LIMITS[profile.plan];
+  const active = drips.filter((d) => ACTIVE_STATUSES.has(d.status));
+  const finished = drips.filter((d) => d.status === "completed").length;
+  const totalWords = drips.reduce((sum, d) => sum + d.progress.words_written, 0);
+  const googleConnected = connections.some((c) => c.provider === "google" && c.connected !== false);
+  const unread = notifications.filter((n) => !n.read_at).length;
+  const usagePercent = limits.dailyWords ? Math.min(100, Math.round((wordsToday / limits.dailyWords) * 100)) : 0;
+
+  const steps = [
+    { done: googleConnected, label: "Connect Google Docs", action: "connect" as const },
+    { done: drips.length > 0, label: "Start your first session", action: "/app/new" },
+    ...(isPro ? [] : [{ done: false, label: "Try Pro free for 7 days", action: "/app/billing" }]),
+  ];
+  const showSetup = !googleConnected || drips.length === 0;
+
+  async function connect() {
+    setConnectError(null);
+    try {
+      await connectGoogleDocs("/app");
+    } catch (e) {
+      setConnectError(e instanceof Error ? e.message : "Couldn't start connecting to Google.");
+    }
+  }
 
   return (
     <>
-      <div className="page-head">
+      <div className="dash-head">
         <div>
-          <h1>Your dashboard</h1>
-          <p className="muted" style={{ margin: "0.5rem 0 0" }}>
-            {plan === "pro" ? <span className="pill pro">Pro</span> : <span className="pill">Free plan</span>}
-          </p>
+          <h1>{hello}, {displayName.split(" ")[0]}</h1>
+          <p>{active.length ? `${active.length} session${active.length === 1 ? "" : "s"} in progress.` : "Here's your writing at a glance."}</p>
         </div>
-        <Link href="/app/new" className="button large">New session</Link>
+        <Link href="/app/new" className="button"><Icon.plus /> New session</Link>
       </div>
 
-      {googleStatus === "connected" && (
-        <p className="notice success" role="status">Your Google account is connected.</p>
-      )}
-      {googleStatus === "error" && (
-        <p className="notice error" role="alert">We couldn't connect your Google account. Please try again.</p>
+      {googleStatus === "connected" && <p className="notice success" role="status">Your Google account is connected.</p>}
+      {googleStatus === "error" && <p className="notice error" role="alert">We couldn't connect your Google account. Please try again.</p>}
+
+      {showSetup && (
+        <section className="panel" aria-labelledby="setup-title" style={{ marginBottom: "1.25rem" }}>
+          <div className="panel-head">
+            <h2 id="setup-title">Get set up</h2>
+            <span className="row-sub">{steps.filter((s) => s.done).length} of {steps.length} done</span>
+          </div>
+          <ol className="checklist">
+            {steps.map((step) => (
+              <li key={step.label} className={step.done ? "done" : undefined}>
+                <span className="tick" aria-hidden="true"><Icon.check /></span>
+                <span className="label">{step.label}{step.done && <span className="sr-only"> (done)</span>}</span>
+                {!step.done && (step.action === "connect"
+                  ? <button type="button" className="button small" onClick={connect}>Connect</button>
+                  : <Link href={step.action} className={step.action === "/app/billing" ? "button small pro" : "button small"}>
+                    {step.action === "/app/billing" ? "Start trial" : "Start"}
+                  </Link>)}
+              </li>
+            ))}
+          </ol>
+          {connectError && <p className="error" role="alert" style={{ marginTop: "0.75rem" }}>{connectError}</p>}
+        </section>
       )}
 
-      <div className="stack">
-        {plan === "free" && (
-          <section className="upsell" aria-labelledby="upsell-title">
-            <div>
-              <h2 id="upsell-title">Writing something long?</h2>
-              <p>Free includes 250 words a day. Pro gives you unlimited words, week-long sessions and 3 documents at once.</p>
-            </div>
-            <Link href="/pricing" className="button pro">Try Pro free for 7 days</Link>
-          </section>
-        )}
-        <Connections connections={connections} />
+      <dl className="stat-grid">
+        <div className="stat">
+          <dt>Words today</dt>
+          <dd>
+            {wordsToday.toLocaleString()}
+            <small> {limits.dailyWords ? `of ${limits.dailyWords}` : "· unlimited"}</small>
+          </dd>
+          {limits.dailyWords && (
+            <div className={`meter${usagePercent >= 90 ? " warn" : ""}`} aria-hidden="true"><span style={{ width: `${usagePercent}%` }} /></div>
+          )}
+        </div>
+        <div className="stat">
+          <dt>Active sessions</dt>
+          <dd>{active.length}<small> of {limits.activeSessions}</small></dd>
+        </div>
+        <div className="stat">
+          <dt>Words entered</dt>
+          <dd>{totalWords.toLocaleString()}</dd>
+        </div>
+        <div className="stat">
+          <dt>Finished sessions</dt>
+          <dd>{finished}</dd>
+        </div>
+      </dl>
 
-        <section aria-labelledby="sessions-title">
-          <h2 id="sessions-title">Your sessions</h2>
-          {drips.length === 0
+      {!isPro && limits.dailyWords && wordsToday >= limits.dailyWords * 0.8 && (
+        <section className="upsell" aria-labelledby="limit-title" style={{ marginBottom: "1.25rem" }}>
+          <div>
+            <h2 id="limit-title">You're close to today's limit</h2>
+            <p>Free resets at midnight UTC. Pro has no daily limit.</p>
+          </div>
+          <Link href="/app/billing" className="button pro">Try Pro free</Link>
+        </section>
+      )}
+
+      <div className="dash-grid cols-2">
+        <section className="panel" aria-labelledby="active-title">
+          <div className="panel-head">
+            <h2 id="active-title">In progress</h2>
+            <Link href="/app/sessions">All sessions</Link>
+          </div>
+          {active.length === 0
             ? (
-              <div className="card" style={{ textAlign: "center" }}>
-                <p className="muted">No sessions yet. Start one and it appears here with live progress.</p>
-                <Link href="/app/new" className="button">Start your first session</Link>
+              <div className="empty">
+                <span className="icon-badge"><Icon.list /></span>
+                <p>Nothing in progress.</p>
+                <Link href="/app/new" className="button small">Start a session</Link>
               </div>
             )
             : (
-              <ul className="session-list">
-                {drips.map((drip) => (
-                  <li key={drip.id} className="card">
-                    <div className="session-head">
-                      <h3>
-                        <Link href={`/app/session?id=${drip.id}`}>{drip.document_title ?? "Untitled document"}</Link>
-                      </h3>
-                      <span className={`pill ${drip.status}`}>{STATUS_LABEL[drip.status]}</span>
+              <ul className="row-list">
+                {active.map((drip) => <li key={drip.id}><SessionRow drip={drip} /></li>)}
+              </ul>
+            )}
+        </section>
+
+        <section className="panel" aria-labelledby="updates-title">
+          <div className="panel-head">
+            <h2 id="updates-title">Updates{unread > 0 && <span className="sr-only"> ({unread} unread)</span>}</h2>
+            {unread > 0 && <button type="button" className="link-button" onClick={markAllRead}>Mark all as read</button>}
+          </div>
+          {notifications.length === 0
+            ? (
+              <div className="empty">
+                <span className="icon-badge"><Icon.bell /></span>
+                <p>We'll let you know here when a session finishes.</p>
+              </div>
+            )
+            : (
+              <ul className="row-list">
+                {notifications.slice(0, 6).map((n) => (
+                  <li key={n.id}>
+                    <div className="row" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
+                      <span className={`dot${n.read_at ? " read" : ""}`} aria-hidden="true" />
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        {n.drip_id
+                          ? <Link href={`/app/session?id=${n.drip_id}`} className="row-title">{n.title}</Link>
+                          : <strong>{n.title}</strong>}
+                        <div className="row-sub">{n.body}</div>
+                        <div className="row-sub">{formatRelative(n.created_at)}{!n.read_at && <span className="sr-only"> (unread)</span>}</div>
+                      </div>
                     </div>
-                    <div
-                      className="progress-track"
-                      role="progressbar"
-                      aria-label={`Progress for ${drip.document_title ?? "this session"}`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={drip.progress.percent}
-                    >
-                      <div className="progress-fill" style={{ width: `${drip.progress.percent}%` }} />
-                    </div>
-                    <p className="muted" style={{ margin: "0.5rem 0 0" }}>
-                      {drip.progress.words_written} of {drip.progress.words_total} words entered
-                    </p>
                   </li>
                 ))}
               </ul>

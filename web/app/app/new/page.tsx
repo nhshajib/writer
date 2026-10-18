@@ -3,12 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { api, sha256Hex } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
-import { CURRENT_TERMS_VERSION } from "@/lib/terms";
-import type { Connection, Drip } from "@/lib/types";
-import { useRequireSession } from "@/lib/useRequireSession";
+import { useDashboard } from "@/lib/dashboard";
 
 type Unit = "sentence" | "paragraph" | "chunk";
 type Timing = "spread" | "asap";
@@ -66,14 +62,26 @@ interface PastDoc {
 
 export default function NewSessionPage() {
   const router = useRouter();
-  const session = useRequireSession();
-  const [loaded, setLoaded] = useState(false);
-  const [agreed, setAgreed] = useState(true);
-  const [plan, setPlan] = useState<"free" | "pro">("free");
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [pastDocs, setPastDocs] = useState<PastDoc[]>([]);
+  const dashboard = useDashboard();
+  const plan = dashboard.profile.plan;
+  const connections = useMemo(
+    () => dashboard.connections.filter((c) => c.provider === "google" && c.connected !== false),
+    [dashboard.connections],
+  );
+  // Documents TypeWit wrote into before can be written into again.
+  const pastDocs = useMemo(() => {
+    const seen = new Map<string, PastDoc>();
+    for (const d of dashboard.drips) {
+      if (d.provider !== "google") continue;
+      const key = `${d.connection_id}:${d.document_id}`;
+      if (!seen.has(key)) {
+        seen.set(key, { key, connectionId: d.connection_id, documentId: d.document_id, title: d.document_title ?? "Untitled document" });
+      }
+    }
+    return [...seen.values()];
+  }, [dashboard.drips]);
 
-  const [connectionId, setConnectionId] = useState("");
+  const [connectionId, setConnectionId] = useState(connections[0]?.id ?? "");
   const [target, setTarget] = useState<Target>("new");
   const [title, setTitle] = useState("");
   const [pastDocKey, setPastDocKey] = useState("");
@@ -85,44 +93,16 @@ export default function NewSessionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // "Add text" on the Documents page links here with ?doc=<connection>:<document>.
   useEffect(() => {
-    if (!session) return;
-    (async () => {
-      try {
-        const client = supabase();
-        const [{ data: profile }, { data: conns }, list] = await Promise.all([
-          client.from("profiles").select("agreed_terms_version, plan").maybeSingle(),
-          client.from("provider_connections").select("id, provider, account_email"),
-          api<{ drips: Drip[] }>("drips"),
-        ]);
-        setAgreed(profile?.agreed_terms_version === CURRENT_TERMS_VERSION);
-        setPlan(profile?.plan === "pro" ? "pro" : "free");
-        const google = ((conns ?? []) as Connection[]).filter((c) => c.provider === "google");
-        setConnections(google);
-        setConnectionId(google[0]?.id ?? "");
-
-        // Documents TypeWit wrote into before can be written into again.
-        const seen = new Map<string, PastDoc>();
-        for (const d of list.drips) {
-          if (d.provider !== "google") continue;
-          const key = `${d.connection_id}:${d.document_id}`;
-          if (!seen.has(key)) {
-            seen.set(key, {
-              key,
-              connectionId: d.connection_id,
-              documentId: d.document_id,
-              title: d.document_title ?? "Untitled document",
-            });
-          }
-        }
-        setPastDocs([...seen.values()]);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't load your account.");
-      } finally {
-        setLoaded(true);
-      }
-    })();
-  }, [session]);
+    const key = new URLSearchParams(window.location.search).get("doc");
+    const doc = key ? pastDocs.find((d) => d.key === key) : undefined;
+    if (doc && connections.some((c) => c.id === doc.connectionId)) {
+      setConnectionId(doc.connectionId);
+      setTarget("existing");
+      setPastDocKey(doc.key);
+    }
+  }, [pastDocs, connections]);
 
   const limits = LIMITS[plan];
   const words = countWords(text);
@@ -176,17 +156,14 @@ export default function NewSessionPage() {
     }
   }
 
-  if (!session || !loaded) return <p role="status">Loading…</p>;
-  if (!agreed) return <AgreementGate onAgreed={() => setAgreed(true)} />;
-
   if (connections.length === 0) {
     return (
       <div className="new-session">
-        <h1>New session</h1>
+        <div className="dash-head"><h1>New session</h1></div>
         <div className="card">
           <h2 style={{ fontSize: "1.3rem" }}>Connect Google first</h2>
           <p className="muted">TypeWit needs your permission to create and add to Google Docs.</p>
-          <Link href="/app" className="button">Go to dashboard to connect</Link>
+          <Link href="/app/documents" className="button">Connect Google Docs</Link>
         </div>
       </div>
     );
@@ -194,9 +171,8 @@ export default function NewSessionPage() {
 
   return (
     <form className="new-session stack" onSubmit={onSubmit} noValidate aria-labelledby="new-title">
-      <div className="page-head" style={{ marginBottom: 0 }}>
+      <div className="dash-head" style={{ marginBottom: 0 }}>
         <div>
-          <p className="eyebrow" style={{ marginBottom: "0.5rem" }}><Link href="/app">Dashboard</Link></p>
           <h1 id="new-title">New session</h1>
         </div>
         {plan === "pro" ? <span className="pill pro">Pro</span> : <span className="pill">Free plan</span>}

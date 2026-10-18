@@ -44,7 +44,7 @@ export function Header() {
         ? (
           <>
             <Link href="/app" aria-current={current("/app")}>Dashboard</Link>
-            <Link href="/account" aria-current={current("/account")}>Account</Link>
+            <Link href="/app/settings" aria-current={current("/app/settings")}>Settings</Link>
             <button type="button" className="link-button" onClick={signOut}>Sign out</button>
           </>
         )

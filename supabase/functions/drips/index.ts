@@ -8,15 +8,17 @@
 //   POST /drips/:id/cancel          cancel
 //   GET  /drips/connections         my connected accounts
 //   POST /drips/connections/test    create a test connection (dev only)
+//   POST /drips/connections/:id/disconnect  revoke Google access, stop that account's active drips
 //   POST /drips/documents           create a new document in a connected account
 
 import { requireUser } from "../_shared/auth.ts";
 import { countWords, groupEvenly, type InsertionUnit, splitIntoUnits, tokenize } from "../_shared/chunker.ts";
-import { sha256Hex } from "../_shared/crypto.ts";
+import { decrypt, sha256Hex } from "../_shared/crypto.ts";
 import { loadConnection, providerFor } from "../_shared/connections.ts";
-import { adminClient, testProviderEnabled } from "../_shared/env.ts";
+import { adminClient, encryptionKey, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { checkCreateLimits, PLAN_LIMITS, type PlanTier } from "../_shared/limits.ts";
+import { revokeGoogleToken } from "../_shared/providers/google.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { planDrip } from "../_shared/schedule.ts";
@@ -43,6 +45,9 @@ serve(async (req) => {
   if (parts[0] === "connections") {
     if (parts.length === 1 && method === "GET") return await listConnections(user.id);
     if (parts[1] === "test" && method === "POST") return await createTestConnection(user.id, user.email);
+    if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "disconnect" && method === "POST") {
+      return await disconnectConnection(user.id, parts[1]);
+    }
   }
   if (parts[0] === "documents" && parts.length === 1 && method === "POST") {
     return await createDocument(user.id, req);
@@ -290,11 +295,56 @@ async function transition(
 async function listConnections(userId: string): Promise<Response> {
   const { data, error } = await adminClient()
     .from("provider_connections")
-    .select("id, provider, account_email, scopes, created_at")
+    .select("id, provider, account_email, scopes, created_at, refresh_token_enc")
     .eq("user_id", userId)
     .order("created_at");
   if (error) throw new Error(error.message);
-  return json({ connections: data });
+  // Never return tokens; only whether the account can still be written to.
+  const connections = (data ?? []).map(({ refresh_token_enc, ...c }) => ({
+    ...c,
+    connected: c.provider === "test" || Boolean(refresh_token_enc),
+  }));
+  return json({ connections });
+}
+
+/**
+ * Disconnects an account without deleting history: stops its active drips,
+ * revokes the Google grant, and forgets the tokens. Reconnecting the same
+ * Google account later restores it.
+ */
+async function disconnectConnection(userId: string, id: string): Promise<Response> {
+  const db = adminClient();
+  const connection = await loadConnection(id, userId);
+  if (!connection) throw new HttpError(404, "Connection not found.");
+
+  const { data: stopped, error: stopError } = await db
+    .from("drips")
+    .update({ status: "canceled", next_run_at: null })
+    .eq("user_id", userId)
+    .eq("connection_id", id)
+    .in("status", ACTIVE_STATUSES)
+    .select("id");
+  if (stopError) throw new Error(stopError.message);
+  for (const drip of stopped ?? []) {
+    await logEvent(drip.id, userId, "canceled", { reason: "account_disconnected" });
+  }
+
+  if (connection.provider === "google" && connection.refresh_token_enc) {
+    try {
+      await revokeGoogleToken(await decrypt(connection.refresh_token_enc, await encryptionKey()));
+    } catch (error) {
+      console.error("Couldn't revoke Google token", error);
+    }
+  }
+
+  const { error } = await db
+    .from("provider_connections")
+    .update({ refresh_token_enc: null, access_token_enc: null, access_token_expires_at: null })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+
+  return json({ disconnected: true, stopped_sessions: (stopped ?? []).length });
 }
 
 async function createTestConnection(userId: string, email: string | null): Promise<Response> {

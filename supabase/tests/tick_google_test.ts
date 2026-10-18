@@ -2,7 +2,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
 import { splitIntoChunks } from "../functions/_shared/chunker.ts";
 import { type DripRow, MAX_ATTEMPTS, runDripStep } from "../functions/_shared/tick.ts";
 import { type DocInfo, type DocProvider, ProviderError } from "../functions/_shared/providers/types.ts";
-import { GoogleDocsProvider } from "../functions/_shared/providers/google.ts";
+import { GoogleDocsProvider, revokeGoogleToken } from "../functions/_shared/providers/google.ts";
 
 class FakeProvider implements DocProvider {
   readonly name = "test" as const;
@@ -165,4 +165,19 @@ Deno.test("Google provider classifies errors", async () => {
   );
   const error = await assertRejects(() => provider.appendText("abc", "hi"), ProviderError);
   assertEquals(error.kind, "auth");
+});
+
+Deno.test("revokeGoogleToken posts the token and reports the result", async () => {
+  let body = "";
+  const ok = await revokeGoogleToken("refresh-123", (_url, init) => {
+    body = String(init?.body);
+    return Promise.resolve(new Response("{}", { status: 200 }));
+  });
+  assertEquals(ok, true);
+  assertEquals(body, "token=refresh-123");
+
+  const failed = await revokeGoogleToken("x", () => Promise.resolve(new Response("{}", { status: 400 })));
+  assertEquals(failed, false);
+  const offline = await revokeGoogleToken("x", () => Promise.reject(new Error("offline")));
+  assertEquals(offline, false);
 });

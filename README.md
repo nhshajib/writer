@@ -21,10 +21,14 @@ visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass ax
 |---|---|
 | `/`, `/pricing`, `/responsible-use` | Public pages (pricing starts Stripe checkout) |
 | `/signup`, `/login` | Account creation (personal email only, agreement required) and sign-in |
-| `/app` | Dashboard: agreement check, connect Google, list of sessions with progress |
+| `/app` | Overview: greeting, setup checklist, usage today, active sessions, updates (notifications) |
+| `/app/sessions` | All sessions with filters, search and CSV export |
 | `/app/session?id=…` | Live progress, countdown, text entered so far, pause / resume / stop, activity log (CSV export) |
 | `/app/new` | Start a session (document, text, step size, timing, approval) |
-| `/account` | Plan, billing portal, email notifications, change password |
+| `/app/documents` | Google accounts (connect, disconnect, reconnect) and documents TypeWit wrote into |
+| `/app/billing` | Plan, usage meter, start trial, Stripe billing portal |
+| `/app/settings` | Profile name, notifications, password, agreement, data download, account deletion request |
+| `/account` | Old address; forwards to `/app/billing` (Stripe still returns here) |
 | `/privacy`, `/terms`, `/support` | Legal pages and help |
 
 ```bash
@@ -151,7 +155,8 @@ needs `Authorization: Bearer <user access token>` and `apikey: <publishable key>
 | Method & path | Body | Result |
 |---|---|---|
 | `GET /google-oauth-start?redirect_to=<url>` | | `{ url }`: send the user there |
-| `GET /drips/connections` | | `{ connections: [...] }` |
+| `GET /drips/connections` | | `{ connections: [...] }`, each with `connected` |
+| `POST /drips/connections/:id/disconnect` | | stops that account's active drips, revokes the Google grant, clears tokens; history is kept |
 | `POST /drips/connections/test` | | `{ connection }` (test provider) |
 | `POST /drips/documents` | `{ connection_id, title }` | `{ document: { id, title, url } }` |
 | `POST /drips` | `{ connection_id, text, duration_minutes, document_id \| new_document_title }` | `201 { drip }` |

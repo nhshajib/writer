@@ -3,6 +3,7 @@ import { classifyHttpStatus, type DocInfo, type DocProvider, ProviderError } fro
 export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
+export const GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 const DOCS_API = "https://docs.googleapis.com/v1/documents";
 
 /**
@@ -76,6 +77,21 @@ async function tokenRequest(params: Record<string, string>, fetchFn: Fetch): Pro
     );
   }
   return body as GoogleTokens;
+}
+
+/** Revokes a Google token (and the grant behind it). Best effort: returns false on failure. */
+export async function revokeGoogleToken(token: string, fetchFn: Fetch = fetch): Promise<boolean> {
+  try {
+    const res = await fetchFn(GOOGLE_REVOKE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+    });
+    await res.body?.cancel();
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchGoogleEmail(accessToken: string, fetchFn: Fetch = fetch): Promise<string | null> {
