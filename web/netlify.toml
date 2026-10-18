@@ -1,13 +1,21 @@
 # Netlify settings for the Writer web app (set "Base directory" to `web` in Netlify).
 # Settings in this file take precedence over the ones typed into the Netlify UI.
+# The site is a static export (see next.config.ts), so Netlify only serves files from `out`.
 
 [build]
   command = "npm run build"
-  # Next.js output. Netlify's Next.js support picks it up from here.
-  publish = ".next"
+  publish = "out"
 
 [build.environment]
   NODE_VERSION = "22"
   # These two values are public by design: they are compiled into the browser bundle,
   # and Row Level Security in Supabase protects the data. Don't let the secret scanner fail the build on them.
   SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

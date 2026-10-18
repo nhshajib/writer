@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { type Drip, type DripEvent, EVENT_LABEL, STATUS_LABEL } from "@/lib/types";
@@ -22,8 +22,8 @@ function describe(event: DripEvent): string {
   return event.kind === "chunk_written" && written && total ? `${label} (${written} of ${total})` : label;
 }
 
-export default function SessionPage() {
-  const { id } = useParams<{ id: string }>();
+function SessionView() {
+  const id = useSearchParams().get("id") ?? "";
   const session = useRequireSession();
   const [drip, setDrip] = useState<Drip | null>(null);
   const [events, setEvents] = useState<DripEvent[]>([]);
@@ -36,6 +36,7 @@ export default function SessionPage() {
   const lastStatus = useRef<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!id) return;
     try {
       const res = await api<{ drip: Drip; events: DripEvent[] }>(`drips/${id}`);
       setDrip(res.drip);
@@ -102,6 +103,7 @@ export default function SessionPage() {
   }
 
   if (!session) return <p role="status">Loading…</p>;
+  if (!id) return <p className="error" role="alert">No session was chosen. <Link href="/app">Go to your dashboard</Link>.</p>;
   if (error && !drip) return <p className="error" role="alert">{error}</p>;
   if (!drip) return <p role="status">Loading session…</p>;
 
@@ -215,5 +217,13 @@ export default function SessionPage() {
         </button>
       </section>
     </>
+  );
+}
+
+export default function SessionPage() {
+  return (
+    <Suspense>
+      <SessionView />
+    </Suspense>
   );
 }

@@ -71,7 +71,7 @@ export default function DashboardPage() {
                   <li key={drip.id} className="card">
                     <div className="session-head">
                       <h3>
-                        <Link href={`/app/sessions/${drip.id}`}>{drip.document_title ?? "Untitled document"}</Link>
+                        <Link href={`/app/session?id=${drip.id}`}>{drip.document_title ?? "Untitled document"}</Link>
                       </h3>
                       <span className={`pill ${drip.status}`}>{STATUS_LABEL[drip.status]}</span>
                     </div>

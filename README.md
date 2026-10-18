@@ -22,7 +22,7 @@ visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass ax
 | `/`, `/pricing`, `/responsible-use` | Public pages (pricing starts Stripe checkout) |
 | `/signup`, `/login` | Account creation (personal email only, agreement required) and sign-in |
 | `/app` | Dashboard: agreement check, connect Google, list of sessions with progress |
-| `/app/sessions/[id]` | Live progress, countdown, text entered so far, pause / resume / stop, activity log (CSV export) |
+| `/app/session?id=…` | Live progress, countdown, text entered so far, pause / resume / stop, activity log (CSV export) |
 | `/account` | Plan, billing portal, email notifications, change password |
 
 ```bash
@@ -42,7 +42,7 @@ and timing" below; the backend, dashboard and session view are ready for it.
    `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`. Create a webhook to
    `https://<project-ref>.supabase.co/functions/v1/stripe-webhook` for `customer.subscription.created`,
    `.updated` and `.deleted`, and add its signing secret as `STRIPE_WEBHOOK_SECRET`. Enable the Customer Portal.
-2. **Deploy `web/` to Vercel** (root directory `web`, env vars from `web/.env.example`).
+2. **Deploy `web/` to Netlify.** The app is a static export (`npm run build` writes `web/out`). Base directory `web`; `web/netlify.toml` sets the build command and publish directory `out`. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as environment variables.
 3. **Supabase secrets:** `APP_URL` = the deployed site, `TOKEN_ENCRYPTION_KEY`, `ENABLE_TEST_PROVIDER=false`;
    optionally `RESEND_API_KEY` and `EMAIL_FROM` for email.
 4. **Supabase Auth:** add the site to Authentication → URL Configuration; turn on leaked-password protection;
