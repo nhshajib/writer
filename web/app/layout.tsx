@@ -6,14 +6,14 @@ import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 export const metadata: Metadata = {
   metadataBase: new URL("https://typewit.com"),
   title: {
-    default: "TypeWit · Your words in Google Docs, without typing",
+    default: "TypeWit · Your words in Google Docs and Word, without typing",
     template: "%s · TypeWit",
   },
   description:
-    "TypeWit enters text you approve into your Google Docs, step by step, for people who find typing difficult, slow or painful.",
+    "TypeWit enters text you approve into your Google Docs or Word documents, step by step, for people who find typing difficult, slow or painful.",
   openGraph: {
     title: "TypeWit",
-    description: "Your words in Google Docs, without typing.",
+    description: "Your words in Google Docs and Word, without typing.",
     url: "https://typewit.com",
     siteName: "TypeWit",
     type: "website",

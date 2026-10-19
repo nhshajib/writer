@@ -9,7 +9,7 @@ export function Footer() {
           <div>
             <Link href="/" className="brand" aria-label="TypeWit home"><Logo /> TypeWit</Link>
             <p style={{ maxWidth: 300, marginTop: "0.5rem" }}>
-              Assistive writing for people who find typing difficult. Your words, entered into your own Google Docs.
+              Assistive writing for people who find typing difficult. Your words, entered into your own Google Docs and Word documents.
             </p>
           </div>
           <nav aria-labelledby="f-product">
@@ -39,7 +39,7 @@ export function Footer() {
         </div>
         <div className="footer-base">
           <span>© {new Date().getFullYear()} TypeWit</span>
-          <span>Payments by Stripe · Works with Google Docs</span>
+          <span>Payments by Stripe · Works with Google Docs and Microsoft Word</span>
         </div>
       </div>
     </footer>

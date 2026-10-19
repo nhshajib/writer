@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
+import { PRO_PRICE } from "@/lib/site";
+import { dailyResetTime } from "@/lib/time";
 
 type Interval = "year" | "month";
 
@@ -111,7 +113,7 @@ export default function BillingPage() {
         <section className="card" aria-labelledby="usage-title">
           <div className="card-head">
             <h2 id="usage-title">Usage today</h2>
-            <span className="small muted">Resets at midnight UTC</span>
+            <span className="small muted">Resets at {dailyResetTime()} (midnight UTC)</span>
           </div>
           <p style={{ fontSize: "1.75rem", fontWeight: 650, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>
             {wordsToday.toLocaleString()} <span className="small muted" style={{ fontWeight: 450, letterSpacing: 0 }}>{limits.dailyWords ? `of ${limits.dailyWords} words` : "words · unlimited"}</span>
@@ -151,8 +153,8 @@ export default function BillingPage() {
               {tick(<><strong>Priority</strong> email support</>, "d")}
             </ul>
             <div>
-              <div className="price" style={{ marginTop: "1rem" }}><strong>{interval === "year" ? "$9" : "$15"}</strong><span>/ month</span></div>
-              <p className="price-note" style={{ marginBottom: "1rem" }}>{interval === "year" ? <span className="save">$108 billed yearly · save 40%</span> : "Billed monthly"}</p>
+              <div className="price" style={{ marginTop: "1rem" }}><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></div>
+              <p className="price-note" style={{ marginBottom: "1rem" }}>{PRO_PRICE[interval].saving ? <span className="save">{PRO_PRICE[interval].saving}</span> : "Billed monthly"}</p>
               <button type="button" className="btn btn-primary btn-block" onClick={startTrial} disabled={busy}>
                 {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
               </button>

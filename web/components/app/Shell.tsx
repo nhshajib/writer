@@ -39,6 +39,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
         setOpen(false);
         menuButton.current?.focus();
       }
+      // Keep Tab inside the open drawer; the page behind it is inert.
+      if (e.key === "Tab" && sidebar.current) {
+        const items = [...sidebar.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -55,6 +68,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <p className="sub">{state.message}</p>
           <div className="auth-form">
             <button type="button" className="btn btn-primary btn-block" onClick={() => window.location.reload()}>Try again</button>
+            <Link className="btn btn-block" href="/support/">Get help</Link>
+            <button type="button" className="link-btn" onClick={() => supabase().auth.signOut().then(() => router.push("/"))}>Sign out</button>
           </div>
         </div>
       </main>
@@ -91,7 +106,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <DashboardProvider value={value}>
       <div className="app">
-        <header className="app-topbar">
+        <header className="app-topbar" inert={open}>
           <Link href="/app" className="brand"><Logo /> TypeWit</Link>
           <button ref={menuButton} type="button" className="icon-btn" aria-expanded={open} aria-controls="sidebar" onClick={() => setOpen(true)}>
             <Icon.menu /><span className="sr-only">Open menu</span>
@@ -136,7 +151,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main id="main" className="app-main" tabIndex={-1}>
+        <main id="main" className="app-main" tabIndex={-1} inert={open}>
           <div className="app-inner">{children}</div>
         </main>
       </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { SessionRow } from "@/components/app/SessionRow";
 import { Icon } from "@/components/Icons";
 import { ACTIVE_STATUSES, connectGoogleDocs, formatRelative, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
+import { dailyResetTime } from "@/lib/time";
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -100,7 +101,7 @@ export default function OverviewPage() {
 
       {!isPro && limits.dailyWords && wordsToday >= limits.dailyWords * 0.8 && (
         <p className="alert alert-info" style={{ marginBottom: "1.5rem" }}>
-          <span>You&apos;ve used most of today&apos;s 250 words. Free resets at midnight UTC; Pro has no limit. <Link href="/app/billing">Try Pro free</Link></span>
+          <span>You&apos;ve used most of today&apos;s {limits.dailyWords.toLocaleString()} words. They reset at {dailyResetTime()}; Pro has no limit. <Link href="/app/billing">Try Pro free</Link></span>
         </p>
       )}
 

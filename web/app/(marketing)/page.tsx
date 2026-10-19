@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
+import { PRO_PRICE } from "@/lib/site";
 
 const ticks = (items: string[]) => (
   <ul className="ticks">
@@ -12,9 +13,9 @@ export default function Home() {
     <>
       <section className="hero" aria-labelledby="hero-title">
         <div className="container">
-          <span className="chip"><span className="dot" aria-hidden="true" /> Assistive writing for Google Docs</span>
+          <span className="chip"><span className="dot" aria-hidden="true" /> Assistive writing for Google Docs and Word</span>
           <h1 id="hero-title" className="display">
-            Your words in Google Docs, <span className="soft">without typing.</span>
+            Your words in Google Docs and Word, <span className="soft">without typing.</span>
           </h1>
           <p className="lead">
             Paste or dictate your text, approve it, and TypeWit enters it into your document at the pace you choose.
@@ -96,7 +97,7 @@ export default function Home() {
           <ol className="steps">
             <li><h3>Paste or dictate</h3><p>Bring text you wrote or dictated. Edit it as much as you like first.</p></li>
             <li><h3>Approve it</h3><p>Read the exact text and confirm. If it changes, you approve it again.</p></li>
-            <li><h3>Watch it arrive</h3><p>Sentences or paragraphs appear in your Google Doc at the pace you set.</p></li>
+            <li><h3>Watch it arrive</h3><p>Sentences or paragraphs appear in your Google Doc or Word document at the pace you set.</p></li>
           </ol>
         </div>
       </section>
@@ -140,7 +141,7 @@ export default function Home() {
             </div>
             <div className="tile wide">
               <h3>A clear record of everything</h3>
-              <p>Every approval and every step is in your activity log, ready to download. Google Docs keeps its own version history too.</p>
+              <p>Every approval and every step is in your activity log, ready to download. Google Docs and Word keep their own version history too.</p>
               <div className="vignette" aria-hidden="true">
                 <ul className="tw-log">
                   <li><time>10:24</time><span>Sentence 7 entered</span></li>
@@ -170,7 +171,7 @@ export default function Home() {
             <div className="plan featured">
               <div className="plan-top"><h3>Pro</h3><span className="badge badge-blue">7 days free</span></div>
               <p className="desc">For essays, reports and anything long.</p>
-              <div className="price"><strong>$9</strong><span>/ month, billed yearly</span></div>
+              <div className="price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month, billed yearly</span></div>
               {ticks(["Unlimited words", "Sessions up to 1 week", "3 documents at once", "Priority support"])}
               <Link href="/pricing" className="btn btn-primary btn-block">Try Pro free</Link>
             </div>

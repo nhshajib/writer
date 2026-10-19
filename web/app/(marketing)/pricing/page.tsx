@@ -5,14 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
+import { PRO_PRICE } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 
 type Interval = "year" | "month";
 
-const PRO_PRICE: Record<Interval, { amount: string; note: string; saving?: string }> = {
-  year: { amount: "$9", note: "/ month", saving: "$108 billed yearly · save 40%" },
-  month: { amount: "$15", note: "/ month" },
-};
 
 const COMPARE: { feature: string; free: string; pro: string }[] = [
   { feature: "Words per day", free: "250", pro: "Unlimited" },

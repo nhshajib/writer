@@ -32,3 +32,10 @@ export function span(ms: number): string {
   const days = Math.round(hours / 24);
   return `${days} days`;
 }
+
+/** When the daily word allowance resets (midnight UTC), in the viewer's own time: "5:00 PM". */
+export function dailyResetTime(): string {
+  const next = new Date();
+  next.setUTCHours(24, 0, 0, 0);
+  return next.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+}

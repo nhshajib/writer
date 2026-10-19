@@ -258,7 +258,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
       onStarted(drip.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start the session.");
-      if (!(e instanceof ApiError && e.status === 409)) requestId.current = crypto.randomUUID();
+      // A refused Start gets a new id; a duplicate (409) or one with no response (0) keeps it, so a retry can't start twice.
+      if (!(e instanceof ApiError && (e.status === 409 || e.status === 0))) requestId.current = crypto.randomUUID();
       starting.current = false;
       setBusy(false);
     }

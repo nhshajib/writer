@@ -12,23 +12,35 @@ export class ApiError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 /** Calls a TypeWit Edge Function as the signed-in user. */
 export async function api<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T> {
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new ApiError(401, "Please sign in again.");
 
-  const res = await fetch(`${functionsUrl}/${path}`, {
-    method: init.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
-      "Content-Type": "application/json",
-    },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${functionsUrl}/${path}`, {
+      method: init.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+        "Content-Type": "application/json",
+      },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    // No response at all: offline, blocked, or too slow. Status 0 tells callers the request may not have arrived.
+    throw new ApiError(0, navigator.onLine === false
+      ? "You're offline. Check your internet connection and try again."
+      : "TypeWit didn't respond. Check your connection and try again.");
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 429 && !body?.error) throw new ApiError(429, "Too many requests. Wait a few minutes and try again.");
     throw new ApiError(res.status, body?.error ?? "Something went wrong. Please try again.", body?.problems ?? [], body?.attention ?? null);
   }
   return body as T;
