@@ -1,11 +1,13 @@
 # TypeWit
 
-Users paste text, pick a document and a duration, and TypeWit adds the text to
-that document in even chunks over the chosen time. Writing happens on the
-server, so it keeps going after the browser is closed. Drips can be paused,
-resumed and canceled.
+Users paste and approve text, pick a document and a duration, and TypeWit
+enters the text into that Google Doc step by step (one sentence at a time by
+default) at varied, pre-planned times, finishing at the end of the duration.
+Each step is a real Docs API edit made at its scheduled time. Writing happens on
+the server, so the browser can be closed and the computer can sleep. Sessions can
+be paused, resumed and stopped, and every insertion is logged.
 
-This repo currently holds the **backend** (Supabase). The frontend comes next.
+This repo holds the backend (Supabase, `supabase/`) and the frontend (Next.js, `web/`).
 
 - Google Docs: supported (needs Google OAuth credentials, see below)
 - Microsoft Word Online: planned, behind the same provider interface
@@ -71,15 +73,34 @@ pg_cron (every minute) ──x-tick-secret──▶ drip-tick ──▶ Google D
                                          writes next chunk
 ```
 
-- **Pacing:** the text is split into `min(words, minutes)` chunks of near-equal
-  word counts, spaced evenly across the duration (minimum 60 s apart, since the
-  worker runs once a minute). Chunks keep all whitespace, so the document ends
-  up byte-for-byte identical to the input.
-- **Worker:** `claim_due_drips` locks due rows with `FOR UPDATE SKIP LOCKED` and
-  leases them for 5 minutes, so overlapping ticks never write the same chunk
-  and a crashed tick is retried.
-- **Errors:** rate limits / 5xx retry with backoff (1, 2, 4, 8 min), then fail.
-  A revoked Google grant fails the drip with a "reconnect" message.
+- **Units:** sentences (default, Unicode sentence boundaries), paragraphs,
+  words, or characters (grapheme clusters, so emoji and accents stay whole).
+  Units always join back to the exact text. Text containing characters Google
+  Docs would drop (control characters incl. `\r`, private-use characters, lone
+  surrogates) is refused with an explanation instead of being altered.
+- **Schedule** (`_shared/schedule.ts`): built once, before the session starts,
+  and stored on the drip as millisecond offsets. The wait before each unit is
+  proportional to its length (clamped to 3× the median) times a random factor
+  in ±35 %, with at least 4 s between insertions; the last insertion lands
+  exactly at the end of the duration. The seed the user previewed is the seed
+  that runs. `POST /drips/plan` explains impossible combinations (e.g. 2,000
+  characters can't fit in 5 minutes) before anything starts.
+- **Worker** (`_shared/session.ts`): pg_cron ticks each minute; a tick claims
+  sessions due within the next minute and waits for each insertion's exact time.
+  Before each insertion it checks the document still ends with TypeWit's text,
+  records a write-ahead marker, and inserts with `requiredRevisionId`, so a
+  concurrent edit makes Google refuse the write instead of interleaving. If the
+  worker dies mid-write, the next run decides from the document whether the
+  unit landed, so nothing is duplicated or skipped.
+- **Falling behind:** after an outage or retries the rest of the schedule
+  shifts later (logged as `schedule_shifted`); text is never dumped to catch up.
+  Pause/resume shifts the rest by exactly the pause length.
+- **Attention pauses:** text added after TypeWit's text, an ambiguous
+  interrupted write, a revoked Google grant, a deleted document, or a long
+  outage pause the session with a reason (`attention`) and a notification. The
+  user resumes once fixed, confirms whether a part landed, or chooses to
+  continue after the document's current end. Edits elsewhere in the document
+  don't stop the session.
 - **Security:** RLS on every table; clients can only read their own rows.
   OAuth tokens are AES-GCM encrypted and their columns are not readable by
   clients. All writes go through the Edge Functions.
@@ -94,8 +115,10 @@ supabase/
     drip-tick/           worker (cron)
     google-oauth-start/  returns the Google consent URL
     google-oauth-callback/ stores the Google tokens
-    _shared/             chunking, scheduling, limits, crypto, providers
-  tests/                 unit tests (deno test)
+    _shared/             units, plan, schedule, session engine, providers
+  tests/                 unit tests incl. simulated sessions (deno test)
+web/
+  e2e/                   Playwright + axe browser tests against a mock API
 ```
 
 ## Development
@@ -105,6 +128,9 @@ Requires [Deno](https://deno.com) 2.x.
 ```bash
 deno task test    # unit tests
 deno task check   # typecheck + lint + format check
+
+cd web && npm run typecheck
+cd web && CHROMIUM_PATH=/path/to/chrome npm run test:e2e   # keyboard + screen reader + axe
 ```
 
 ## Setup (already done on Supabase project `jopggisumjlfitapkgjh`)
@@ -237,12 +263,19 @@ Other options on `POST /drips`:
 
 | Field | Values | Meaning |
 |---|---|---|
-| `insertion_unit` | `chunk` (default), `sentence`, `paragraph` | What the text is split on. Each step adds whole units; units are only grouped when there are more units than minutes. |
-| `mode` | `scheduled` (default), `as_soon_as_possible` | `scheduled` spreads the steps over `duration_minutes`. `as_soon_as_possible` writes the whole text on the next worker run (within about a minute). |
+| `insertion_unit` | `sentence` (default), `paragraph`, `word`, `character`, `chunk` | One unit per insertion. `chunk` (even groups of words, about one a minute) is kept for older clients. |
+| `mode` | `scheduled` (default), `as_soon_as_possible` | `scheduled` spreads the units over `duration_minutes`. `as_soon_as_possible` writes the whole text in one insertion. |
+| `schedule_seed` | 32-bit integer | The seed from `POST /drips/plan`, so the session follows the previewed schedule. |
 
-TypeWit writes only into the Google Doc, in these steps. It doesn't type
-character by character or word by word into the document, and every insertion is
-logged and labelled as automated.
+`POST /drips/:id/resume` takes optional `{ "last_part": "present" | "absent" }`
+(after an interrupted insertion the document can't settle) or
+`{ "continue_from_current_end": true }` (after text was added at the end).
+
+TypeWit inserts only the approved text, in order, at planned times. It never
+adds typos, corrections or backdated edits, and sessions are labelled as
+automated text entry. The session log (`drip_events`) records planned and
+actual times, pauses, retries and problems; it is separate from Google Docs
+version history, which Google groups on its own.
 
 ### Plan limits (`_shared/limits.ts`)
 

@@ -16,7 +16,7 @@ import { requireUser } from "../_shared/auth.ts";
 import { INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
 import { decrypt, sha256Hex } from "../_shared/crypto.ts";
 import { loadConnection, providerFor } from "../_shared/connections.ts";
-import { adminClient, encryptionKey, testProviderEnabled } from "../_shared/env.ts";
+import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { checkCreateLimits, PLAN_LIMITS, type PlanTier } from "../_shared/limits.ts";
 import { planSession, type SessionPlan } from "../_shared/plan.ts";
@@ -24,7 +24,13 @@ import { revokeGoogleToken } from "../_shared/providers/google.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { randomSeed } from "../_shared/schedule.ts";
-import { planResume, type ResumableRow, resumeNeedsDocument, type ResumeOptions } from "../_shared/session.ts";
+import {
+  nextTickAfter,
+  planResume,
+  type ResumableRow,
+  resumeNeedsDocument,
+  type ResumeOptions,
+} from "../_shared/session.ts";
 import { CURRENT_TERMS_VERSION } from "../_shared/terms.ts";
 
 const ACTIVE_STATUSES = ["scheduled", "running", "paused"];
@@ -260,6 +266,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
     min_gap_seconds: (plan.stats?.min_gap_ms ?? 0) / 1000,
     max_gap_seconds: (plan.stats?.max_gap_ms ?? 0) / 1000,
   });
+  await kickWorkerIfDue(started.getTime() + plan.schedule[0]);
   return json({ drip }, 201);
 }
 
@@ -359,6 +366,7 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   // A later attention pause should notify again.
   await db.from("notifications").delete().eq("drip_id", id).eq("kind", "drip_attention");
   await logEvent(id, userId, "resumed", result.detail);
+  await kickWorkerIfDue(Date.parse(String(result.patch.next_run_at)));
   return json({ drip: updated });
 }
 
@@ -503,6 +511,26 @@ async function withProviderErrors<T>(fn: () => Promise<T>): Promise<T> {
       throw new HttpError(502, error.message);
     }
     throw error;
+  }
+}
+
+/**
+ * The worker runs on cron ticks at the start of each minute. When the next
+ * insertion is due before the next tick, start a worker run now so it isn't
+ * late. Best effort: the next tick picks the session up anyway.
+ */
+async function kickWorkerIfDue(dueAt: number): Promise<void> {
+  if (!(dueAt < nextTickAfter(Date.now()))) return;
+  try {
+    const res = await fetch(`${requireEnv("SUPABASE_URL")}/functions/v1/drip-tick`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tick-secret": await getSecret("TICK_SECRET", "tick_secret") },
+      body: "{}",
+      signal: AbortSignal.timeout(5_000),
+    });
+    await res.body?.cancel();
+  } catch (error) {
+    console.error("Couldn't start the worker early", error);
   }
 }
 

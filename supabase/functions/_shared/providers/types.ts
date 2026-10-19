@@ -69,4 +69,4 @@ export function classifyHttpStatus(status: number): ProviderErrorKind {
 }
 
 /** Placeholder for non-text content in DocState.text. */
-export const OBJECT_PLACEHOLDER = "￼";
+export const OBJECT_PLACEHOLDER = "\uFFFC";

@@ -1,7 +1,7 @@
 // Worker: called every minute by pg_cron. Claims sessions with an insertion due
-// in the next WORKER_WINDOW_MS and runs each one until then, waiting inside the window
-// for every insertion's exact planned time. The HTTP call returns at once; the
-// work continues as a background task.
+// within the next minute and runs each one, waiting for every insertion's exact
+// planned time (see "Worker timing" in _shared/session.ts). The HTTP call
+// returns at once; the work continues as a background task.
 
 import { type ConnectionRow, loadConnectionsByIds, providerFor } from "../_shared/connections.ts";
 import { safeEqual } from "../_shared/crypto.ts";

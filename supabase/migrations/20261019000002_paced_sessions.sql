@@ -46,8 +46,12 @@ set session_started_at = now(),
 where d.status in ('scheduled', 'running', 'paused') and d.schedule = '[]'::jsonb;
 
 -- Claim drips due within the next minute (the worker waits for each
--- insertion's exact time) and hand each one a fresh lease.
-drop function public.claim_due_drips(integer, integer);
+-- insertion's exact time) and hand each one a fresh lease. The two-argument
+-- version is renamed out of the way (and closed to everyone) rather than
+-- dropped, so the new three-argument one is never ambiguous.
+alter function public.claim_due_drips(integer, integer) rename to claim_due_drips_superseded;
+revoke execute on function public.claim_due_drips_superseded(integer, integer)
+  from public, anon, authenticated, service_role;
 
 create function public.claim_due_drips(
   max_rows integer default 50,
