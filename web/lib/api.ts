@@ -1,7 +1,13 @@
 import { functionsUrl, supabase } from "./supabase";
 
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(
+    readonly status: number,
+    message: string,
+    /** Plan problems (422 from POST /drips) or the attention a resume still needs (409). */
+    readonly problems: { code: string; message: string }[] = [],
+    readonly attention: string | null = null,
+  ) {
     super(message);
   }
 }
@@ -22,7 +28,9 @@ export async function api<T>(path: string, init: { method?: "GET" | "POST"; body
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, body?.error ?? "Something went wrong. Please try again.");
+  if (!res.ok) {
+    throw new ApiError(res.status, body?.error ?? "Something went wrong. Please try again.", body?.problems ?? [], body?.attention ?? null);
+  }
   return body as T;
 }
 

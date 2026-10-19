@@ -1,4 +1,4 @@
-export type NotificationKind = "drip_completed" | "drip_failed";
+export type NotificationKind = "drip_completed" | "drip_failed" | "drip_attention";
 
 export interface NotifyDrip {
   document_title: string | null;
@@ -20,6 +20,13 @@ export function buildNotification(kind: NotificationKind, drip: NotifyDrip): Not
     return {
       title: "Your text is fully written",
       body: `All ${drip.word_count} words have been added to ${name}.`,
+    };
+  }
+  if (kind === "drip_attention") {
+    return {
+      title: "Your session is paused and needs you",
+      body: `TypeWit paused entering text into ${name} after ${drip.chunks_written} of ${drip.total_chunks} parts. ` +
+        `${drip.last_error ?? "Open the session to see why."} Nothing more is entered until you resume.`,
     };
   }
   return {

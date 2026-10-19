@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { formatRelative, useDashboard } from "@/lib/dashboard";
-import { type Drip, STATUS_LABEL } from "@/lib/types";
+import { type Drip, STATUS_LABEL, UNIT_LABEL } from "@/lib/types";
 
 type Filter = "all" | "active" | "done" | "stopped";
 
@@ -16,7 +16,6 @@ const FILTERS: { key: Filter; label: string; match: (d: Drip) => boolean }[] = [
   { key: "stopped", label: "Stopped", match: (d) => d.status === "canceled" || d.status === "failed" },
 ];
 
-const UNIT: Record<Drip["insertion_unit"], string> = { sentence: "Sentences", paragraph: "Paragraphs", chunk: "Even parts" };
 
 const csvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
@@ -95,7 +94,7 @@ export default function SessionsPage() {
                         <tr key={d.id}>
                           <td>
                             <Link href={`/app/session?id=${d.id}`} className="title">{d.document_title ?? "Untitled document"}</Link>
-                            <div className="small muted">{d.mode === "as_soon_as_possible" ? "All at once" : UNIT[d.insertion_unit]}</div>
+                            <div className="small muted">{d.mode === "as_soon_as_possible" ? "All at once" : UNIT_LABEL[d.insertion_unit].title}</div>
                           </td>
                           <td><StatusBadge status={d.status} /></td>
                           <td className="hide-sm">
