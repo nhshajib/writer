@@ -274,7 +274,15 @@ function SessionView() {
       </div>
     );
   }
-  if (error && !drip) return <p className="alert alert-error" role="alert">{error}</p>;
+  if (error && !drip) {
+    return (
+      <div className="card empty" role="alert">
+        <h3>This session can&apos;t be shown</h3>
+        <p>{error}</p>
+        <Link href="/app/sessions" className="btn btn-primary btn-sm">Back to sessions</Link>
+      </div>
+    );
+  }
   if (!drip) return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading session…</div>;
 
   const { progress } = drip;
@@ -306,7 +314,10 @@ function SessionView() {
               {drip.mode === "as_soon_as_possible"
                 ? "All at once"
                 : `${unit.title}, ${drip.timing_mode === "speed" ? `${drip.pacing?.wpm ?? "?"} WPM, about` : "over"} ${span(drip.duration_seconds * 1000)}`}
-              {" "}· started {when(drip.created_at)}
+              {" "}·{" "}
+              {drip.session_started_at && Date.parse(drip.session_started_at) > now && drip.progress.chunks_written === 0
+                ? <>starts {when(drip.session_started_at)}</>
+                : <>started {when(drip.created_at)}</>}
             </span>
           </div>
         </div>
@@ -325,6 +336,9 @@ function SessionView() {
             <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking}>
               {checking ? "Testing…" : "Test connection"}
             </button>
+          )}
+          {finished && drip.provider !== "microsoft" && (
+            <Link href={`/app/new?from=${drip.id}`} className="btn btn-secondary btn-sm">Run again…</Link>
           )}
         </div>
       </div>

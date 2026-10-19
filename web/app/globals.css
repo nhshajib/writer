@@ -24,7 +24,7 @@
   --accent-line: #c9d9f8;
   --on-accent: #ffffff;
   --docs: #4285f4;
-  --red: #d93025;
+  --red: #c5221f;
   --red-soft: #fdeeed;
   --green: #137333;
   --green-soft: #e6f4ea;
@@ -696,3 +696,14 @@ details.more > summary { cursor: pointer; min-height: 44px; display: flex; align
 .pane .card { padding: 1rem; }
 .pane textarea { min-height: 9rem; }
 .pane .summary-list { font-size: 0.875rem; }
+
+/* Toasts: short confirmations at the bottom of the screen. */
+.toast-region { position: fixed; inset: auto 1rem 1rem auto; z-index: 60; max-width: min(420px, calc(100vw - 2rem)); }
+.toast {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.5rem 0.625rem 1rem;
+  background: var(--text); color: var(--bg); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  font-size: 0.9375rem; animation: toast-in 160ms ease-out;
+}
+.toast .icon-btn { color: inherit; font-size: 1.25rem; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }

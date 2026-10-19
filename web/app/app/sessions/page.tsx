@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
+import { api } from "@/lib/api";
 import { formatRelative, useDashboard } from "@/lib/dashboard";
 import { type Drip, STATE_LABEL, stateOf, UNIT_LABEL } from "@/lib/types";
 
 type Filter = "all" | "active" | "done" | "stopped";
+type Sort = "newest" | "oldest" | "title";
 
 const FILTERS: { key: Filter; label: string; match: (d: Drip) => boolean }[] = [
   { key: "all", label: "All", match: () => true },
@@ -20,25 +22,57 @@ const FILTERS: { key: Filter; label: string; match: (d: Drip) => boolean }[] = [
 const csvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
 export default function SessionsPage() {
-  const { drips } = useDashboard();
+  const dashboard = useDashboard();
   const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<Sort>("newest");
   const [query, setQuery] = useState("");
+  // The dashboard holds the newest 100 sessions; older ones load on request.
+  const [older, setOlder] = useState<Drip[]>([]);
+  const [hasMore, setHasMore] = useState(dashboard.drips.length >= 100);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const drips = useMemo(() => {
+    const seen = new Set(dashboard.drips.map((d) => d.id));
+    return [...dashboard.drips, ...older.filter((d) => !seen.has(d.id))];
+  }, [dashboard.drips, older]);
 
   const visible = useMemo(() => {
     const match = FILTERS.find((f) => f.key === filter)!.match;
     const q = query.trim().toLowerCase();
-    return drips.filter((d) => match(d) && (!q || (d.document_title ?? "").toLowerCase().includes(q)));
-  }, [drips, filter, query]);
+    const list = drips.filter((d) => match(d) && (!q || (d.document_title ?? "").toLowerCase().includes(q)));
+    if (sort === "oldest") return [...list].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    if (sort === "title") {
+      return [...list].sort((a, b) => (a.document_title ?? "").localeCompare(b.document_title ?? "", undefined, { sensitivity: "base" }));
+    }
+    return [...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [drips, filter, query, sort]);
 
+  async function loadMore() {
+    const oldest = drips.reduce((min, d) => (d.created_at < min ? d.created_at : min), drips[0]?.created_at ?? "");
+    setLoadingMore(true);
+    setLoadError(null);
+    try {
+      const res = await api<{ drips: Drip[]; has_more?: boolean }>(`drips?before=${encodeURIComponent(oldest)}`);
+      setOlder((prev) => [...prev, ...res.drips]);
+      setHasMore(Boolean(res.has_more));
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Couldn't load more sessions.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  // Exports what the list shows: the current filter, search and order.
   function exportCsv() {
     const rows = [
       ["Document", "Status", "Words entered", "Words total", "Started", "Document link"],
-      ...drips.map((d) => [d.document_title ?? "Untitled document", STATE_LABEL[stateOf(d)], d.progress.words_written,
+      ...visible.map((d) => [d.document_title ?? "Untitled document", STATE_LABEL[stateOf(d)], d.progress.words_written,
         d.progress.words_total, new Date(d.created_at).toISOString(), d.document_url ?? ""]),
     ];
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" }));
-    link.download = "typewit-sessions.csv";
+    link.download = filter === "all" && !query.trim() ? "typewit-sessions.csv" : `typewit-sessions-${filter}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -52,7 +86,9 @@ export default function SessionsPage() {
           <h1>Sessions</h1>
           <p>Everything you&apos;ve asked TypeWit to enter.</p>
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={drips.length === 0}>Export CSV</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={visible.length === 0}>
+          Export CSV{visible.length !== drips.length ? ` (${visible.length} shown)` : ""}
+        </button>
       </div>
 
       {drips.length === 0
@@ -74,9 +110,15 @@ export default function SessionsPage() {
                   </button>
                 ))}
               </div>
-              <div style={{ width: "min(280px, 100%)" }}>
+              <div className="row" style={{ gap: "0.5rem", flexWrap: "nowrap", width: "min(440px, 100%)" }}>
                 <label htmlFor="search" className="sr-only">Search by document title</label>
                 <input id="search" type="search" placeholder="Search documents" value={query} onChange={(e) => setQuery(e.target.value)} />
+                <label htmlFor="sort" className="sr-only">Sort sessions</label>
+                <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} style={{ width: "auto" }}>
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="title">Document A–Z</option>
+                </select>
               </div>
             </div>
             <p className="sr-only" role="status">{visible.length} sessions shown</p>
@@ -108,7 +150,15 @@ export default function SessionsPage() {
                   </table>
                 )}
             </div>
-            {drips.length >= 100 && <p className="hint" style={{ marginTop: "0.75rem" }}>Showing your 100 most recent sessions.</p>}
+            {hasMore && (
+              <div className="row" style={{ marginTop: "0.75rem" }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading…" : "Load older sessions"}
+                </button>
+                <span className="hint">Showing {drips.length} sessions. Filters and search apply to the ones loaded.</span>
+              </div>
+            )}
+            {loadError && <p className="alert alert-error" role="alert" style={{ marginTop: "0.5rem" }}>{loadError}</p>}
           </>
         )}
     </>

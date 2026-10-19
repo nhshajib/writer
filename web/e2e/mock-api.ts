@@ -100,6 +100,8 @@ function planFrom(body: Record<string, unknown>, seed: number) {
   });
 }
 
+let profileChanges: Record<string, unknown> = {};
+
 const MOCK_USER = {
   id: "u1",
   aud: "authenticated",
@@ -136,6 +138,8 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   requests.push({ method, path, body });
 
   if (path.startsWith("/rest/v1/profiles")) {
+    // Saved preferences stick, like the real table.
+    if (method === "PATCH") Object.assign(profileChanges, body);
     const profile = {
       plan: "pro",
       subscription_status: "active",
@@ -143,9 +147,20 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       agreed_terms_version: TERMS,
       words_used_today: 0,
       usage_date: "",
+      ...profileChanges,
     };
     const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
     return send(res, 200, single ? profile : [profile]);
+  }
+  // "Run again" reads a past session's text and settings straight from the table.
+  if (path === "/rest/v1/drips" && method === "GET") {
+    const id = new URL(req.url ?? "/", "http://localhost").searchParams.get("id")?.replace(/^eq\./, "");
+    const row = id ? drips.get(id) : undefined;
+    const data = row
+      ? { text: row.chunks.join(""), insertion_unit: row.insertion_unit, timing_mode: row.timing_mode, pacing: row.pacing }
+      : null;
+    const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
+    return send(res, 200, single ? data : data ? [data] : []);
   }
   if (path.startsWith("/rest/v1/")) return send(res, 200, []);
   // Enough of Supabase Auth for password sign-in and the password-reset link.
@@ -163,6 +178,13 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path.startsWith("/auth/v1/")) return send(res, 200, {});
 
   const parts = path.replace(/^\/functions\/v1\/drips\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "account" && parts[1] === "delete") {
+    if (String(body.confirm_email ?? "").toLowerCase() !== MOCK_USER.email) {
+      return send(res, 400, { error: "Type your account's email address to confirm." });
+    }
+    drips.clear();
+    return send(res, 200, { deleted: true });
+  }
   if (parts[0] === "connections" && parts[1] === "microsoft") {
     return send(res, 201, { connection: { id: "m1", provider: "microsoft", account_email: "me@gmail.com" } });
   }
@@ -213,6 +235,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!plan.ok) return send(res, 422, { error: plan.problems[0].message, problems: plan.problems });
     const id = `00000000-0000-4000-8000-${String(drips.size + 1).padStart(12, "0")}`;
     const now = new Date().toISOString();
+    const startAt = typeof body.start_at === "string" ? body.start_at : null;
     const word = body.connection_id === "m1";
     const row: Row = {
       id,
@@ -231,11 +254,11 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       chunks: plan.units,
       chunks_written: 0,
       schedule: plan.schedule,
-      session_started_at: now,
+      session_started_at: startAt ?? now,
       schedule_shift_seconds: 0,
       paused_at: null,
       last_written_at: null,
-      next_run_at: now,
+      next_run_at: startAt ? new Date(Date.parse(startAt) + plan.schedule[0]).toISOString() : now,
       completed_at: null,
       created_at: now,
       approved_at: now,
@@ -368,6 +391,7 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     drips.clear();
     events.clear();
     requests.length = 0;
+    profileChanges = {};
     return send(res, 200, {});
   }
   const row = drips.get(String(body.id));

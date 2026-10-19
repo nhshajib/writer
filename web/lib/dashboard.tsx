@@ -13,6 +13,9 @@ export interface Profile {
   plan: "free" | "pro";
   subscription_status: string | null;
   email_notifications: boolean;
+  /** Per kind of update; missing until the column exists (treated as on). */
+  email_on_completed?: boolean;
+  email_on_attention?: boolean;
   agreed_terms_version: string | null;
   words_used_today: number;
   usage_date: string;
@@ -77,7 +80,7 @@ export function useDashboardLoader() {
       const client = supabase();
       const [{ data: profile, error: profileError }, conns, list, { data: notes }] = await Promise.all([
         client.from("profiles")
-          .select("plan, subscription_status, email_notifications, agreed_terms_version, words_used_today, usage_date")
+          .select("plan, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date")
           .maybeSingle(),
         api<{ connections: Connection[] }>("drips/connections"),
         api<{ drips: Drip[] }>("drips"),

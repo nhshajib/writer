@@ -7,6 +7,7 @@ import { type ConnectionRow, loadConnectionsByIds, providerFor } from "../_share
 import { safeEqual } from "../_shared/crypto.ts";
 import { adminClient, getSecret } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
+import { housekeeping } from "../_shared/housekeeping.ts";
 import { notifyUser } from "../_shared/notifyUser.ts";
 import {
   CLAIM_LOOKAHEAD_SECONDS,
@@ -34,6 +35,7 @@ const BATCH_SIZE = 50;
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
 serve(async (req) => {
+  if (req.method === "GET" && new URL(req.url).pathname.endsWith("/health")) return await health();
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed.");
 
   const expected = await getSecret("TICK_SECRET", "tick_secret");
@@ -54,14 +56,15 @@ serve(async (req) => {
   const connections = await loadConnectionsByIds([...new Set(drips.map((d) => d.connection_id))]);
 
   // Sessions spend most of a window waiting, so they run side by side.
-  const work = Promise.all(
-    drips.map((drip) => processDrip(drip, connections.get(drip.connection_id), started + MAX_RUN_MS)),
-  );
+  const work = Promise.all([
+    housekeeping(drips.length, started),
+    ...drips.map((drip) => processDrip(drip, connections.get(drip.connection_id), started + MAX_RUN_MS)),
+  ]);
   if (typeof EdgeRuntime !== "undefined") {
     EdgeRuntime.waitUntil(work);
     return json({ claimed: drips.length });
   }
-  return json({ claimed: drips.length, results: await work });
+  return json({ claimed: drips.length, results: (await work).slice(1) });
 });
 
 async function processDrip(drip: ClaimedDrip, connection: ConnectionRow | undefined, deadline: number) {
@@ -147,4 +150,30 @@ function dbStore(): SessionStore {
       if (error) console.error("Failed to log session events", row.id, error.message);
     },
   };
+}
+
+/**
+ * GET /drip-tick/health, for an uptime monitor: is the worker still being
+ * called every minute? Reports times and yes/no flags only, never user data.
+ */
+async function health(): Promise<Response> {
+  const { data, error } = await adminClient().from("worker_heartbeat").select("last_tick_at, last_cleanup_at")
+    .eq("id", 1).maybeSingle();
+  const lastTick = data?.last_tick_at ? Date.parse(data.last_tick_at) : null;
+  const ageSeconds = lastTick === null ? null : Math.round((Date.now() - lastTick) / 1000);
+  // pg_cron calls every 60 s; allow for a slow run before calling it stalled.
+  const workerOk = !error && ageSeconds !== null && ageSeconds < 180;
+  const has = (name: string) => Boolean(Deno.env.get(name));
+  return json({
+    ok: workerOk,
+    worker: { last_tick_at: data?.last_tick_at ?? null, seconds_since_tick: ageSeconds },
+    last_cleanup_at: data?.last_cleanup_at ?? null,
+    configured: {
+      google: has("GOOGLE_CLIENT_ID") && has("GOOGLE_CLIENT_SECRET"),
+      google_picker_key: has("GOOGLE_API_KEY"),
+      email: has("RESEND_API_KEY"),
+      billing: has("STRIPE_SECRET_KEY") && has("STRIPE_WEBHOOK_SECRET"),
+      test_provider_enabled: Deno.env.get("ENABLE_TEST_PROVIDER") === "true",
+    },
+  }, workerOk ? 200 : 503);
 }

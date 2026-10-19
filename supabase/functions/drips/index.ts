@@ -1,6 +1,6 @@
 // User-facing API for drips, document connections and documents.
 //
-//   GET  /drips                     list my drips (with progress)
+//   GET  /drips[?before=<iso>]      list my drips (with progress), newest first, 100 at a time
 //   POST /drips/plan                check text, step size and duration; preview the schedule
 //   POST /drips                     create and start a drip with its full schedule
 //   GET  /drips/:id                 one drip with progress, the text written so far, and recent events
@@ -18,6 +18,7 @@
 //   POST /drips/connections/microsoft       the Word add-in's connection (no Microsoft tokens are stored)
 //   POST /drips/:id/engine          the Word add-in runs a Word session through this (claim, update, confirm, log)
 //   POST /drips/documents           create a new document in a connected account
+//   POST /drips/account/delete      delete my account and everything TypeWit stores for it
 
 import { requireUser } from "../_shared/auth.ts";
 import { INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
@@ -73,7 +74,7 @@ serve(async (req) => {
   const method = req.method;
 
   if (parts.length === 0) {
-    if (method === "GET") return await listDrips(user.id);
+    if (method === "GET") return await listDrips(user.id, new URL(req.url).searchParams.get("before"));
     if (method === "POST") {
       await rateLimit(user.id, "start");
       return await createDrip(user.id, req);
@@ -101,6 +102,9 @@ serve(async (req) => {
     if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "disconnect" && method === "POST") {
       return await disconnectConnection(user.id, parts[1]);
     }
+  }
+  if (parts[0] === "account" && parts[1] === "delete" && parts.length === 2 && method === "POST") {
+    return await deleteAccount(user.id, user.email, req);
   }
   if (parts[0] === "documents" && parts.length === 1 && method === "POST") {
     await rateLimit(user.id, "document");
@@ -137,6 +141,8 @@ function routeParts(req: Request): string[] {
 
 interface CreateDripBody {
   connection_id?: string;
+  /** Optional later start (ISO time, up to 7 days ahead); the schedule counts from it. */
+  start_at?: string;
   document_id?: string;
   new_document_title?: string;
   /** Word: the document's name (the id is its address). */
@@ -264,6 +270,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (body.request_id !== undefined && !UUID_RE.test(String(body.request_id))) {
     throw new HttpError(400, "request_id must be a UUID.");
   }
+  readStartAt(body.start_at);
 
   const db = adminClient();
   const connection = await loadConnection(body.connection_id, userId);
@@ -324,6 +331,19 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   }
 }
 
+const MAX_START_DELAY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** A later start time from the request, or null to start now. A time already past (by under a minute) means now. */
+function readStartAt(raw: unknown): Date | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const at = typeof raw === "string" ? Date.parse(raw) : NaN;
+  if (!Number.isFinite(at)) throw new HttpError(400, "start_at must be a date and time.");
+  const now = Date.now();
+  if (at < now - 60_000) throw new HttpError(422, "The start time has already passed. Choose a later time.");
+  if (at > now + MAX_START_DELAY_MS) throw new HttpError(422, "Sessions can be scheduled up to 7 days ahead.");
+  return at <= now ? null : new Date(at);
+}
+
 /** Creates the document if needed, reserves the words, and saves the session with its schedule. */
 async function startSession(
   userId: string,
@@ -360,7 +380,8 @@ async function startSession(
   if (reserveError) throw new Error(reserveError.message);
   if (!reserved) throw new HttpError(422, `Your plan allows ${PLAN_LIMITS[tier].dailyWords} words per day.`);
 
-  const started = new Date();
+  const approvedAt = new Date();
+  const started = readStartAt(body.start_at) ?? approvedAt;
   const lastOffset = plan.schedule[plan.schedule.length - 1];
   const { data: drip, error } = await db
     .from("drips")
@@ -385,7 +406,7 @@ async function startSession(
       breaks: plan.breaks,
       request_id: body.request_id ?? null,
       text_sha256: textHash,
-      approved_at: started.toISOString(),
+      approved_at: approvedAt.toISOString(),
       schedule: plan.schedule,
       schedule_seed: plan.seed,
       session_started_at: started.toISOString(),
@@ -419,6 +440,7 @@ async function startSession(
     mode: input.mode,
   });
   await logEvent(dripId, userId, "created", {
+    starts_at: started > approvedAt ? started.toISOString() : null,
     words: plan.words,
     chunks: plan.units.length,
     insertion_unit: input.unit,
@@ -448,15 +470,27 @@ function withProgress(row: DripWithChunks, includeText: boolean) {
     : { ...drip, progress };
 }
 
-async function listDrips(userId: string): Promise<Response> {
-  const { data, error } = await adminClient()
+const PAGE_SIZE = 100;
+
+/** One page of sessions; `before` (a created_at time) continues after the last page. */
+async function listDrips(userId: string, before: string | null): Promise<Response> {
+  let query = adminClient()
     .from("drips")
     .select(`${DRIP_COLUMNS}, chunks`)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(PAGE_SIZE + 1);
+  if (before) {
+    if (!Number.isFinite(Date.parse(before))) throw new HttpError(400, "before must be a date and time.");
+    query = query.lt("created_at", before);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return json({ drips: (data as unknown as DripWithChunks[]).map((row) => withProgress(row, false)) });
+  const rows = data as unknown as DripWithChunks[];
+  return json({
+    drips: rows.slice(0, PAGE_SIZE).map((row) => withProgress(row, false)),
+    has_more: rows.length > PAGE_SIZE,
+  });
 }
 
 async function getDrip(userId: string, id: string): Promise<Response> {
@@ -713,6 +747,43 @@ async function disconnectConnection(userId: string, id: string): Promise<Respons
   if (error) throw new Error(error.message);
 
   return json({ disconnected: true, stopped_sessions: (stopped ?? []).length });
+}
+
+/**
+ * Deletes the account. Stops unfinished sessions, revokes Google access, then
+ * deletes the user; the database removes their sessions, logs, notifications
+ * and connections with it (trial_claims keeps an anonymous row so a trial
+ * can't be claimed twice). Documents themselves are never touched.
+ */
+async function deleteAccount(userId: string, email: string | null, req: Request): Promise<Response> {
+  const body = await readJson<{ confirm_email?: string }>(req);
+  if (!email || (body.confirm_email ?? "").trim().toLowerCase() !== email.toLowerCase()) {
+    throw new HttpError(400, "Type your account's email address to confirm.");
+  }
+  const db = adminClient();
+  const { data: profile } = await db.from("profiles").select("subscription_status").eq("user_id", userId).maybeSingle();
+  if (["active", "trialing", "past_due"].includes(profile?.subscription_status ?? "")) {
+    throw new HttpError(409, "Cancel Pro in Plan & billing first, so you aren't charged again.");
+  }
+
+  const { error: stopError } = await db.from("drips").update({ status: "canceled", next_run_at: null })
+    .eq("user_id", userId).in("status", ACTIVE_STATUSES);
+  if (stopError) throw new Error(stopError.message);
+
+  const { data: connections } = await db.from("provider_connections").select("id, provider, refresh_token_enc")
+    .eq("user_id", userId);
+  for (const connection of connections ?? []) {
+    if (connection.provider !== "google" || !connection.refresh_token_enc) continue;
+    try {
+      await revokeGoogleToken(await decrypt(connection.refresh_token_enc, await encryptionKey()));
+    } catch (error) {
+      console.error("Couldn't revoke Google token", error);
+    }
+  }
+
+  const { error } = await db.auth.admin.deleteUser(userId);
+  if (error) throw new Error(error.message);
+  return json({ deleted: true });
 }
 
 async function createTestConnection(userId: string, email: string | null): Promise<Response> {

@@ -10,7 +10,8 @@ import { PaceControls, pacingFor, usePace } from "@/components/app/PaceControls"
 import { api, ApiError, sha256Hex } from "@/lib/api";
 import { ACTIVE_STATUSES, useDashboard } from "@/lib/dashboard";
 import { pickGoogleDoc } from "@/lib/googlePicker";
-import { span } from "@/lib/time";
+import { supabase } from "@/lib/supabase";
+import { span, when } from "@/lib/time";
 import {
   type AccessReport,
   type InsertionUnit,
@@ -42,6 +43,32 @@ const DURATIONS: { minutes: number; label: string }[] = [
   { minutes: 4320, label: "3 days" },
   { minutes: 10080, label: "1 week" },
 ];
+
+/** The unsent text is kept in this browser only, so a closed tab or a failed Start doesn't lose it. */
+const DRAFT_KEY = "typewit.draft";
+
+function readDraft(): string {
+  try {
+    return localStorage.getItem(DRAFT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeDraft(text: string) {
+  try {
+    if (text.trim()) localStorage.setItem(DRAFT_KEY, text);
+    else localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Storage blocked: drafts just aren't kept.
+  }
+}
+
+/** "2026-10-20T09:30" for a datetime-local input, in local time. */
+function localInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 const UNITS: { value: InsertionUnit; hint: string }[] = [
   { value: "sentence", hint: "One sentence at a time. Recommended." },
@@ -106,6 +133,10 @@ export default function NewSessionPage() {
   const [problems, setProblems] = useState<PlanProblem[]>([]);
   const [checking, setChecking] = useState(false);
   const [report, setReport] = useState<AccessReport | null>(null);
+  const [draft, setDraft] = useState("");
+  const [fromNote, setFromNote] = useState<string | null>(null);
+  const [startLater, setStartLater] = useState(false);
+  const [startAt, setStartAt] = useState(() => localInputValue(new Date(Date.now() + 60 * 60 * 1000)));
   const errorRef = useRef<HTMLDivElement>(null);
   // One id per Start press, so a repeated request can't start a second session.
   const requestId = useRef<string>(crypto.randomUUID());
@@ -128,6 +159,66 @@ export default function NewSessionPage() {
       setPastDocKey(doc.key);
     }
   }, [pastDocs, connections]);
+
+  // "Run again" on a session page links here with ?from=<session id>: start from that session's text and settings.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current) return;
+    const from = new URLSearchParams(window.location.search).get("from");
+    if (!from) {
+      prefilled.current = true;
+      const saved = readDraft();
+      if (saved) setDraft(saved);
+      return;
+    }
+    if (dashboard.drips.length === 0) return;
+    prefilled.current = true;
+    const source = dashboard.drips.find((d) => d.id === from);
+    supabase().from("drips").select("text, insertion_unit, timing_mode, pacing").eq("id", from).maybeSingle()
+      .then(({ data }) => {
+        if (!data?.text) return;
+        setText(data.text as string);
+        if (data.insertion_unit) setUnit(data.insertion_unit as InsertionUnit);
+        const pacing = data.pacing as PacingSettings | null;
+        if (data.timing_mode === "asap") setTiming("asap");
+        else if (pacing) {
+          setTiming(pacing.timing);
+          if (pacing.timing === "duration" && pacing.duration_seconds) {
+            const mins = Math.round(pacing.duration_seconds / 60);
+            if (DURATIONS.some((d) => d.minutes === mins)) setPreset(String(mins));
+            else {
+              setPreset("custom");
+              setCustomMinutes(String(mins));
+            }
+          }
+          updatePace({
+            ...(pacing.wpm ? { wpm: pacing.wpm } : {}),
+            variation: pacing.variation_pct,
+            breaksOn: pacing.breaks.enabled,
+            everyMinutes: Math.round(pacing.breaks.every_seconds / 60),
+            everyVariation: pacing.breaks.every_variation_pct,
+            minBreakSeconds: pacing.breaks.min_seconds,
+            maxBreakSeconds: pacing.breaks.max_seconds,
+            align: pacing.breaks.align,
+          });
+        }
+        const doc = source ? pastDocs.find((d) => d.key === `${source.connection_id}:${source.document_id}`) : undefined;
+        if (doc && !doc.busy && connections.some((c) => c.id === doc.connectionId)) {
+          setConnectionId(doc.connectionId);
+          setTarget("existing");
+          setPastDocKey(doc.key);
+        }
+        setFromNote(`Started from "${source?.document_title ?? "a past session"}". Check the text and settings, then approve.`);
+      });
+  }, [dashboard.drips, pastDocs, connections, updatePace]);
+
+  // Keep the unsent text in this browser while it's being written.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (text) writeDraft(text);
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [text]);
 
   const limits = LIMITS[plan];
   const words = countWords(text);
@@ -258,6 +349,9 @@ export default function NewSessionPage() {
     if (!current) return fail("The schedule is still being checked. Try again in a moment.");
     if (!preview.ok) return fail("This session can't run as set up:", preview.problems);
     if (!approved) return fail("Read your text and tick the box to approve it.");
+    const startTime = startLater ? new Date(startAt) : null;
+    if (startTime && !(startTime.getTime() > Date.now())) return fail("Choose a start time in the future.");
+    if (startTime && startTime.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) return fail("Sessions can be scheduled up to 7 days ahead.");
 
     starting.current = true;
     setBusy(true);
@@ -273,9 +367,11 @@ export default function NewSessionPage() {
           ...(timing === "asap" ? { duration_minutes: 1 } : { pacing }),
           schedule_seed: preview.seed,
           request_id: requestId.current,
+          ...(startTime ? { start_at: startTime.toISOString() } : {}),
           approval: { confirmed: true, text_sha256: await sha256Hex(text) },
         },
       });
+      writeDraft("");
       await dashboard.refresh();
       router.push(`/app/session?id=${drip.id}`);
     } catch (e) {
@@ -298,6 +394,10 @@ export default function NewSessionPage() {
           <h3>Connect Google first</h3>
           <p>TypeWit needs your permission to create documents and add your text to them.</p>
           <Link href="/app/documents" className="btn btn-primary btn-sm">Connect Google Docs</Link>
+          <p className="small muted" style={{ marginTop: "1rem" }}>
+            Writing in Microsoft Word instead? Sessions for Word start from the{" "}
+            <Link href="/app/documents#word">TypeWit add-in in Word</Link>; no Google account is needed.
+          </p>
         </div>
       </>
     );
@@ -309,13 +409,14 @@ export default function NewSessionPage() {
 
   return (
     <>
-      <div className="crumbs"><Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span>New</span></div>
+      <nav className="crumbs" aria-label="Breadcrumb"><Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span aria-current="page">New</span></nav>
       <div className="page-head">
         <div>
           <h1 id="new-title">New session</h1>
           <p>Choose a document, add your text and set the pace. TypeWit enters it for you, step by step, as automated text entry.</p>
         </div>
       </div>
+      {fromNote && <p className="alert alert-info" role="status" style={{ marginBottom: "1rem", maxWidth: 860 }}>{fromNote}</p>}
 
       <form className="card card-flush" onSubmit={onSubmit} noValidate aria-labelledby="new-title" style={{ maxWidth: 860 }}>
         <fieldset className="form-section">
@@ -386,6 +487,13 @@ export default function NewSessionPage() {
           <h2>Text</h2>
           <p className="muted">Paste or dictate it here. It is entered exactly as written, in order, including line breaks.</p>
           <div className="field">
+            {draft && !text && (
+              <p className="alert alert-info" style={{ marginBottom: "0.75rem" }}>
+                <span>You have unsent text from before ({countWords(draft).toLocaleString()} words), saved in this browser.</span>{" "}
+                <button type="button" className="link-btn" onClick={() => { changeText(draft); setDraft(""); }}>Restore it</button>{" "}
+                <button type="button" className="link-btn" onClick={() => { writeDraft(""); setDraft(""); }}>Discard</button>
+              </p>
+            )}
             <label className="sr-only" htmlFor="text">Text to enter</label>
             <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
             <div className="row" style={{ justifyContent: "space-between" }}>
@@ -468,6 +576,22 @@ export default function NewSessionPage() {
 
           {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} />}
 
+          <div className="field" style={{ marginTop: "1.25rem" }}>
+            <label className="check" htmlFor="start-later">
+              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} />
+              <span>Start later instead of now</span>
+            </label>
+            {startLater && (
+              <div className="field" style={{ maxWidth: 280, marginBottom: 0 }}>
+                <label className="label" htmlFor="start-at">Start at (your time)</label>
+                <input id="start-at" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)}
+                  min={localInputValue(new Date())} max={localInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))}
+                  aria-describedby="start-at-hint" />
+                <span id="start-at-hint" className="hint">Up to 7 days ahead. The schedule below counts from this time.</span>
+              </div>
+            )}
+          </div>
+
           <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
             onReshuffle={() => setSeed(undefined)} />
         </fieldset>
@@ -477,6 +601,7 @@ export default function NewSessionPage() {
           <dl className="summary-list" aria-label="Session summary">
             <dt>Document</dt><dd>{docLabel}</dd>
             <dt>Insertion location</dt><dd>At the end of the document</dd>
+            <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
             <dt>Text length</dt><dd>{words.toLocaleString()} words, {text.length.toLocaleString()} characters</dd>
             <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
             <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>

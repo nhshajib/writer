@@ -37,9 +37,11 @@ export async function notifyUser(drip: NotifiableDrip, kind: NotificationKind): 
     if (error) throw new Error(error.message);
     if (!inserted?.length) return; // already notified
 
-    const { data: profile } = await db.from("profiles").select("email_notifications").eq("user_id", drip.user_id)
+    const { data: profile } = await db.from("profiles")
+      .select("email_notifications, email_on_completed, email_on_attention")
+      .eq("user_id", drip.user_id)
       .maybeSingle();
-    if (profile && profile.email_notifications === false) return;
+    if (!wantsEmail(profile, kind)) return;
 
     const { data: userData } = await db.auth.admin.getUserById(drip.user_id);
     const email = userData?.user?.email;
@@ -57,4 +59,16 @@ export async function notifyUser(drip: NotifiableDrip, kind: NotificationKind): 
     // Never let a notification problem affect the session itself.
     console.error("Failed to notify user", drip.id, error);
   }
+}
+
+/** email_notifications is the master switch; the others choose per kind of update. */
+export function wantsEmail(
+  profile: { email_notifications?: boolean; email_on_completed?: boolean; email_on_attention?: boolean } | null,
+  kind: NotificationKind,
+): boolean {
+  if (!profile) return true;
+  if (profile.email_notifications === false) return false;
+  if (kind === "drip_completed") return profile.email_on_completed !== false;
+  if (kind === "drip_attention") return profile.email_on_attention !== false;
+  return true;
 }

@@ -36,3 +36,12 @@ Deno.test("the test provider is off unless explicitly turned on", () => {
     else Deno.env.set("ENABLE_TEST_PROVIDER", before);
   }
 });
+
+Deno.test("email preferences: a master switch, then one choice per kind of update", async () => {
+  const { wantsEmail } = await import("../functions/_shared/notifyUser.ts");
+  assertEquals(wantsEmail(null, "drip_completed"), true);
+  assertEquals(wantsEmail({ email_notifications: false, email_on_completed: true }, "drip_completed"), false);
+  assertEquals(wantsEmail({ email_notifications: true, email_on_completed: false }, "drip_completed"), false);
+  assertEquals(wantsEmail({ email_notifications: true, email_on_completed: false }, "drip_attention"), true);
+  assertEquals(wantsEmail({ email_notifications: true, email_on_attention: false }, "drip_attention"), false);
+});

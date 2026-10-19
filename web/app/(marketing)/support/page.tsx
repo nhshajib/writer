@@ -28,7 +28,7 @@ export default function SupportPage() {
       <h3>How do I cancel Pro?</h3>
       <p>Go to <Link href="/app/billing/">Plan &amp; billing</Link> and choose Manage billing. You keep Pro until the end of the period you've paid for.</p>
       <h3>How do I delete my account?</h3>
-      <p>Email <a href={`mailto:${SUPPORT_EMAIL}?subject=Delete%20my%20account`}>{SUPPORT_EMAIL}</a> from the address you signed up with and we'll delete your account and data. Cancel any Pro subscription first.</p>
+      <p>Go to <Link href="/app/settings/">Settings</Link> and choose Delete my account. It takes effect straight away. Cancel any Pro subscription first. You can also email <a href={`mailto:${SUPPORT_EMAIL}?subject=Delete%20my%20account`}>{SUPPORT_EMAIL}</a> from the address you signed up with.</p>
       <h3>Something else?</h3>
       <p>See the <Link href="/pricing#faq">pricing questions</Link>, or just email us.</p>
     </article>

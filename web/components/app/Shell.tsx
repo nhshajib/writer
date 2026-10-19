@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { Icon } from "@/components/Icons";
 import { Logo } from "@/components/Logo";
+import { ToastProvider } from "@/components/Toast";
 import { DashboardProvider, PLAN_LIMITS, useDashboardLoader } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
@@ -105,6 +106,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <DashboardProvider value={value}>
+      <ToastProvider>
       <div className="app">
         <header className="app-topbar" inert={open}>
           <Link href="/app" className="brand"><Logo /> TypeWit</Link>
@@ -155,6 +157,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="app-inner">{children}</div>
         </main>
       </div>
+      </ToastProvider>
     </DashboardProvider>
   );
 }

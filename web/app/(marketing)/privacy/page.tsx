@@ -93,9 +93,13 @@ export default function PrivacyPage() {
 
       <h2>How long we keep it</h2>
       <p>
-        We keep your account, sessions and activity log while your account is open, so you can see your history. When
-        you ask us to delete your account, we delete your personal data within 30 days, except records we must keep by
-        law (such as billing records).
+        We keep your account, sessions and activity log while your account is open, so you can see your history. You
+        can delete finished sessions at any time, or delete your whole account in Settings: that removes your sessions,
+        their text and logs, your notifications and your Google connection straight away. If you ask us by email
+        instead, we do it within 30 days. We keep records we must keep by law (such as billing records), and, if you used
+        the free trial, your email address (lower-cased) and the date of the trial, so a trial can only be used once.
+        Short-lived records are deleted automatically: read notifications after 90 days, and security and duplicate-
+        request records after 2 to 90 days.
       </p>
 
       <h2>Your choices and rights</h2>

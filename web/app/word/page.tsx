@@ -98,6 +98,7 @@ function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent) {
@@ -105,8 +106,21 @@ function SignIn() {
     setBusy(true);
     setError(null);
     const { error: signInError } = await supabase().auth.signInWithPassword({ email: email.trim(), password });
-    if (signInError) setError(signInError.message);
+    if (signInError) {
+      setError(signInError.message === "Invalid login credentials" ? "The email or password is incorrect." : signInError.message);
+    }
     setBusy(false);
+  }
+
+  async function forgot() {
+    setError(null);
+    setNotice(null);
+    if (!email.trim()) return setError("Enter your email first, then choose “Forgot password?”.");
+    const { error: resetError } = await supabase().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password/`,
+    });
+    if (resetError) setError(resetError.message);
+    else setNotice("If that email has an account, we've sent a reset link. Open it in your browser, then sign in here.");
   }
 
   return (
@@ -121,11 +135,18 @@ function SignIn() {
         <input id="pane-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </div>
       {error && <p className="alert alert-error" role="alert">{error}</p>}
-      <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-      <p className="hint" style={{ marginTop: "0.75rem" }}>
-        No account yet, or you sign in with Google? <a href="/signup" target="_blank" rel="noopener">Create one or set a
-        password on the website</a>, then come back.
-      </p>
+      {notice && <p className="alert alert-info" role="status">{notice}</p>}
+      <div className="row">
+        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+        <button type="button" className="link-btn" onClick={forgot}>Forgot password?</button>
+      </div>
+      <ul className="hint" style={{ marginTop: "0.75rem", paddingLeft: "1.1rem" }}>
+        <li>No account yet? <a href="/signup/" target="_blank" rel="noopener">Create one on typewit.com</a> (opens in your browser).</li>
+        <li>
+          You sign in with Google? Word can&apos;t open Google&apos;s sign-in here. On typewit.com, go to{" "}
+          <a href="/app/settings/" target="_blank" rel="noopener">Settings → Security</a> and set a password, then use it here.
+        </li>
+      </ul>
     </form>
   );
 }
