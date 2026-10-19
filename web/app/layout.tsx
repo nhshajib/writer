@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://typewit.com"),
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <a href="#main" className="skip-link">Skip to main content</a>
+        <RecoveryRedirect />
         {children}
       </body>
     </html>

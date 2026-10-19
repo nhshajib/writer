@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { GoogleMark } from "@/components/Icons";
 import { continueWithGoogle } from "@/lib/googleAuth";
+import { safeNext } from "@/lib/nextPath";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -14,16 +15,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [next, setNext] = useState("/app/");
 
   useEffect(() => {
-    const message = new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("error");
     if (message) setError(message);
+    setNext(safeNext(params.get("next")));
   }, []);
 
   async function google() {
     setError(null);
     setBusy(true);
-    const problem = await continueWithGoogle({ agreed: false });
+    const problem = await continueWithGoogle({ agreed: false, next });
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -33,14 +38,35 @@ export default function LoginPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setNotice(null);
+    setUnconfirmed(false);
     setBusy(true);
     const { error: signInError } = await supabase().auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     if (signInError) {
+      if (/not confirmed/i.test(signInError.message)) {
+        setUnconfirmed(true);
+        setError("Confirm your email first: open the link we sent when you signed up.");
+        return;
+      }
       setError(signInError.message === "Invalid login credentials" ? "The email or password is incorrect." : signInError.message);
       return;
     }
-    router.push("/app");
+    router.push(next);
+  }
+
+  async function resendConfirmation() {
+    setError(null);
+    const { error: resendError } = await supabase().auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/app/` },
+    });
+    if (resendError) setError(resendError.message);
+    else {
+      setUnconfirmed(false);
+      setNotice("We've sent a new confirmation link. Check your inbox and spam folder.");
+    }
   }
 
   async function resetPassword() {
@@ -50,7 +76,7 @@ export default function LoginPage() {
       return;
     }
     const { error: resetError } = await supabase().auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/account`,
+      redirectTo: `${window.location.origin}/reset-password/`,
     });
     if (resetError) setError(resetError.message);
     else setNotice("If that email has an account, we've sent a link to reset the password.");
@@ -78,9 +104,12 @@ export default function LoginPage() {
             <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error && <p className="alert alert-error" role="alert">{error}</p>}
+          {unconfirmed && (
+            <button type="button" className="btn btn-block" onClick={resendConfirmation}>Send the confirmation email again</button>
+          )}
           {notice && <p className="alert alert-info" role="status">{notice}</p>}
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-          <p className="small muted center">New to TypeWit? <Link href="/signup">Create a free account</Link></p>
+          <p className="small muted center">New to TypeWit? <Link href={next === "/app/" ? "/signup" : `/signup?next=${encodeURIComponent(next)}`}>Create a free account</Link></p>
         </form>
       </div>
     </div>

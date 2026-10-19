@@ -37,10 +37,12 @@ export function checkCreateLimits(input: CreateDripCheck): string | null {
     return "Duration must be at least 1 minute.";
   }
   if (input.durationSeconds > limits.maxDurationSeconds) {
-    return `Your plan allows drips up to ${formatDuration(limits.maxDurationSeconds)}.`;
+    return `Your plan allows sessions up to ${formatDuration(limits.maxDurationSeconds)}.`;
   }
   if (input.activeDrips >= limits.maxActiveDrips) {
-    return `Your plan allows ${limits.maxActiveDrips} active drip${limits.maxActiveDrips === 1 ? "" : "s"} at a time.`;
+    return `Your plan allows ${limits.maxActiveDrips} active session${
+      limits.maxActiveDrips === 1 ? "" : "s"
+    } at a time.`;
   }
   if (limits.dailyWords !== null && input.words > limits.dailyWords) {
     return `Your plan allows ${limits.dailyWords} words per day.`;

@@ -9,6 +9,8 @@ import { planForSubscriptionStatus, verifyStripeSignature } from "../_shared/str
 interface StripeEvent {
   id: string;
   type: string;
+  /** Unix seconds. */
+  created: number;
   data: { object: Record<string, unknown> };
 }
 
@@ -42,19 +44,25 @@ serve(async (req) => {
   if (seenError) throw new Error(seenError.message);
   if (!fresh?.length) return json({ received: true, duplicate: true });
 
-  switch (event.type) {
-    case "customer.subscription.created":
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted":
-      await syncSubscription(event.data.object as unknown as Subscription, event.type);
-      break;
-    default:
-      break;
+  try {
+    switch (event.type) {
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted":
+        await syncSubscription(event.data.object as unknown as Subscription, event.type, event.created);
+        break;
+      default:
+        break;
+    }
+  } catch (error) {
+    // Forget the event so Stripe's retry is processed instead of skipped as a duplicate.
+    await db.from("stripe_events").delete().eq("id", event.id);
+    throw error;
   }
   return json({ received: true });
 });
 
-async function syncSubscription(subscription: Subscription, eventType: string): Promise<void> {
+async function syncSubscription(subscription: Subscription, eventType: string, created: number): Promise<void> {
   const db = adminClient();
   const userId = await findUserId(subscription);
   if (!userId) {
@@ -63,14 +71,19 @@ async function syncSubscription(subscription: Subscription, eventType: string): 
   }
 
   const status = eventType === "customer.subscription.deleted" ? "canceled" : subscription.status;
+  const eventAt = new Date(created * 1000).toISOString();
+  // Stripe doesn't guarantee delivery order; an event older than the last one
+  // applied leaves the plan as it is.
   const { error } = await db
     .from("profiles")
     .update({
       subscription_status: status,
       plan: planForSubscriptionStatus(status),
       stripe_customer_id: subscription.customer,
+      stripe_event_at: eventAt,
     })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .or(`stripe_event_at.is.null,stripe_event_at.lte.${eventAt}`);
   if (error) throw new Error(error.message);
 
   // A subscription that starts in trial uses up this person's one trial.

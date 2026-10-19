@@ -41,6 +41,7 @@ export function encryptionKey(): Promise<string> {
   return getSecret("TOKEN_ENCRYPTION_KEY", "token_encryption_key");
 }
 
+/** The database-backed test provider is for development; it is off unless explicitly turned on. */
 export function testProviderEnabled(): boolean {
-  return Deno.env.get("ENABLE_TEST_PROVIDER") !== "false";
+  return Deno.env.get("ENABLE_TEST_PROVIDER") === "true";
 }

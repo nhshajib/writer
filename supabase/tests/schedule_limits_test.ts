@@ -205,15 +205,18 @@ const ok = { plan: "free" as const, words: 100, textLength: 600, durationSeconds
 Deno.test("free plan limits", () => {
   assertEquals(checkCreateLimits(ok), null);
   assertEquals(checkCreateLimits({ ...ok, words: 251 }), "Your plan allows 250 words per day.");
-  assertEquals(checkCreateLimits({ ...ok, durationSeconds: 3601 }), "Your plan allows drips up to 1 hour.");
-  assertEquals(checkCreateLimits({ ...ok, activeDrips: 1 }), "Your plan allows 1 active drip at a time.");
+  assertEquals(checkCreateLimits({ ...ok, durationSeconds: 3601 }), "Your plan allows sessions up to 1 hour.");
+  assertEquals(checkCreateLimits({ ...ok, activeDrips: 1 }), "Your plan allows 1 active session at a time.");
 });
 
 Deno.test("pro plan limits", () => {
   const pro = { ...ok, plan: "pro" as const };
   assertEquals(checkCreateLimits({ ...pro, words: 50_000, durationSeconds: 7 * 86400 }), null);
-  assertEquals(checkCreateLimits({ ...pro, durationSeconds: 7 * 86400 + 1 }), "Your plan allows drips up to 1 week.");
-  assertEquals(checkCreateLimits({ ...pro, activeDrips: 3 }), "Your plan allows 3 active drips at a time.");
+  assertEquals(
+    checkCreateLimits({ ...pro, durationSeconds: 7 * 86400 + 1 }),
+    "Your plan allows sessions up to 1 week.",
+  );
+  assertEquals(checkCreateLimits({ ...pro, activeDrips: 3 }), "Your plan allows 3 active sessions at a time.");
 });
 
 Deno.test("generic validation", () => {

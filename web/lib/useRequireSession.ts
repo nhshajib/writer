@@ -34,5 +34,11 @@ function loginUrl(): string {
   const hash = new URLSearchParams(window.location.hash.slice(1));
   const query = new URLSearchParams(window.location.search);
   const message = query.get("error_description") ?? hash.get("error_description");
-  return message ? `/login?error=${encodeURIComponent(message)}` : "/login";
+  const params = new URLSearchParams();
+  if (message) params.set("error", message);
+  // Come back to this page after signing in.
+  const here = window.location.pathname + window.location.search;
+  if (here !== "/app" && here !== "/app/") params.set("next", here);
+  const target = params.toString();
+  return target ? `/login?${target}` : "/login";
 }

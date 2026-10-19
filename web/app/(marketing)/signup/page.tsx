@@ -6,6 +6,7 @@ import { type FormEvent, Suspense, useState } from "react";
 import { Agreement } from "@/components/Agreement";
 import { GoogleMark } from "@/components/Icons";
 import { emailProblem } from "@/lib/emailPolicy";
+import { safeNext } from "@/lib/nextPath";
 import { continueWithGoogle } from "@/lib/googleAuth";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
@@ -15,7 +16,7 @@ const AGREE_FIRST = "Please read the Responsible Use Agreement and tick the box 
 function SignupForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") ?? "/app";
+  const next = safeNext(params.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -23,6 +24,17 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resent, setResent] = useState<string | null>(null);
+
+  async function resend() {
+    setResent(null);
+    const { error: resendError } = await supabase().auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}${next}` },
+    });
+    setResent(resendError ? resendError.message : "Sent again. It can take a minute; check your spam folder too.");
+  }
 
   async function google() {
     setError(null);
@@ -59,7 +71,7 @@ function SignupForm() {
       password,
       options: {
         data: { agreed_terms_version: CURRENT_TERMS_VERSION },
-        emailRedirectTo: `${window.location.origin}/app`,
+        emailRedirectTo: `${window.location.origin}${next}`,
       },
     });
     setBusy(false);
@@ -77,6 +89,12 @@ function SignupForm() {
         <div className="auth-box" role="status">
           <h1>Check your email</h1>
           <p className="sub">We sent a confirmation link to <strong>{email}</strong>. Open it to finish creating your account.</p>
+          <div className="auth-form">
+            <button type="button" className="btn btn-block" onClick={resend}>Send the email again</button>
+            <button type="button" className="link-btn" onClick={() => { setSent(false); setResent(null); }}>Use a different email</button>
+            {resent && <p className="alert alert-info">{resent}</p>}
+            <p className="small muted center">Already confirmed? <Link href="/login">Sign in</Link></p>
+          </div>
         </div>
       </div>
     );

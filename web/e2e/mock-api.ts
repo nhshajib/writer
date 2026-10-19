@@ -100,12 +100,21 @@ function planFrom(body: Record<string, unknown>, seed: number) {
   });
 }
 
+const MOCK_USER = {
+  id: "u1",
+  aud: "authenticated",
+  role: "authenticated",
+  email: "me@gmail.com",
+  user_metadata: {},
+  app_metadata: {},
+};
+
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, OPTIONS",
     ...headers,
   });
   res.end(JSON.stringify(body));
@@ -123,7 +132,7 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
 
 async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   const method = req.method ?? "GET";
-  const body = method === "POST" || method === "PATCH" ? await readBody(req) : {};
+  const body = method === "POST" || method === "PATCH" || method === "PUT" ? await readBody(req) : {};
   requests.push({ method, path, body });
 
   if (path.startsWith("/rest/v1/profiles")) {
@@ -139,6 +148,18 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     return send(res, 200, single ? profile : [profile]);
   }
   if (path.startsWith("/rest/v1/")) return send(res, 200, []);
+  // Enough of Supabase Auth for password sign-in and the password-reset link.
+  if (path === "/auth/v1/user") return send(res, 200, MOCK_USER);
+  if (path === "/auth/v1/token") {
+    return send(res, 200, {
+      access_token: "e2e-token",
+      refresh_token: "e2e-refresh",
+      token_type: "bearer",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: MOCK_USER,
+    });
+  }
   if (path.startsWith("/auth/v1/")) return send(res, 200, {});
 
   const parts = path.replace(/^\/functions\/v1\/drips\/?/, "").split("/").filter(Boolean);

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { safeNext } from "./nextPath";
 import { CURRENT_TERMS_VERSION } from "./terms";
 
 const PENDING_KEY = "typewit:agreed-before-google";
@@ -14,7 +15,7 @@ export async function continueWithGoogle(options: { agreed: boolean; next?: stri
   } catch {
     // Storage blocked: the dashboard will ask for the agreement instead.
   }
-  const next = options.next && options.next.startsWith("/") ? options.next : "/app/";
+  const next = safeNext(options.next);
   const { error } = await supabase().auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: `${window.location.origin}${next}` },

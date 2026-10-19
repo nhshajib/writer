@@ -33,6 +33,7 @@ import { revokeGoogleToken } from "../_shared/providers/google.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
 import { textRevision } from "../_shared/providers/word.ts";
 import { notifyUser } from "../_shared/notifyUser.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { randomSeed } from "../_shared/schedule.ts";
 import {
@@ -73,10 +74,19 @@ serve(async (req) => {
 
   if (parts.length === 0) {
     if (method === "GET") return await listDrips(user.id);
-    if (method === "POST") return await createDrip(user.id, req);
+    if (method === "POST") {
+      await rateLimit(user.id, "start");
+      return await createDrip(user.id, req);
+    }
   }
-  if (parts[0] === "plan" && parts.length === 1 && method === "POST") return await previewPlan(user.id, req);
-  if (parts[0] === "check" && parts.length === 1 && method === "POST") return await checkConnection(user.id, req);
+  if (parts[0] === "plan" && parts.length === 1 && method === "POST") {
+    await rateLimit(user.id, "plan");
+    return await previewPlan(user.id, req);
+  }
+  if (parts[0] === "check" && parts.length === 1 && method === "POST") {
+    await rateLimit(user.id, "check");
+    return await checkConnection(user.id, req);
+  }
   if (parts[0] === "clear" && parts.length === 1 && method === "POST") return await clearFinished(user.id);
   if (parts[0] === "connections") {
     if (parts.length === 1 && method === "GET") return await listConnections(user.id);
@@ -85,6 +95,7 @@ serve(async (req) => {
       return await createWordConnection(user.id, user.email);
     }
     if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "picker" && method === "POST") {
+      await rateLimit(user.id, "picker");
       return await pickerToken(user.id, parts[1]);
     }
     if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "disconnect" && method === "POST") {
@@ -92,6 +103,7 @@ serve(async (req) => {
     }
   }
   if (parts[0] === "documents" && parts.length === 1 && method === "POST") {
+    await rateLimit(user.id, "document");
     return await createDocument(user.id, req);
   }
   if (parts.length >= 1 && UUID_RE.test(parts[0])) {
@@ -101,7 +113,10 @@ serve(async (req) => {
       if (parts[1] === "pause") return await pauseDrip(user.id, id);
       if (parts[1] === "resume") return await resumeDrip(user.id, id, req);
       if (parts[1] === "cancel") return await cancelDrip(user.id, id);
-      if (parts[1] === "check") return await checkSession(user.id, id);
+      if (parts[1] === "check") {
+        await rateLimit(user.id, "check");
+        return await checkSession(user.id, id);
+      }
       if (parts[1] === "delete") return await deleteDrip(user.id, id);
       if (parts[1] === "engine") return await engine(user.id, id, req);
     }
@@ -381,8 +396,16 @@ async function startSession(
     .select(DRIP_COLUMNS)
     .single();
   if (error) {
+    const { error: releaseError } = await db.rpc("release_words", { target_user: userId, words: plan.words });
+    if (releaseError) console.error("release_words failed", releaseError.message);
     if (error.code === "23505") {
       throw new HttpError(409, "This document already has an unfinished session. Stop it before starting another.");
+    }
+    // The database's own count, which also catches Starts sent at the same moment.
+    const limit = /active_drip_limit:(\d+)/.exec(error.message);
+    if (limit) {
+      const max = Number(limit[1]);
+      throw new HttpError(422, `Your plan allows ${max} active session${max === 1 ? "" : "s"} at a time.`);
     }
     throw new Error(error.message);
   }
