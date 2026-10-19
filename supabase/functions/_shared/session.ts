@@ -19,8 +19,12 @@
  * Pure apart from the provider and store, so it is tested with fakes.
  */
 
+import { type AccessProblem, checkAccess } from "./access.ts";
+import { bodyContent, endsWithTail } from "./doctext.ts";
 import { type DocProvider, type DocState, ProviderError } from "./providers/types.ts";
 import { backoffSeconds, MIN_GAP_SECONDS, plannedAt } from "./schedule.ts";
+
+export { bodyContent, endsWithTail };
 
 export const MAX_ATTEMPTS = 6;
 /** Running this much later than planned shifts the rest of the schedule. */
@@ -58,7 +62,8 @@ export type Attention =
   | "reconnect"
   | "document_unavailable"
   | "unreachable"
-  | "insert_rejected";
+  | "insert_rejected"
+  | "not_editable";
 
 export const ATTENTION_MESSAGE: Record<Attention, string> = {
   document_changed: "The end of the document no longer matches what TypeWit entered, so it can't tell where the " +
@@ -71,6 +76,16 @@ export const ATTENTION_MESSAGE: Record<Attention, string> = {
   unreachable:
     "Google Docs couldn't be reached for a while. Nothing was entered while it was down. Resume to try again.",
   insert_rejected: "Google Docs refused the insertion.",
+  not_editable: "The document isn't editable with this Google account (it may be view or comment only). " +
+    "Ask for edit access, then resume.",
+};
+
+/** How a failed Test connection before the first insertion pauses the session. */
+const PREFLIGHT_ATTENTION: Partial<Record<AccessProblem, Attention>> = {
+  permission_missing: "reconnect",
+  not_found: "document_unavailable",
+  not_editable: "not_editable",
+  location_uncertain: "document_changed",
 };
 
 /** The `drips` columns the engine reads. */
@@ -94,6 +109,8 @@ export interface SessionRow {
   resync_index: number;
   resync_tail: string;
   document_baseline_length: number | null;
+  /** When the Test connection before the first insertion passed. */
+  preflight_at: string | null;
 }
 
 export type SessionPatch = Partial<
@@ -116,7 +133,9 @@ export interface SessionEvent {
     | "retry_scheduled"
     | "attention"
     | "paused"
-    | "completed";
+    | "completed"
+    | "connection_checked"
+    | "insertion_uncertain";
   detail: Record<string, unknown>;
 }
 
@@ -147,15 +166,6 @@ export type Outcome = "waiting" | "retrying" | "paused" | "completed" | "lost";
 /** The text the document must end with before unit `upTo` is inserted. */
 export function expectedTail(row: Pick<SessionRow, "chunks" | "resync_index" | "resync_tail">, upTo: number): string {
   return row.resync_tail + row.chunks.slice(row.resync_index, upTo).join("");
-}
-
-/** Document text without the final paragraph mark every Google Docs body ends with. */
-export function bodyContent(docText: string): string {
-  return docText.endsWith("\n") ? docText.slice(0, -1) : docText;
-}
-
-export function endsWithTail(docText: string, tail: string): boolean {
-  return bodyContent(docText).endsWith(tail);
 }
 
 export type PendingVerdict = "written" | "not_written" | "ambiguous" | "changed";
@@ -244,6 +254,28 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
     await log({ kind: "retry_scheduled", detail: { attempts, delay_seconds: delay, error: message } });
     return "retrying";
   };
+
+  // Test connection before the first insertion: can the document be opened and
+  // edited, without changing it?
+  if (row.chunks_written === 0 && row.pending_index === null && row.preflight_at === null) {
+    const report = await checkAccess(provider, row.document_id, expectedTail(row, 0));
+    await log({
+      kind: "connection_checked",
+      detail: {
+        ok: report.ok,
+        problem: report.problem,
+        revision_unchanged: report.revision_unchanged,
+        checks: report.checks.map((c) => ({ key: c.key, ok: c.ok })),
+      },
+    });
+    if (!report.ok) {
+      const attention = PREFLIGHT_ATTENTION[report.problem!];
+      if (attention) return await pause(attention, report.message);
+      return await fail(new ProviderError("transient", report.message));
+    }
+    row.preflight_at = iso(deps.now());
+    if (!(await store.update(row.id, lease, { preflight_at: row.preflight_at }))) return "lost";
+  }
 
   while (true) {
     // An earlier run may have stopped between writing and recording a unit.
@@ -382,7 +414,11 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
         return ok ? "retrying" : "lost";
       }
       // A transient failure leaves the write-ahead record in place: the write
-      // may or may not have landed, and the next run checks.
+      // may or may not have landed, and the next run checks the document.
+      await log({
+        kind: "insertion_uncertain",
+        detail: { index, written: index, total, error: error instanceof Error ? error.message : String(error) },
+      });
       return await fail(error);
     }
 

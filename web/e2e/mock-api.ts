@@ -49,6 +49,12 @@ interface Row {
   resync_tail: string;
   /** What the mock Google Doc contains. */
   doc: string;
+  breaks: { after_index: number; start_ms: number; duration_ms: number }[];
+  timing_mode: string;
+  pacing: unknown;
+  retry_at: string | null;
+  attempts: number;
+  request_id: string | null;
 }
 
 const drips = new Map<string, Row>();
@@ -66,6 +72,18 @@ function view(row: Row, includeText: boolean) {
   return includeText
     ? { ...rest, schedule, progress: { ...progress, written_text, remaining_text, next_part } }
     : { ...rest, progress };
+}
+
+function planFrom(body: Record<string, unknown>, seed: number) {
+  return planSession({
+    text: String(body.text ?? ""),
+    unit: (body.insertion_unit ?? "sentence") as never,
+    mode: body.mode as never,
+    pacing: body.pacing as never,
+    durationSeconds: Math.round(Number(body.duration_minutes) * 60),
+    seed,
+    plan: "pro",
+  });
 }
 
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -117,26 +135,40 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     return send(res, 200, { drips: [...drips.values()].map((d) => view(d, false)) });
   }
   if (parts[0] === "plan") {
-    const plan = planSession({
-      text: String(body.text ?? ""),
-      unit: (body.insertion_unit ?? "sentence") as never,
-      mode: body.mode as never,
-      durationSeconds: Math.round(Number(body.duration_minutes) * 60),
-      seed: typeof body.schedule_seed === "number" ? body.schedule_seed : Math.floor(Math.random() * 2 ** 32),
-      plan: "pro",
-    });
+    const plan = planFrom(body, typeof body.schedule_seed === "number" ? body.schedule_seed : Math.floor(Math.random() * 2 ** 32));
     const { units, ...rest } = plan;
     return send(res, 200, { plan: { ...rest, unit_count: units.length, unit_lengths: units.map((u) => u.length) } });
   }
+  if (parts[0] === "check") {
+    const report = {
+      ok: true,
+      problem: null,
+      message: "Connection works. Nothing in the document was changed.",
+      checks: [
+        { key: "account", label: "Google account", ok: true, detail: "Access works." },
+        body.document_id
+          ? { key: "document", label: "Document", ok: true, detail: "Opened." }
+          : { key: "document", label: "Document", ok: null, detail: "A new document is created when you start." },
+      ],
+      revision_unchanged: true,
+      checked_at: new Date().toISOString(),
+    };
+    return send(res, 200, { report });
+  }
+  if (parts[0] === "clear") {
+    let deleted = 0;
+    for (const [id, row] of drips) {
+      if (["completed", "canceled", "failed"].includes(row.status)) {
+        drips.delete(id);
+        deleted++;
+      }
+    }
+    return send(res, 200, { deleted });
+  }
   if (parts.length === 0 && method === "POST") {
-    const plan = planSession({
-      text: String(body.text ?? ""),
-      unit: (body.insertion_unit ?? "sentence") as never,
-      mode: body.mode as never,
-      durationSeconds: Math.round(Number(body.duration_minutes) * 60),
-      seed: Number(body.schedule_seed ?? 1),
-      plan: "pro",
-    });
+    const existing = [...drips.values()].find((d) => body.request_id && d.request_id === body.request_id);
+    if (existing) return send(res, 200, { drip: view(existing, false), duplicate: true });
+    const plan = planFrom(body, Number(body.schedule_seed ?? 1));
     if (!plan.ok) return send(res, 422, { error: plan.problems[0].message, problems: plan.problems });
     const id = `00000000-0000-4000-8000-${String(drips.size + 1).padStart(12, "0")}`;
     const now = new Date().toISOString();
@@ -172,6 +204,12 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       resync_index: 0,
       resync_tail: "",
       doc: "",
+      breaks: plan.breaks,
+      timing_mode: body.mode === "as_soon_as_possible" ? "asap" : plan.pacing?.timing ?? "duration",
+      pacing: plan.pacing,
+      retry_at: null,
+      attempts: 0,
+      request_id: (body.request_id as string) ?? null,
     };
     drips.set(id, row);
     events.set(id, []);
@@ -190,6 +228,26 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       Object.assign(row, { status: "paused", paused_at: new Date(now).toISOString(), attention: null });
       log(row.id, "paused", { by: "user" });
       return send(res, 200, { drip: view(row, false) });
+    case "check":
+      return send(res, 200, {
+        report: {
+          ok: true,
+          problem: null,
+          message: "Connection works. Nothing in the document was changed.",
+          checks: [
+            { key: "account", label: "Google account", ok: true, detail: "Access works." },
+            { key: "document", label: "Document", ok: true, detail: "Opened." },
+            { key: "editable", label: "Editing", ok: true, detail: "Edits are allowed (checked without changing anything)." },
+            { key: "location", label: "Insertion point", ok: true, detail: "The document ends with the text TypeWit entered." },
+          ],
+          revision_unchanged: true,
+          checked_at: new Date().toISOString(),
+        },
+      });
+    case "delete":
+      if (!["completed", "canceled", "failed"].includes(row.status)) return send(res, 409, { error: "Stop the session before deleting it." });
+      drips.delete(row.id);
+      return send(res, 200, { deleted: 1 });
     case "cancel":
       Object.assign(row, { status: "canceled" });
       log(row.id, "canceled");

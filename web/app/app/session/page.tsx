@@ -1,16 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
+import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { clock, span, when } from "@/lib/time";
-import { type Attention, ATTENTION_TITLE, type Drip, type DripEvent, EVENT_LABEL, STATUS_LABEL, UNIT_LABEL } from "@/lib/types";
+import {
+  type AccessReport,
+  ACTIVITY_LABEL,
+  type Attention,
+  ATTENTION_TITLE,
+  type Drip,
+  type DripEvent,
+  EVENT_LABEL,
+  STATE_LABEL,
+  stateOf,
+  UNIT_LABEL,
+} from "@/lib/types";
 import { useRequireSession } from "@/lib/useRequireSession";
 
 const ACTIVE = new Set(["scheduled", "running"]);
@@ -52,6 +64,16 @@ function describe(event: DripEvent): { text: string; sub?: string; late?: boolea
       return { text: label, sub: str(d.message) ?? undefined, late: true };
     case "retry_scheduled":
       return { text: label, sub: `Attempt ${num(d.attempts)}, retrying in ${span((num(d.delay_seconds) ?? 0) * 1000)}: ${str(d.error) ?? ""}`, late: true };
+    case "connection_checked":
+      return d.ok
+        ? { text: label, sub: "The document opened and is editable. Nothing was changed." }
+        : { text: "Connection check failed before the first insertion", sub: str(d.problem) ?? undefined, late: true };
+    case "insertion_uncertain":
+      return {
+        text: `Part ${(num(d.index) ?? 0) + 1}: ${label.toLowerCase()}`,
+        sub: "TypeWit checks the document before continuing, so the part is neither repeated nor skipped.",
+        late: true,
+      };
     case "created":
       return { text: label, sub: str(d.finish_at) ? `Planned to finish ${when(str(d.finish_at)!)}` : undefined };
     case "completed":
@@ -81,6 +103,10 @@ function SessionView() {
   const [confirmStop, setConfirmStop] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [report, setReport] = useState<AccessReport | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const router = useRouter();
   const [now, setNow] = useState(() => Date.now());
   const [announcement, setAnnouncement] = useState("");
   const [announceProgress, setAnnounceProgress] = useState(true);
@@ -105,25 +131,26 @@ function SessionView() {
       setError(null);
       setOffline(false);
 
-      // Screen readers hear about milestones and status changes, never each insertion.
-      const { progress, status } = res.drip;
+      // Screen readers hear about milestones and state changes, never each insertion.
+      const { progress } = res.drip;
+      const state = stateOf(res.drip);
       const milestone = Math.floor(progress.percent / MILESTONE) * MILESTONE;
-      const statusChanged = lastStatus.current !== null && status !== lastStatus.current;
-      if (statusChanged) {
+      const stateChanged = lastStatus.current !== null && state !== lastStatus.current;
+      if (stateChanged) {
         setAnnouncement(
-          status === "completed"
-            ? `Finished. All ${progress.words_total} words are in the document.`
-            : status === "paused" && res.drip.attention
+          state === "completed"
+            ? `Completed. All ${progress.words_total} words are in the document.`
+            : state === "paused" && res.drip.attention
             ? `Paused by TypeWit: ${ATTENTION_TITLE[res.drip.attention]}.`
-            : `Session status: ${STATUS_LABEL[status]}.`,
+            : `Session state: ${STATE_LABEL[state]}.`,
         );
       } else if (
-        announceRef.current && lastMilestone.current !== null && milestone > lastMilestone.current && status !== "completed"
+        announceRef.current && lastMilestone.current !== null && milestone > lastMilestone.current && state !== "completed"
       ) {
         setAnnouncement(`${milestone}% entered: ${progress.chunks_written} of ${progress.chunks_total} parts.`);
       }
       lastMilestone.current = milestone;
-      lastStatus.current = status;
+      lastStatus.current = state;
     } catch (e) {
       // Keep showing the last known state; the session itself runs on TypeWit's servers.
       if (e instanceof ApiError && e.status !== 0 && e.status < 500 && e.status !== 401) {
@@ -184,6 +211,32 @@ function SessionView() {
     }
   }
 
+  async function testConnection() {
+    setChecking(true);
+    setReport(null);
+    try {
+      const res = await api<{ report: AccessReport }>(`drips/${id}/check`, { method: "POST", body: {} });
+      setReport(res.report);
+      setAnnouncement(res.report.ok ? "Connection works." : `Connection problem: ${res.report.message}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't test the connection.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function deleteSession() {
+    setBusy(true);
+    try {
+      await api(`drips/${id}/delete`, { method: "POST", body: {} });
+      await dashboard.refresh();
+      router.push("/app/sessions");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't delete the session.");
+      setBusy(false);
+    }
+  }
+
   function closeStop() {
     setConfirmStop(false);
     requestAnimationFrame(() => stopButton.current?.focus());
@@ -225,6 +278,8 @@ function SessionView() {
   if (!drip) return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading session…</div>;
 
   const { progress } = drip;
+  const activity = progress.activity ?? (ACTIVE.has(drip.status) ? "waiting" : drip.status === "paused" ? "paused" : "done");
+  const finished = ["completed", "canceled", "failed"].includes(drip.status);
   const active = ACTIVE.has(drip.status);
   const paused = drip.status === "paused";
   const attention = paused ? drip.attention ?? null : null;
@@ -246,9 +301,12 @@ function SessionView() {
         <div>
           <h1>{title}</h1>
           <div className="row" style={{ marginTop: "0.5rem", gap: "0.6rem" }}>
-            <StatusBadge status={drip.status} />
+            <StatusBadge state={stateOf(drip)} />
             <span className="small muted">
-              {drip.mode === "as_soon_as_possible" ? "All at once" : `${unit.title}, over ${span(drip.duration_seconds * 1000)}`} · started {when(drip.created_at)}
+              {drip.mode === "as_soon_as_possible"
+                ? "All at once"
+                : `${unit.title}, ${drip.timing_mode === "speed" ? `${drip.pacing?.wpm ?? "?"} WPM, about` : "over"} ${span(drip.duration_seconds * 1000)}`}
+              {" "}· started {when(drip.created_at)}
             </span>
           </div>
         </div>
@@ -263,8 +321,19 @@ function SessionView() {
           {(active || paused) && !confirmStop && (
             <button type="button" ref={stopButton} className="btn btn-danger btn-sm" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
           )}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking}>
+            {checking ? "Testing…" : "Test connection"}
+          </button>
         </div>
       </div>
+
+      <p className="activity">
+        <span className="sr-only">Current activity: </span>
+        <strong>{ACTIVITY_LABEL[activity]}</strong>
+        {activity === "on_break" && progress.current_break && <span className="muted">until {when(progress.current_break.end, true)}</span>}
+        {activity === "waiting" && progress.next_chunk_at && <span className="muted">next insertion at {when(progress.next_chunk_at, true)}</span>}
+      </p>
+      <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
 
       <div className="automation" role="note" aria-label="Automated text entry">
         <span className="badge badge-blue"><span className="dot" aria-hidden="true" />Automated</span>
@@ -284,7 +353,7 @@ function SessionView() {
         {confirmStop && (
           <div className="confirm" role="alertdialog" aria-modal="false" aria-labelledby="stop-title" aria-describedby="stop-desc" onKeyDown={onConfirmKey} style={{ marginTop: 0 }}>
             <p id="stop-title">Stop this session?</p>
-            <p id="stop-desc" className="small muted">Nothing more will be entered and the session can&apos;t be resumed. What&apos;s already in your document stays.</p>
+            <p id="stop-desc" className="small muted">Stopping cancels every insertion still planned. Text already entered stays in your document, and the session can&apos;t be resumed.</p>
             <div className="row">
               <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => control("cancel")} autoFocus>Stop session</button>
               <button type="button" className="btn btn-ghost btn-sm" onClick={closeStop}>Keep going</button>
@@ -313,11 +382,14 @@ function SessionView() {
           </div>
           <div><dt>Parts entered</dt><dd>{progress.chunks_written} <small>/ {progress.chunks_total} {unit.many}</small></dd></div>
           <div>
-            <dt>Next insertion</dt>
+            <dt>Next scheduled action</dt>
             {progress.next_chunk_at
               ? (
                 <>
-                  <dd style={{ fontSize: "1.0625rem", marginTop: "0.6rem" }}>{when(progress.next_chunk_at, true)}</dd>
+                  <dd style={{ fontSize: "1.0625rem", marginTop: "0.6rem" }}>
+                    {activity === "on_break" ? "Back from break " : "Insert part " + (progress.chunks_written + 1) + " at "}
+                    {when(progress.next_chunk_at, true)}
+                  </dd>
                   <dd className="muted" aria-hidden="true" style={{ marginTop: 0, fontSize: "0.875rem", fontWeight: 450 }}>{countdown === 0 ? "any moment" : `in ${clock(countdown!)}`}</dd>
                 </>
               )
@@ -335,9 +407,13 @@ function SessionView() {
           </div>
         </dl>
         {drip.schedule && drip.schedule.length > 1 && (
-          <ScheduleStrip offsets={drip.schedule} startMs={startMs} done={progress.chunks_written} nowMs={active ? now : undefined}
-            label={`Schedule: ${progress.chunks_total} insertions; ${progress.chunks_written} entered.`} />
+          <ScheduleStrip offsets={drip.schedule} breaks={drip.breaks} startMs={startMs} done={progress.chunks_written} nowMs={active ? now : undefined}
+            label={`Schedule: ${progress.chunks_total} insertions and ${drip.breaks?.length ?? 0} breaks; ${progress.chunks_written} entered.`} />
         )}
+        {progress.next_break && (
+          <p className="hint">Next break: after part {progress.next_break.after_part}, about {when(progress.next_break.start)} to {when(progress.next_break.end)}.</p>
+        )}
+        <p className="hint">The finish time is a target. Google Docs outages or delays can push it later; TypeWit moves the rest of the schedule rather than rushing.</p>
         <label className="check small" style={{ marginTop: "0.5rem" }}>
           <input type="checkbox" checked={announceProgress} onChange={(e) => setAnnounce(e.target.checked)} />
           <span>Announce progress every {MILESTONE}% to screen readers (status changes are always announced)</span>
@@ -388,6 +464,27 @@ function SessionView() {
           })}
         </ol>
       </section>
+
+      {finished && (
+        <section className="card" aria-labelledby="data-title" style={{ marginTop: "1.5rem" }}>
+          <div className="card-head"><h2 id="data-title">Saved data for this session</h2></div>
+          <p className="small muted">
+            TypeWit keeps this session&apos;s text, schedule and log so you can review them. Deleting removes them from
+            TypeWit. Your Google Doc is not changed.
+          </p>
+          {!confirmDelete
+            ? <button type="button" className="btn btn-danger btn-sm" style={{ marginTop: "0.75rem" }} onClick={() => setConfirmDelete(true)} disabled={busy}>Delete this session</button>
+            : (
+              <div className="confirm" role="alertdialog" aria-labelledby="delete-title" onKeyDown={(e) => e.key === "Escape" && setConfirmDelete(false)}>
+                <p id="delete-title">Delete this session&apos;s saved text and log?</p>
+                <div className="row">
+                  <button type="button" className="btn btn-danger-solid btn-sm" onClick={deleteSession} autoFocus disabled={busy}>Delete</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Keep</button>
+                </div>
+              </div>
+            )}
+        </section>
+      )}
     </>
   );
 }

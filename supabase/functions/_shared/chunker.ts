@@ -34,37 +34,111 @@ export const INSERTION_UNITS: InsertionUnit[] = ["sentence", "paragraph", "word"
 const sentenceSegmenter = new Intl.Segmenter("und", { granularity: "sentence" });
 const graphemeSegmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
 
-// Unicode sentence segmentation splits after these; joining them with the next
-// sentence avoids one-word steps like "Mr. ".
-const ABBREVIATION_END = /(?:^|[\s(])(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|e\.g|i\.e|No|Fig|approx)\.\s*$/iu;
+// Unicode sentence segmentation splits after every full stop. These rules join
+// the pieces back when the stop doesn't end a sentence.
+const ABBREVIATION_END = new RegExp(
+  "(?:^|[\\s(\"'“‘])(?:" +
+    [
+      "Mr",
+      "Mrs",
+      "Ms",
+      "Mx",
+      "Dr",
+      "Prof",
+      "Sr",
+      "Jr",
+      "St",
+      "Mt",
+      "Ave",
+      "Rd",
+      "Blvd",
+      "Gen",
+      "Gov",
+      "Sen",
+      "Rep",
+      "Capt",
+      "Lt",
+      "Col",
+      "Sgt",
+      "Rev",
+      "Hon",
+      "vs",
+      "etc",
+      "e\\.g",
+      "i\\.e",
+      "cf",
+      "al",
+      "approx",
+      "No",
+      "Nos",
+      "Fig",
+      "Figs",
+      "Vol",
+      "Vols",
+      "Ch",
+      "Sec",
+      "pp",
+      "p",
+      "ed",
+      "eds",
+      "Inc",
+      "Ltd",
+      "Co",
+      "Corp",
+      "Bros",
+      "Dept",
+      "Univ",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Sept",
+      "Oct",
+      "Nov",
+      "Dec",
+      "a\\.m",
+      "p\\.m",
+    ].join("|") + ")\\.\\s*$",
+  "iu",
+);
+// Initialisms such as "U.S." or "U.K.".
+const INITIALISM_END = /(?:^|\s)(?:\p{Lu}\.){2,}\s*$/u;
+// A list or outline marker on its own: "1. ", "b) ", "iv. ".
+const ENUMERATOR_ONLY = /^\s*(?:\d{1,3}|\p{L}|[ivxlcdm]{1,6})[.)]\s*$/iu;
+
+/** Whether `next` continues the sentence that `prev` seems to end. */
+function continuesSentence(prev: string, next: string): boolean {
+  if (/\n\s*$/u.test(prev)) return false; // a line break always ends a unit (headings, list items)
+  if (ENUMERATOR_ONLY.test(prev)) return true;
+  if (ABBREVIATION_END.test(prev) || INITIALISM_END.test(prev)) return true;
+  // '"Go!" she said.' — a lowercase start means the sentence goes on.
+  return /^\s*\p{Ll}/u.test(next);
+}
 
 /**
  * Splits text at sentence or paragraph ends. Every character is kept, so the
  * parts join back to the input exactly.
  *
- * Sentences use Unicode sentence boundaries (so "。", "।", "؟" and quotes after
- * a full stop work too). A part that is only whitespace, such as the blank line
- * between paragraphs, is attached to the sentence before it.
+ * Sentences use Unicode sentence boundaries (so "。", "।", "؟", quotes after a
+ * full stop and decimal numbers work), then join pieces that don't end a
+ * sentence: abbreviations ("Dr.", "e.g.", "Jan."), initialisms ("U.S."), list
+ * markers ("1. ") and quotes followed by lowercase text. A line break always
+ * ends a unit, so headings and list items stand on their own. Whitespace-only
+ * pieces, such as blank lines, go with the unit before them.
  */
 export function splitIntoUnits(text: string, unit: "sentence" | "paragraph"): string[] {
   if (unit === "paragraph") return text.split(/(?<=\n\s*\n)/u).filter((part) => part.length > 0);
 
   const parts: string[] = [];
-  let carry = "";
   for (const { segment } of sentenceSegmenter.segment(text)) {
-    if (!/\S/u.test(segment) && (carry || parts.length > 0)) {
-      // Whitespace-only, e.g. a blank line: it belongs to whatever came just before.
-      if (carry) carry += segment;
-      else parts[parts.length - 1] += segment;
-      continue;
-    }
-    carry += segment;
-    if (!ABBREVIATION_END.test(carry)) {
-      parts.push(carry);
-      carry = "";
-    }
+    const last = parts.length - 1;
+    if (last >= 0 && (!/\S/u.test(segment) || continuesSentence(parts[last], segment))) parts[last] += segment;
+    else parts.push(segment);
   }
-  if (carry) parts.push(carry);
   // Leading whitespace before the first sentence belongs to that sentence.
   if (parts.length > 1 && !/\S/u.test(parts[0])) parts.splice(0, 2, parts[0] + parts[1]);
   return parts;

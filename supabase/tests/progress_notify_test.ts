@@ -71,6 +71,44 @@ Deno.test("a paused session shows when it would finish if resumed now", () => {
   assertEquals([fresh.percent, fresh.written_text], [0, ""]);
 });
 
+Deno.test("session states and current activity", () => {
+  const at = (iso: string) => new Date(iso);
+  // First insertion planned 11:52; at 11:50:30 nothing has happened yet.
+  const fresh = drip({ status: "scheduled", chunks_written: 0, last_written_at: null });
+  assertEquals([
+    computeProgress(fresh, at("2026-10-17T11:50:30Z")).state,
+    computeProgress(fresh, at("2026-10-17T11:50:30Z")).activity,
+  ], [
+    "preparing",
+    "waiting",
+  ]);
+  assertEquals(computeProgress(fresh, at("2026-10-17T11:51:57Z")).activity, "entering");
+  const running = computeProgress(drip(), NOW);
+  assertEquals([running.state, running.activity], ["running", "waiting"]);
+  assertEquals(computeProgress(drip({ pending_index: 2 }), NOW).state, "recovering");
+  assertEquals(computeProgress(drip({ attempts: 1, retry_at: "2026-10-17T12:01:00Z" }), NOW).activity, "recovering");
+  assertEquals(computeProgress(drip({ status: "paused", paused_at: "2026-10-17T11:59:00Z" }), NOW).state, "paused");
+  assertEquals(computeProgress(drip({ status: "canceled" }), NOW).state, "cancelled");
+  assertEquals(computeProgress(drip({ status: "failed" }), NOW).activity, "done");
+
+  // A break after part 2 (planned 11:56, 3 minutes long): at 11:57 the session is on a break.
+  const onBreak = computeProgress(
+    drip({ breaks: [{ after_index: 1, start_ms: 360_000, duration_ms: 180_000 }] }),
+    at("2026-10-17T11:57:00Z"),
+  );
+  assertEquals(onBreak.activity, "on_break");
+  assertEquals(onBreak.current_break, {
+    after_part: 2,
+    start: "2026-10-17T11:56:00.000Z",
+    end: "2026-10-17T11:59:00.000Z",
+  });
+  const upcoming = computeProgress(
+    drip({ breaks: [{ after_index: 3, start_ms: 780_000, duration_ms: 60_000 }] }),
+    NOW,
+  );
+  assertEquals(upcoming.next_break?.after_part, 4);
+});
+
 Deno.test("countdown never goes negative", () => {
   const p = computeProgress(drip({ schedule: [120_000, 300_000, 400_000, 780_000, 900_000] }), NOW);
   assertEquals(p.seconds_until_next_chunk, 0);

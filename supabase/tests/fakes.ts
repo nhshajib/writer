@@ -57,6 +57,7 @@ export class FakeDoc implements DocProvider {
   writes: { at: number; text: string }[] = [];
   reads = 0;
   failures: Partial<Record<"read" | "write", Failure[]>> = {};
+  editable = true;
   /** Simulated time each request takes. */
   latencyMs = 0;
 
@@ -79,6 +80,15 @@ export class FakeDoc implements DocProvider {
   }
   getDoc(id: string): Promise<DocInfo> {
     return Promise.resolve({ id, title: "Doc", url: null });
+  }
+  verifyAccount(): Promise<void> {
+    return Promise.resolve();
+  }
+  /** Like Google's no-op replaceAllText: checks permission and revision, changes nothing. */
+  probeEdit(_id: string, revisionId: string): Promise<{ revisionId: string }> {
+    if (!this.editable) return Promise.reject(new ProviderError("permanent", "no edit access", 403));
+    if (revisionId !== `r${this.revision}`) return Promise.reject(new ProviderError("conflict", "changed", 400));
+    return Promise.resolve({ revisionId: `r${this.revision}` });
   }
   async readDocument(): Promise<DocState> {
     if (this.latencyMs) await this.clock.sleep(this.latencyMs);
@@ -213,6 +223,7 @@ export function makeSession(
     resync_index: 0,
     resync_tail: "",
     document_baseline_length: null,
+    preflight_at: null,
     status: "scheduled",
     lease_id: null,
     next_run_at: new Date(opts.clock.now + plan.schedule[0]).toISOString(),

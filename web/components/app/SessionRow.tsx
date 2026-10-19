@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { formatRelative } from "@/lib/dashboard";
-import type { Drip } from "@/lib/types";
+import { type Drip, stateOf } from "@/lib/types";
 
 /** One session in a list. The whole row opens it. */
 export function SessionRow({ drip }: { drip: Drip }) {
@@ -18,7 +18,7 @@ export function SessionRow({ drip }: { drip: Drip }) {
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={drip.progress.percent}>
         <span style={{ width: `${drip.progress.percent}%` }} />
       </div>
-      <StatusBadge status={drip.status} />
+      <StatusBadge state={stateOf(drip)} />
     </div>
   );
 }

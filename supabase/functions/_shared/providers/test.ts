@@ -47,6 +47,16 @@ export class TestDocProvider implements DocProvider {
     return { revisionId: String(data.revision), text: `${data.content}\n` };
   }
 
+  verifyAccount(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async probeEdit(documentId: string, revisionId: string) {
+    const doc = await this.readDocument(documentId);
+    if (doc.revisionId !== revisionId) throw new ProviderError("conflict", "The document changed.", 400);
+    return { revisionId: doc.revisionId };
+  }
+
   async insertAtEnd(documentId: string, text: string, requiredRevisionId?: string) {
     const { data, error } = await this.db.rpc("append_test_document_checked", {
       doc_id: documentId,

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { formatRelative, useDashboard } from "@/lib/dashboard";
-import { type Drip, STATUS_LABEL, UNIT_LABEL } from "@/lib/types";
+import { type Drip, STATE_LABEL, stateOf, UNIT_LABEL } from "@/lib/types";
 
 type Filter = "all" | "active" | "done" | "stopped";
 
@@ -33,7 +33,7 @@ export default function SessionsPage() {
   function exportCsv() {
     const rows = [
       ["Document", "Status", "Words entered", "Words total", "Started", "Document link"],
-      ...drips.map((d) => [d.document_title ?? "Untitled document", STATUS_LABEL[d.status], d.progress.words_written,
+      ...drips.map((d) => [d.document_title ?? "Untitled document", STATE_LABEL[stateOf(d)], d.progress.words_written,
         d.progress.words_total, new Date(d.created_at).toISOString(), d.document_url ?? ""]),
     ];
     const link = document.createElement("a");
@@ -96,7 +96,7 @@ export default function SessionsPage() {
                             <Link href={`/app/session?id=${d.id}`} className="title">{d.document_title ?? "Untitled document"}</Link>
                             <div className="small muted">{d.mode === "as_soon_as_possible" ? "All at once" : UNIT_LABEL[d.insertion_unit].title}</div>
                           </td>
-                          <td><StatusBadge status={d.status} /></td>
+                          <td><StatusBadge state={stateOf(d)} /></td>
                           <td className="hide-sm">
                             <div className="progress" aria-hidden="true"><span style={{ width: `${d.progress.percent}%` }} /></div>
                           </td>

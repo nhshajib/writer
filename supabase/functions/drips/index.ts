@@ -6,7 +6,11 @@
 //   GET  /drips/:id                 one drip with progress, the text written so far, and recent events
 //   POST /drips/:id/pause           pause
 //   POST /drips/:id/resume          resume (shifts the rest of the schedule by the pause)
-//   POST /drips/:id/cancel          cancel
+//   POST /drips/:id/cancel          cancel (stop; text already entered stays)
+//   POST /drips/:id/check           Test connection for a session, incl. the insertion point
+//   POST /drips/:id/delete          delete a finished session and its saved text and log
+//   POST /drips/clear               delete all finished sessions
+//   POST /drips/check               Test connection for an account and (optional) document
 //   GET  /drips/connections         my connected accounts
 //   POST /drips/connections/test    create a test connection (dev only)
 //   POST /drips/connections/:id/disconnect  revoke Google access, stop that account's active drips
@@ -18,13 +22,16 @@ import { decrypt, sha256Hex } from "../_shared/crypto.ts";
 import { loadConnection, providerFor } from "../_shared/connections.ts";
 import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
+import { checkAccess } from "../_shared/access.ts";
 import { checkCreateLimits, PLAN_LIMITS, type PlanTier } from "../_shared/limits.ts";
+import { type BreakAlignment, type PacingSettings } from "../_shared/pacing.ts";
 import { planSession, type SessionPlan } from "../_shared/plan.ts";
 import { revokeGoogleToken } from "../_shared/providers/google.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { randomSeed } from "../_shared/schedule.ts";
 import {
+  expectedTail,
   nextTickAfter,
   planResume,
   type ResumableRow,
@@ -34,6 +41,7 @@ import {
 import { CURRENT_TERMS_VERSION } from "../_shared/terms.ts";
 
 const ACTIVE_STATUSES = ["scheduled", "running", "paused"];
+const FINISHED_STATUSES = ["completed", "canceled", "failed"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Columns returned to clients (everything except the text and chunk array). */
@@ -41,7 +49,8 @@ const DRIP_COLUMNS =
   "id, connection_id, provider, document_id, document_title, document_url, word_count, total_chunks, " +
   "chunks_written, interval_seconds, duration_seconds, status, next_run_at, attempts, last_error, " +
   "created_at, updated_at, completed_at, insertion_unit, mode, text_sha256, approved_at, schedule, " +
-  "schedule_shift_seconds, session_started_at, paused_at, deadline_at, last_written_at, attention, pending_index";
+  "schedule_shift_seconds, session_started_at, paused_at, deadline_at, last_written_at, attention, pending_index, " +
+  "timing_mode, pacing, breaks, retry_at, preflight_at";
 
 /** Everything the resume checks need on top of DRIP_COLUMNS. */
 const RESUME_COLUMNS =
@@ -57,6 +66,8 @@ serve(async (req) => {
     if (method === "POST") return await createDrip(user.id, req);
   }
   if (parts[0] === "plan" && parts.length === 1 && method === "POST") return await previewPlan(user.id, req);
+  if (parts[0] === "check" && parts.length === 1 && method === "POST") return await checkConnection(user.id, req);
+  if (parts[0] === "clear" && parts.length === 1 && method === "POST") return await clearFinished(user.id);
   if (parts[0] === "connections") {
     if (parts.length === 1 && method === "GET") return await listConnections(user.id);
     if (parts[1] === "test" && method === "POST") return await createTestConnection(user.id, user.email);
@@ -74,6 +85,8 @@ serve(async (req) => {
       if (parts[1] === "pause") return await pauseDrip(user.id, id);
       if (parts[1] === "resume") return await resumeDrip(user.id, id, req);
       if (parts[1] === "cancel") return await cancelDrip(user.id, id);
+      if (parts[1] === "check") return await checkSession(user.id, id);
+      if (parts[1] === "delete") return await deleteDrip(user.id, id);
     }
   }
   throw new HttpError(404, "Not found.");
@@ -100,6 +113,9 @@ interface CreateDripBody {
   mode?: "scheduled" | "as_soon_as_possible";
   /** The seed of the schedule the user previewed, so the session follows that exact plan. */
   schedule_seed?: number;
+  pacing?: unknown;
+  /** One id per Start press; repeating the request returns the same session. */
+  request_id?: string;
   approval?: { confirmed?: boolean; text_sha256?: string };
 }
 
@@ -109,6 +125,31 @@ interface PlanBody {
   insertion_unit?: InsertionUnit;
   mode?: "scheduled" | "as_soon_as_possible";
   schedule_seed?: number;
+  pacing?: unknown;
+}
+
+/** Reads pace settings from a request body; shape only, ranges are checked by the planner. */
+function readPacing(raw: unknown): PacingSettings {
+  if (typeof raw !== "object" || raw === null) throw new HttpError(400, "pacing must be an object.");
+  const p = raw as Record<string, unknown>;
+  const b = (typeof p.breaks === "object" && p.breaks !== null ? p.breaks : {}) as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : NaN);
+  const timing = p.timing === "speed" ? "speed" : p.timing === "duration" ? "duration" : null;
+  if (!timing) throw new HttpError(400, "pacing.timing must be duration or speed.");
+  return {
+    timing,
+    duration_seconds: timing === "duration" ? num(p.duration_seconds) : undefined,
+    wpm: timing === "speed" ? num(p.wpm) : undefined,
+    variation_pct: num(p.variation_pct),
+    breaks: {
+      enabled: b.enabled === true,
+      every_seconds: num(b.every_seconds ?? 600),
+      every_variation_pct: num(b.every_variation_pct ?? 0),
+      min_seconds: num(b.min_seconds ?? 30),
+      max_seconds: num(b.max_seconds ?? 30),
+      align: (["any", "sentence", "paragraph"].includes(String(b.align)) ? b.align : "any") as BreakAlignment,
+    },
+  };
 }
 
 function readPlanInput(body: PlanBody) {
@@ -122,14 +163,22 @@ function readPlanInput(body: PlanBody) {
   if (mode !== "scheduled" && mode !== "as_soon_as_possible") {
     throw new HttpError(400, "mode must be scheduled or as_soon_as_possible.");
   }
-  if (mode === "scheduled" && (!Number.isFinite(durationMinutes) || durationMinutes < 1)) {
+  const pacing = mode === "scheduled" && body.pacing !== undefined ? readPacing(body.pacing) : undefined;
+  if (mode === "scheduled" && !pacing && (!Number.isFinite(durationMinutes) || durationMinutes < 1)) {
     throw new HttpError(400, "duration_minutes must be a number of at least 1.");
   }
   const seed = body.schedule_seed;
   if (seed !== undefined && !(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff)) {
     throw new HttpError(400, "schedule_seed must be a 32-bit unsigned integer.");
   }
-  return { text, unit, mode, durationSeconds: Math.round(durationMinutes * 60), seed: seed ?? randomSeed() };
+  return {
+    text,
+    unit,
+    mode,
+    pacing,
+    durationSeconds: Math.round(durationMinutes * 60),
+    seed: seed ?? randomSeed(),
+  };
 }
 
 async function userPlan(userId: string): Promise<{ plan: PlanTier; agreed: boolean }> {
@@ -175,9 +224,22 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
     throw new HttpError(400, "Provide document_id or new_document_title.");
   }
 
+  if (body.request_id !== undefined && !UUID_RE.test(String(body.request_id))) {
+    throw new HttpError(400, "request_id must be a UUID.");
+  }
+
   const db = adminClient();
   const connection = await loadConnection(body.connection_id, userId);
   if (!connection) throw new HttpError(404, "Connection not found.");
+
+  // A repeated Start (double click, retry after a lost response) returns the
+  // session the first one made instead of starting another.
+  if (body.request_id) {
+    const { data: existing } = await db.from("drips").select(DRIP_COLUMNS).eq("user_id", userId)
+      .eq("request_id", body.request_id).maybeSingle();
+    if (existing) return json({ drip: existing, duplicate: true });
+  }
+  if (body.document_id) await assertNoActiveSession(connection.id, body.document_id);
 
   const [{ plan: tier, agreed }, { count: activeDrips, error: countError }] = await Promise.all([
     userPlan(userId),
@@ -194,11 +256,46 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
     plan: tier,
     words: plan.words,
     textLength: text.length,
-    durationSeconds: plan.duration_seconds,
+    // The planner already checked the duration; a short speed-mode session is fine.
+    durationSeconds: Math.max(60, plan.duration_seconds),
     activeDrips: activeDrips ?? 0,
   });
   if (limitError) throw new HttpError(422, limitError);
 
+  if (body.request_id) {
+    const { error: requestError } = await db.from("start_requests").insert({
+      user_id: userId,
+      request_id: body.request_id,
+    });
+    if (requestError) {
+      if (requestError.code === "23505") throw new HttpError(409, "This session is already starting.");
+      throw new Error(requestError.message);
+    }
+  }
+
+  try {
+    return await startSession(userId, body, input, plan, tier, connection, textHash);
+  } catch (error) {
+    // Let the same Start be retried after a failure.
+    if (body.request_id) {
+      await db.from("start_requests").delete().eq("user_id", userId).eq("request_id", body.request_id);
+    }
+    throw error;
+  }
+}
+
+/** Creates the document if needed, reserves the words, and saves the session with its schedule. */
+async function startSession(
+  userId: string,
+  body: CreateDripBody,
+  input: ReturnType<typeof readPlanInput>,
+  plan: SessionPlan,
+  tier: PlanTier,
+  connection: NonNullable<Awaited<ReturnType<typeof loadConnection>>>,
+  textHash: string,
+): Promise<Response> {
+  const db = adminClient();
+  const { text } = input;
   // Resolve the target document before reserving quota, so a bad document id
   // doesn't use up the day's words.
   const provider = providerFor(connection);
@@ -231,9 +328,13 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
       total_chunks: plan.units.length,
       // Kept for older clients: the typical gap between insertions.
       interval_seconds: Math.round((plan.stats?.median_gap_ms ?? 0) / 1000),
-      duration_seconds: plan.duration_seconds,
+      duration_seconds: Math.max(1, plan.duration_seconds),
       insertion_unit: input.unit,
       mode: input.mode,
+      timing_mode: input.mode === "as_soon_as_possible" ? "asap" : plan.pacing!.timing,
+      pacing: plan.pacing,
+      breaks: plan.breaks,
+      request_id: body.request_id ?? null,
       text_sha256: textHash,
       approved_at: started.toISOString(),
       schedule: plan.schedule,
@@ -245,7 +346,12 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
     })
     .select(DRIP_COLUMNS)
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23505") {
+      throw new HttpError(409, "This document already has an unfinished session. Stop it before starting another.");
+    }
+    throw new Error(error.message);
+  }
 
   // DRIP_COLUMNS is a concatenated string, so supabase-js can't infer the row type.
   const dripId = (drip as unknown as { id: string }).id;
@@ -259,7 +365,11 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
     words: plan.words,
     chunks: plan.units.length,
     insertion_unit: input.unit,
+    timing_mode: input.mode === "as_soon_as_possible" ? "asap" : plan.pacing!.timing,
     duration_seconds: plan.duration_seconds,
+    active_seconds: plan.active_seconds,
+    break_seconds: plan.break_seconds,
+    breaks: plan.breaks.length,
     schedule_seed: plan.seed,
     first_at: new Date(started.getTime() + plan.schedule[0]).toISOString(),
     finish_at: new Date(started.getTime() + lastOffset).toISOString(),
@@ -410,6 +520,66 @@ async function transition(
   const row = data as unknown as { chunks_written: number; total_chunks: number };
   await logEvent(id, userId, eventKind, { ...detail, written: row.chunks_written, total: row.total_chunks });
   return json({ drip: data });
+}
+
+async function assertNoActiveSession(connectionId: string, documentId: string): Promise<void> {
+  const { count, error } = await adminClient().from("drips").select("id", { count: "exact", head: true })
+    .eq("connection_id", connectionId).eq("document_id", documentId).in("status", ACTIVE_STATUSES);
+  if (error) throw new Error(error.message);
+  if (count) {
+    throw new HttpError(409, "This document already has an unfinished session. Stop it before starting another.");
+  }
+}
+
+/** Test connection before starting: the account, and the document if one is chosen. Changes nothing. */
+async function checkConnection(userId: string, req: Request): Promise<Response> {
+  const body = await readJson<{ connection_id?: string; document_id?: string }>(req);
+  if (!body.connection_id || !UUID_RE.test(body.connection_id)) throw new HttpError(400, "connection_id is required.");
+  const connection = await loadConnection(body.connection_id, userId);
+  if (!connection) throw new HttpError(404, "Connection not found.");
+  const report = await checkAccess(providerFor(connection), body.document_id ?? null);
+  return json({ report });
+}
+
+/** Test connection for a session, including whether the document still ends with TypeWit's text. */
+async function checkSession(userId: string, id: string): Promise<Response> {
+  const { data, error } = await adminClient().from("drips")
+    .select("connection_id, document_id, status, chunks, chunks_written, resync_index, resync_tail")
+    .eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new HttpError(404, "Drip not found.");
+  const connection = await loadConnection(data.connection_id, userId);
+  if (!connection) throw new HttpError(409, "Reconnect the document's account first.");
+  const unfinished = ACTIVE_STATUSES.includes(data.status);
+  const tail = unfinished
+    ? expectedTail(data as { chunks: string[]; resync_index: number; resync_tail: string }, data.chunks_written)
+    : null;
+  const report = await checkAccess(providerFor(connection), data.document_id, tail);
+  return json({ report });
+}
+
+/** Deletes a finished session: its saved text, schedule and activity log. The document is untouched. */
+async function deleteDrip(userId: string, id: string): Promise<Response> {
+  const { data, error } = await adminClient().from("drips").delete().eq("id", id).eq("user_id", userId)
+    .in("status", FINISHED_STATUSES).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) {
+    const { count } = await adminClient().from("drips").select("id", { count: "exact", head: true }).eq("id", id)
+      .eq("user_id", userId);
+    if (!count) throw new HttpError(404, "Drip not found.");
+    throw new HttpError(409, "Stop the session before deleting it.");
+  }
+  return json({ deleted: 1 });
+}
+
+/** Deletes every finished session of the user. Unfinished sessions are kept. */
+async function clearFinished(userId: string): Promise<Response> {
+  const db = adminClient();
+  const { data, error } = await db.from("drips").delete().eq("user_id", userId).in("status", FINISHED_STATUSES)
+    .select("id");
+  if (error) throw new Error(error.message);
+  await db.from("start_requests").delete().eq("user_id", userId);
+  return json({ deleted: (data ?? []).length });
 }
 
 // ---------------------------------------------------------------------------

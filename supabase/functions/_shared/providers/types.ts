@@ -38,6 +38,14 @@ export interface DocProvider {
    * Returns the revision after the insertion.
    */
   insertAtEnd(documentId: string, text: string, requiredRevisionId?: string): Promise<{ revisionId: string | null }>;
+  /** Confirms the account's access works (refreshes tokens), without touching any document. */
+  verifyAccount(): Promise<void>;
+  /**
+   * Checks the document is editable without changing it: sends an edit that
+   * matches nothing, refused if the document changed since `revisionId`.
+   * Returns the revision afterwards.
+   */
+  probeEdit(documentId: string, revisionId: string): Promise<{ revisionId: string | null }>;
   /** Optional: what the provider's own version history reports, for the session log. */
   summarizeRevisions?(documentId: string, from: string, to: string): Promise<RevisionSummary>;
 }

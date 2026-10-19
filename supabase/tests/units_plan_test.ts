@@ -86,6 +86,26 @@ Deno.test("sentences follow Unicode sentence ends and keep common abbreviations 
   assertEquals(splitIntoUnits("One.\n\nTwo.", "sentence"), ["One.\n\n", "Two."]);
 });
 
+Deno.test("sentences: decimals, initialisms, dates, quotes, headings and list items", () => {
+  const cases: [string, string[]][] = [
+    ["Pi is 3.14 today. Next one.", ["Pi is 3.14 today. ", "Next one."]],
+    ["The U.S. Army met at 5 p.m. on Jan. 3. Then left.", ["The U.S. Army met at 5 p.m. on Jan. 3. ", "Then left."]],
+    ['He said, \u201cStop.\u201d Then he left. "Go!" she said.', [
+      "He said, \u201cStop.\u201d ",
+      "Then he left. ",
+      '"Go!" she said.',
+    ]],
+    ["Introduction\nThe text begins here. It continues.", [
+      "Introduction\n",
+      "The text begins here. ",
+      "It continues.",
+    ]],
+    ["List:\n1. Apples\n2. Pears.\n- Milk\n\nDone.", ["List:\n", "1. Apples\n", "2. Pears.\n", "- Milk\n\n", "Done."]],
+    ["See e.g. section 2. Version 2.0.1 shipped.", ["See e.g. section 2. ", "Version 2.0.1 shipped."]],
+  ];
+  for (const [text, expected] of cases) assertEquals(splitIntoUnits(text, "sentence"), expected, text);
+});
+
 Deno.test("characters never split an emoji or accent and never step on whitespace alone", () => {
   assertEquals(splitText("Hi 👨‍👩‍👧e\u0301!", "character"), ["H", "i ", "👨‍👩‍👧", "e\u0301", "!"]);
   for (const part of splitText("a  b\n\nc", "character")) assert(/\S/u.test(part));
@@ -131,6 +151,43 @@ Deno.test("plan: unsupported characters, empty text and plan limits are problems
   assertEquals(codes("   "), ["empty"]);
   assertEquals(codes("One. Two.", { plan: "free", durationSeconds: 7200 }), ["duration_over_plan"]);
   assertEquals(codes("w ".repeat(251), { plan: "free" }), ["words_over_plan"]);
+});
+
+Deno.test("plan: typing-speed mode estimates the total including breaks and explains caps", () => {
+  const text = "word ".repeat(400).trim(); // 1,999 characters: about 10 minutes of active time at 40 WPM
+  const breaks = {
+    enabled: true,
+    every_seconds: 180,
+    every_variation_pct: 0,
+    min_seconds: 60,
+    max_seconds: 60,
+    align: "any" as const,
+  };
+  const plan = planSession({
+    ...base,
+    text,
+    unit: "sentence",
+    pacing: { timing: "speed", wpm: 40, variation_pct: 0, breaks },
+  });
+  assert(plan.ok);
+  assertEquals(plan.active_seconds, 600);
+  assertEquals(plan.duration_seconds, 600); // one unit: no break before the only insertion
+  const words = planSession({
+    ...base,
+    text,
+    unit: "word",
+    pacing: { timing: "speed", wpm: 40, variation_pct: 0, breaks },
+  });
+  assert(words.ok);
+  assert(words.break_seconds >= 60 * 2, `${words.break_seconds}`);
+  assertEquals(words.duration_seconds, words.active_seconds + words.break_seconds);
+  const chars = planSession({
+    ...base,
+    text: "Quick note.",
+    unit: "character",
+    pacing: { timing: "speed", wpm: 100, variation_pct: 0, breaks },
+  });
+  assertEquals(chars.warnings.map((w) => w.code), ["speed_capped", "no_breaks_fit"]);
 });
 
 Deno.test("plan: all at once is one insertion of the whole text", () => {

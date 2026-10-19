@@ -171,6 +171,29 @@ export class GoogleDocsProvider implements DocProvider {
     return { revisionId: body.writeControl?.requiredRevisionId ?? null };
   }
 
+  async verifyAccount(): Promise<void> {
+    await this.request<unknown>(GOOGLE_USERINFO_URL, { method: "GET" });
+  }
+
+  async probeEdit(documentId: string, revisionId: string): Promise<{ revisionId: string | null }> {
+    // Replaces a random marker that can't be in the document with itself: Google
+    // checks edit permission and the revision, and nothing in the document changes.
+    const marker = `typewit-probe-${crypto.randomUUID()}`;
+    const body = await this.request<{ writeControl?: { requiredRevisionId?: string } }>(
+      `${DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          requests: [{ replaceAllText: { containsText: { text: marker, matchCase: true }, replaceText: marker } }],
+          writeControl: { requiredRevisionId: revisionId },
+        }),
+      },
+      false,
+      true,
+    );
+    return { revisionId: body.writeControl?.requiredRevisionId ?? null };
+  }
+
   /**
    * Lists the file's revisions through the Drive API (allowed by drive.file for
    * files TypeWit created or the user picked). Needs the Drive API enabled in

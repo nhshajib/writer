@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import { api } from "@/lib/api";
 import { formatDate, useDashboard } from "@/lib/dashboard";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
 export default function SettingsPage() {
-  const { session, profile, connections, drips, notifications, displayName, setProfile } = useDashboard();
+  const { session, profile, connections, drips, notifications, displayName, setProfile, refresh } = useDashboard();
   const user = session.user;
   const providers = ((user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider ?? "email"]);
   const hasPassword = providers.includes("email");
@@ -18,6 +19,23 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+
+  const finishedCount = drips.filter((d) => ["completed", "canceled", "failed"].includes(d.status)).length;
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  async function clearFinished() {
+    setBusy("clear");
+    try {
+      const res = await api<{ deleted: number }>("drips/clear", { method: "POST", body: {} });
+      await refresh();
+      setConfirmClear(false);
+      done(`Deleted ${res.deleted} finished session${res.deleted === 1 ? "" : "s"} and their saved text.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't delete sessions.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   function done(message: string) {
     setError(null);
@@ -164,10 +182,31 @@ export default function SettingsPage() {
         </section>
 
         <section className="setting" aria-labelledby="data-title">
-          <div><h2 id="data-title">Your data</h2><p>Take a copy of your information.</p></div>
+          <div><h2 id="data-title">Your data</h2><p>What TypeWit keeps, and clearing it.</p></div>
           <div className="stack" style={{ gap: "0.75rem", justifyItems: "start" }}>
-            <p className="small muted">Account details, sessions and notifications as a file. Each session&apos;s full activity log is on its own page.</p>
+            <ul className="small muted" style={{ paddingLeft: "1.1rem" }}>
+              <li>Each session&apos;s approved text, its split into steps and its schedule are stored in TypeWit&apos;s database (Supabase), readable only by your account.</li>
+              <li>The activity log stores times, counts and outcomes, not your text.</li>
+              <li>Your Google access token is stored encrypted and is never sent to your browser. TypeWit can only open documents it created (Google&apos;s <code>drive.file</code> permission).</li>
+              <li>This browser remembers only your pace settings and announcement preference.</li>
+            </ul>
             <button type="button" className="btn btn-secondary btn-sm" onClick={downloadData}>Download my data</button>
+            {!confirmClear
+              ? (
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmClear(true)} disabled={finishedCount === 0}>
+                  Delete finished sessions ({finishedCount})
+                </button>
+              )
+              : (
+                <div className="confirm" role="alertdialog" aria-labelledby="clear-title" onKeyDown={(e) => e.key === "Escape" && setConfirmClear(false)}>
+                  <p id="clear-title">Delete {finishedCount} finished session{finishedCount === 1 ? "" : "s"}?</p>
+                  <p className="small muted">Their saved text, schedules and logs are removed from TypeWit. Unfinished sessions and your Google Docs are not touched.</p>
+                  <div className="row">
+                    <button type="button" className="btn btn-danger-solid btn-sm" onClick={clearFinished} disabled={busy === "clear"} autoFocus>Delete</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmClear(false)}>Keep</button>
+                  </div>
+                </div>
+              )}
           </div>
         </section>
 

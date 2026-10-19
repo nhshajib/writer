@@ -2,6 +2,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
 import type { InsertionUnit } from "../functions/_shared/chunker.ts";
 import { ProviderError } from "../functions/_shared/providers/types.ts";
 import { MIN_GAP_SECONDS, plannedAt } from "../functions/_shared/schedule.ts";
+import type { ResumeOptions, ResumeResult } from "../functions/_shared/session.ts";
 import { seededRandom } from "../functions/_shared/schedule.ts";
 import { Clock, FakeDoc, FakeStore, makeSession, runWorker, T0 } from "./fakes.ts";
 
@@ -301,18 +302,71 @@ Deno.test("fuzz: crashes, lost answers, outages, pauses and edits elsewhere neve
       });
     }
     await runWorker(store, doc, clock, end + 6 * 3600_000);
-    // Any session TypeWit had to pause itself is resumed once, as a user would.
+    // Paused sessions are resumed as a user would, answering the question a resume asks.
+    let asked: boolean = false;
     for (let tries = 0; store.row.status === "paused" && tries < 5; tries++) {
-      const answer = store.row.attention === "confirm_last_part" ? { last_part: "present" as const } : {};
-      await store.resume(doc, answer).catch(() => {}); // a failed resume is simply tried again
+      const confirm: boolean = asked || store.row.attention === "confirm_last_part";
+      const answer: ResumeOptions = confirm ? { last_part: "present" } : {};
+      // A failed resume is simply tried again.
+      const result: ResumeResult | null = await store.resume(doc, answer).catch(() => null);
+      asked = result !== null && !result.ok && result.attention === "confirm_last_part";
       await runWorker(store, doc, clock, clock.now + 6 * 3600_000);
     }
 
-    assertEquals(store.row.status, "completed", `seed ${seed}`);
+    assertEquals(store.row.status, "completed", `seed ${seed}: ${store.row.attention} ${store.row.last_error}`);
     assert(/^Heading!*\n/.test(doc.content), `seed ${seed}`);
     assertEquals(doc.content.replace(/^Heading!*\n/, ""), text, `seed ${seed} (${unit})`);
     assertEquals(store.row.chunks_written, store.row.total_chunks);
     const times = doc.writes.map((w) => w.at);
     assert(gaps(times).every((g) => g >= MIN_GAP_SECONDS * 1000 - 1), `seed ${seed} min gap`);
   }
+});
+
+Deno.test("the first run checks the connection and pauses if the document isn't editable", async () => {
+  const { clock, doc, store, end } = setup("One. Two. Three.", { minutes: 5 });
+  doc.editable = false;
+  await runWorker(store, doc, clock, end + 60_000);
+  assertEquals([store.row.status, store.row.attention], ["paused", "not_editable"]);
+  assertEquals(doc.writes.length, 0);
+  assertEquals(store.events[0].kind, "connection_checked");
+  assertEquals(store.events[0].detail.ok, false);
+
+  doc.editable = true;
+  assert((await store.resume(doc)).ok);
+  await runWorker(store, doc, clock, clock.now + 30 * 60_000);
+  assertEquals(doc.content, "One. Two. Three.");
+  // The check runs once per session, before the first insertion.
+  assertEquals(store.kinds().filter((k) => k === "connection_checked").length, 2);
+});
+
+Deno.test("an insertion whose answer was lost is logged as uncertain, then confirmed from the document", async () => {
+  const { clock, doc, store, end } = setup("One. Two. Three.", { minutes: 5 });
+  doc.failures.write = [{ error: new ProviderError("transient", "timeout"), applied: true }];
+  await runWorker(store, doc, clock, end + 30 * 60_000);
+  const kinds = store.kinds();
+  const uncertain = kinds.indexOf("insertion_uncertain");
+  assert(uncertain >= 0);
+  const recovered = store.events.findIndex((e) => e.kind === "chunk_written" && e.detail.recovered === true);
+  assert(recovered > uncertain);
+  assertEquals(doc.content, "One. Two. Three.");
+  // The log holds counts and times, not the text.
+  assert(!JSON.stringify(store.events).includes("Two."));
+});
+
+Deno.test("if the worker can't run for hours (sleep, outage), the rest is not entered in a burst", async () => {
+  const { clock, doc, store, end } = setup(ESSAY, { minutes: 30 });
+  const planned = store.row.chunks.map((_, i) => plannedAt(store.row, i));
+  await runWorker(store, doc, clock, T0 + 10 * 60_000);
+  const before = doc.writes.length;
+  // No ticks at all for three hours.
+  await clock.advanceTo(T0 + 3 * 3600_000 + 10 * 60_000);
+  await runWorker(store, doc, clock, clock.now + 2 * 3600_000);
+  assertEquals(doc.content, ESSAY);
+  const times = doc.writes.map((w) => w.at);
+  // After the gap, the remaining units keep their planned spacing.
+  for (let i = before + 1; i < times.length; i++) {
+    assert(Math.abs(times[i] - times[i - 1] - (planned[i] - planned[i - 1])) <= 1000, `gap ${i}`);
+  }
+  assert(store.kinds().includes("schedule_shifted"));
+  assert(times.at(-1)! > end, "the finish moved later instead");
 });

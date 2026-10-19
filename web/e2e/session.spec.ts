@@ -39,7 +39,7 @@ async function startSession(page: Page, opts: { minutes?: string } = {}) {
   await page.goto("/app/new/");
   await page.getByLabel("Title").fill("Flood essay");
   await page.getByLabel("Text to enter").fill(ESSAY);
-  if (opts.minutes) await page.getByLabel("Session length").selectOption(opts.minutes);
+  if (opts.minutes) await page.getByLabel("Total duration").selectOption(opts.minutes);
   await expect(page.getByText(/sentences, one insertion each/)).toBeVisible();
   await page.getByLabel(/I've read this exact text/).check();
   await page.getByRole("button", { name: "Start session" }).click();
@@ -63,7 +63,7 @@ test("a session can be set up and started with the keyboard alone", async ({ pag
   await expect(sentences).toBeChecked();
   await tabTo(page, sentences);
   await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("radio", { name: /^Paragraphs/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /^Words/ })).toBeChecked();
   await page.keyboard.press("ArrowUp");
   await expect(sentences).toBeChecked();
 
@@ -87,7 +87,9 @@ test("a session can be set up and started with the keyboard alone", async ({ pag
   const plans = requests.filter((r: { path: string }) => r.path.endsWith("/drips/plan"));
   const create = requests.find((r: { method: string; path: string }) => r.method === "POST" && r.path.endsWith("/drips"));
   expect(create.body.insertion_unit).toBe("sentence");
-  expect(create.body.duration_minutes).toBe(60);
+  expect(create.body.pacing.timing).toBe("duration");
+  expect(create.body.pacing.duration_seconds).toBe(3600);
+  expect(create.body.request_id).toMatch(/^[0-9a-f-]{36}$/);
   expect(create.body.schedule_seed).toBe(plans.at(-1).body.schedule_seed);
   expect(create.body.text).toBe(ESSAY);
 });
@@ -97,7 +99,7 @@ test("a duration that is too short is explained before starting", async ({ page 
   await page.getByLabel("Title").fill("Flood essay");
   await page.getByLabel("Text to enter").fill(ESSAY);
   await page.getByRole("radio", { name: /^Characters/ }).check();
-  await page.getByLabel("Session length").selectOption("5");
+  await page.getByLabel("Total duration").selectOption("5");
   await expect(page.getByText(/characters need at least/)).toBeVisible();
   await expect(page.getByText(/60 edits a minute/)).toBeVisible();
   // Each step size shows whether it fits.
@@ -153,7 +155,7 @@ test("pause, resume and stop work from the keyboard and are announced", async ({
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter"); // "Stop session" has focus
   await expect(live).toHaveText("Session stopped.");
-  await expect(page.getByText("Stopped", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".badge").filter({ hasText: "State: Cancelled" })).toBeVisible();
 });
 
 test("screen readers hear progress milestones, not every insertion", async ({ page, request }) => {
@@ -164,7 +166,7 @@ test("screen readers hear progress milestones, not every insertion", async ({ pa
   await request.post("/__test/advance", { data: { id, written: 1 } }); // under 10%
   await reload();
   await expect(page.getByText("Part 1 of 10 entered", { exact: false })).toBeVisible();
-  await expect(live).toHaveText("Session status: Entering text.");
+  await expect(live).toHaveText("Session state: Running.");
 
   await request.post("/__test/advance", { data: { id, written: 3 } });
   await reload();
@@ -187,7 +189,7 @@ test("screen readers hear progress milestones, not every insertion", async ({ pa
 
   await request.post("/__test/advance", { data: { id, written: 10 } });
   await reload();
-  await expect(live).toHaveText(/^Finished\. All \d+ words are in the document\.$/);
+  await expect(live).toHaveText(/^Completed\. All \d+ words are in the document\.$/);
   await expect(page.getByText("Checked: the document ends with exactly the approved text.")).toBeVisible();
   await expect(page.getByText(/Google Drive listed 3 revisions during this session for 10 insertions/)).toBeVisible();
 });
@@ -226,4 +228,126 @@ test("the session page passes axe in light and dark mode, with reduced motion re
   await page.emulateMedia({ reducedMotion: "reduce" });
   const transition = await page.locator(".progress > span").first().evaluate((el) => getComputedStyle(el).transitionDuration);
   expect(transition).toBe("0s");
+});
+
+test("pace settings: every slider has a labelled number box, and the estimate follows them", async ({ page }) => {
+  await page.goto("/app/new/");
+  await page.getByLabel("Text to enter").fill(ESSAY);
+  await page.getByRole("radio", { name: /^Typing speed/ }).check();
+  const summary = page.getByRole("status").filter({ hasText: "estimated to take" });
+  await expect(summary).toBeVisible();
+  const before = await summary.textContent();
+
+  // The number box and the slider are the same setting.
+  const speedBox = page.getByRole("spinbutton", { name: "Typing speed" });
+  const speedSlider = page.getByRole("slider", { name: "Typing speed" });
+  await expect(speedBox).toHaveValue("40");
+  await speedSlider.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(speedBox).toHaveValue("41");
+  await expect(speedSlider).toHaveAttribute("aria-valuetext", "41 words per minute");
+  await speedBox.fill("20");
+  await speedBox.blur();
+  await expect(speedSlider).toHaveValue("20");
+  await expect(summary).not.toHaveText(before!);
+  const slower = await summary.textContent();
+
+  // A break every minute adds breaks to the estimate; turning breaks off removes them again.
+  const every = page.getByRole("spinbutton", { name: "Active time between breaks" });
+  await every.fill("1");
+  await every.blur();
+  await expect(summary).toContainText("break");
+  const withBreaks = await summary.textContent();
+  expect(withBreaks).not.toBe(slower);
+  await page.getByLabel("Take breaks").uncheck();
+  await expect(summary).toHaveText(slower!);
+
+  for (const name of ["Timing variation"]) {
+    await expect(page.getByRole("spinbutton", { name })).toBeVisible();
+    await expect(page.getByRole("slider", { name })).toBeVisible();
+  }
+  await page.getByLabel("Take breaks").check();
+  for (const name of ["Active time between breaks", "Variation in that time", "Shortest break", "Longest break"]) {
+    await expect(page.getByRole("spinbutton", { name })).toBeVisible();
+    await expect(page.getByRole("slider", { name })).toBeVisible();
+  }
+  // The longest break can't go below the shortest.
+  await page.getByRole("spinbutton", { name: "Shortest break" }).fill("300");
+  await page.getByRole("spinbutton", { name: "Shortest break" }).blur();
+  await expect(page.getByRole("spinbutton", { name: "Longest break" })).toHaveValue("300");
+  // Out-of-range typing is clamped.
+  await page.getByRole("spinbutton", { name: "Timing variation" }).fill("90");
+  await page.getByRole("spinbutton", { name: "Timing variation" }).blur();
+  await expect(page.getByRole("spinbutton", { name: "Timing variation" })).toHaveValue("50");
+  await expect(page.getByText(/WPM.*5 characters|"word" is 5 characters/).first()).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
+test("the summary before starting lists document, location, length, modes and duration", async ({ page }) => {
+  await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Flood essay");
+  await page.getByLabel("Text to enter").fill(ESSAY);
+  const summary = page.getByRole("definition").filter({ hasText: /hour/ }).first();
+  await expect(summary).toBeVisible();
+  const list = page.locator("dl.summary-list");
+  await expect(list).toContainText('New Google Doc "Flood essay"');
+  await expect(list).toContainText("At the end of the document");
+  await expect(list).toContainText(`${ESSAY.length} characters`);
+  await expect(list).toContainText("Sentences (10 insertions)");
+  await expect(list).toContainText("Target duration");
+  await expect(list).toContainText(/1 hour/);
+});
+
+test("test connection reports each check without changing anything", async ({ page, request }) => {
+  await page.goto("/app/new/");
+  await page.getByRole("button", { name: "Test connection" }).click();
+  await expect(page.getByText("Connection works.")).toBeVisible();
+  await expect(page.getByText(/Google account:.*OK/)).toBeVisible();
+  const { requests } = await (await request.get("/__test/requests")).json();
+  expect(requests.some((r: { path: string }) => r.path.endsWith("/drips/check"))).toBe(true);
+  expect(requests.some((r: { method: string; path: string }) => r.method === "POST" && r.path.endsWith("/drips"))).toBe(false);
+});
+
+test("a double click on Start starts one session", async ({ page, request }) => {
+  await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Flood essay");
+  await page.getByLabel("Text to enter").fill(ESSAY);
+  await expect(page.getByText(/one insertion each/)).toBeVisible();
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole("button", { name: "Start session" }).dblclick();
+  await page.waitForURL(/\/app\/session\/?\?id=/);
+  const { requests } = await (await request.get("/__test/requests")).json();
+  const creates = requests.filter((r: { method: string; path: string }) => r.method === "POST" && /\/drips\/?$/.test(r.path));
+  expect(creates.length).toBe(1);
+});
+
+test("the session page shows state, activity, breaks and test connection; finished sessions can be deleted", async ({ page, request }) => {
+  const id = await startSession(page);
+  await expect(page.getByText("State:", { exact: false }).first()).toBeAttached();
+  await expect(page.locator(".activity")).toContainText(/Waiting for the next insertion|Entering text/);
+  await expect(page.getByText(/Next break: after part/)).toBeVisible();
+  await page.getByRole("button", { name: "Test connection" }).click();
+  await expect(page.getByText(/Insertion point:.*OK/)).toBeVisible();
+
+  await request.post("/__test/advance", { data: { id, written: 10 } });
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.locator(".badge").filter({ hasText: "State: Completed" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete this session" }).click();
+  await expect(page.getByRole("alertdialog", { name: /Delete this session/ })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/app\/sessions\/?$/);
+  const res = await request.get(`/functions/v1/drips/${id}`);
+  expect(res.status()).toBe(404);
+});
+
+test("settings explain where data is kept and can clear finished sessions", async ({ page, request }) => {
+  const id = await startSession(page);
+  await request.post("/__test/advance", { data: { id, written: 10 } });
+  await page.goto("/app/settings/");
+  await expect(page.getByText(/activity log stores times, counts and outcomes, not your text/)).toBeVisible();
+  await expectNoAxeViolations(page);
+  await page.getByRole("button", { name: "Delete finished sessions (1)" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Deleted 1 finished session and their saved text.")).toBeVisible();
+  expect((await request.get(`/functions/v1/drips/${id}`)).status()).toBe(404);
 });

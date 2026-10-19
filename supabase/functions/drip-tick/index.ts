@@ -121,6 +121,7 @@ function normalize(drip: ClaimedDrip): SessionRow {
     resync_tail: drip.resync_tail ?? "",
     pending_doc_length: drip.pending_doc_length ?? null,
     retry_at: drip.retry_at ?? null,
+    preflight_at: drip.preflight_at ?? null,
   };
 }
 

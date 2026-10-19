@@ -7,7 +7,21 @@ export interface Connection {
   created_at?: string;
 }
 
+/** Explicit session states. Idle (no session yet) only exists in the client. */
+export type SessionState = "preparing" | "running" | "paused" | "recovering" | "completed" | "cancelled" | "failed";
+export type Activity = "entering" | "waiting" | "on_break" | "paused" | "recovering" | "done";
+
+export interface BreakWindow {
+  after_part: number;
+  start: string;
+  end: string;
+}
+
 export interface Progress {
+  state?: SessionState;
+  activity?: Activity;
+  current_break?: BreakWindow | null;
+  next_break?: BreakWindow | null;
   percent: number;
   words_written: number;
   words_total: number;
@@ -35,7 +49,8 @@ export type Attention =
   | "reconnect"
   | "document_unavailable"
   | "unreachable"
-  | "insert_rejected";
+  | "insert_rejected"
+  | "not_editable";
 
 export interface Drip {
   id: string;
@@ -58,6 +73,9 @@ export interface Drip {
   paused_at?: string | null;
   attention?: Attention | null;
   pending_index?: number | null;
+  timing_mode?: "duration" | "speed" | "asap";
+  pacing?: PacingSettings | null;
+  breaks?: PlannedBreak[];
   /** Offsets in ms from session_started_at (detail view only). */
   schedule?: number[];
   progress: Progress;
@@ -67,6 +85,39 @@ export interface DripEvent {
   kind: string;
   detail: Record<string, unknown>;
   created_at: string;
+}
+
+export type TimingMode = "duration" | "speed";
+export type BreakAlignment = "any" | "sentence" | "paragraph";
+
+export interface PacingSettings {
+  timing: TimingMode;
+  duration_seconds?: number;
+  wpm?: number;
+  variation_pct: number;
+  breaks: {
+    enabled: boolean;
+    every_seconds: number;
+    every_variation_pct: number;
+    min_seconds: number;
+    max_seconds: number;
+    align: BreakAlignment;
+  };
+}
+
+export interface PlannedBreak {
+  after_index: number;
+  start_ms: number;
+  duration_ms: number;
+}
+
+export interface AccessReport {
+  ok: boolean;
+  problem: string | null;
+  message: string;
+  checks: { key: string; label: string; ok: boolean | null; detail: string }[];
+  revision_unchanged: boolean | null;
+  checked_at: string;
 }
 
 export interface PlanProblem {
@@ -84,6 +135,11 @@ export interface SessionPlan {
   unit_count: number;
   unit_lengths: number[];
   schedule: number[];
+  breaks: PlannedBreak[];
+  warnings: PlanProblem[];
+  pacing: PacingSettings | null;
+  active_seconds: number;
+  break_seconds: number;
   stats: { first_offset_ms: number; last_offset_ms: number; min_gap_ms: number; median_gap_ms: number; max_gap_ms: number } | null;
   seed: number;
   duration_seconds: number;
@@ -92,13 +148,45 @@ export interface SessionPlan {
   options: { unit: InsertionUnit; units: number; minimum_duration_seconds: number; fits: boolean }[];
 }
 
+export const STATE_LABEL: Record<SessionState, string> = {
+  preparing: "Preparing",
+  running: "Running",
+  paused: "Paused",
+  recovering: "Recovering",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  failed: "Failed",
+};
+
+export const ACTIVITY_LABEL: Record<Activity, string> = {
+  entering: "Entering text",
+  waiting: "Waiting for the next insertion",
+  on_break: "On a planned break",
+  paused: "Paused",
+  recovering: "Recovering: checking the document before continuing",
+  done: "Nothing more will be entered",
+};
+
+/** The state for drips from before explicit states existed. */
+export function stateOf(drip: Pick<Drip, "status" | "progress">): SessionState {
+  if (drip.progress.state) return drip.progress.state;
+  return ({
+    scheduled: "preparing",
+    running: "running",
+    paused: "paused",
+    completed: "completed",
+    canceled: "cancelled",
+    failed: "failed",
+  } as const)[drip.status];
+}
+
 export const STATUS_LABEL: Record<DripStatus, string> = {
-  scheduled: "Starting",
-  running: "Entering text",
+  scheduled: "Preparing",
+  running: "Running",
   paused: "Paused",
   completed: "Finished",
   failed: "Stopped by an error",
-  canceled: "Stopped",
+  canceled: "Cancelled",
 };
 
 export const UNIT_LABEL: Record<InsertionUnit, { one: string; many: string; title: string }> = {
@@ -116,6 +204,7 @@ export const ATTENTION_TITLE: Record<Attention, string> = {
   document_unavailable: "The document can't be opened",
   unreachable: "Google Docs couldn't be reached",
   insert_rejected: "Google Docs refused an insertion",
+  not_editable: "The document isn't editable",
 };
 
 export const EVENT_LABEL: Record<string, string> = {
@@ -130,4 +219,6 @@ export const EVENT_LABEL: Record<string, string> = {
   retry_scheduled: "Couldn't reach Google Docs, will retry",
   attention: "Paused by TypeWit: needs you",
   failed: "Stopped by an error",
+  connection_checked: "Connection checked before the first insertion",
+  insertion_uncertain: "Insertion uncertain: the answer from Google Docs was lost",
 };

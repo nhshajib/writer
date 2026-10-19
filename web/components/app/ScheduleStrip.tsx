@@ -1,4 +1,5 @@
 import { when } from "@/lib/time";
+import type { PlannedBreak } from "@/lib/types";
 
 interface Props {
   /** Planned offsets in ms from the start, one per insertion. */
@@ -9,6 +10,8 @@ interface Props {
   done?: number;
   /** Shows a "now" marker while the session runs. */
   nowMs?: number;
+  /** Planned breaks, drawn as shaded spans. */
+  breaks?: PlannedBreak[];
   label: string;
 }
 
@@ -16,7 +19,7 @@ interface Props {
  * The whole schedule as one strip: a mark per insertion, placed at its planned
  * time. Entered ones are filled. Purely visual; the summary is in aria-label.
  */
-export function ScheduleStrip({ offsets, startMs, done = 0, nowMs, label }: Props) {
+export function ScheduleStrip({ offsets, startMs, done = 0, nowMs, breaks = [], label }: Props) {
   if (offsets.length === 0) return null;
   const total = offsets[offsets.length - 1] || 1;
   const x = (offset: number) => Math.min(1000, Math.max(0, (offset / total) * 1000));
@@ -27,6 +30,10 @@ export function ScheduleStrip({ offsets, startMs, done = 0, nowMs, label }: Prop
     <figure className="strip">
       <svg viewBox="0 0 1000 40" preserveAspectRatio="none" role="img" aria-label={label} focusable="false">
         <rect x="0" y="18" width="1000" height="4" rx="2" style={{ fill: "var(--surface-2)" }} />
+        {breaks.map((b) => (
+          <rect key={`b${b.after_index}`} x={x(b.start_ms)} y="4" width={Math.max(2, x(b.start_ms + b.duration_ms) - x(b.start_ms))}
+            height="32" rx="2" style={{ fill: "var(--amber-soft)", stroke: "var(--amber)", strokeWidth: 1 }} />
+        ))}
         {offsets.map((offset, i) => (
           <rect
             key={i}
