@@ -504,6 +504,12 @@ Live, against the real Google Doc "Testing" through the deployed functions:
   the next cron tick (the row was inserted with SQL, which skips the API's
   worker kick) and the rest of the schedule moved 30 s later instead of
   bursting.
+- *After launch hardening (drips v23, drip-tick v18, stripe-webhook v9):* a 1-minute, 6-sentence session
+  passed Test connection, every step landed 0.4–0.6 s after its planned time, and the completion check found the
+  document equal to its prior content plus the text. `GET /drip-tick/health` answered `ok: true`; the worker
+  heartbeat updates every minute and the first daily clean-up ran. The active-session trigger refused a fourth
+  active session for a Pro user, and the rate limiter refused the third request on a budget of two (both in
+  rolled-back transactions).
 - *Word claims (SQL, rolled back):* the server worker skips Word sessions; a
   claim for another document, a second claim during a lease, and another
   user's claim are all refused.
