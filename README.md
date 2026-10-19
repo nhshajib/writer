@@ -25,14 +25,16 @@ visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass ax
 | Route | What it does |
 |---|---|
 | `/`, `/pricing`, `/responsible-use` | Public pages (pricing starts Stripe checkout) |
-| `/signup`, `/login` | Account creation (personal email only, agreement required) and sign-in |
+| `/signup`, `/login` | Account creation (personal email only, agreement required, resend confirmation) and sign-in (returns to the page that asked) |
+| `/reset-password` | Where the password-reset email lands: choose a new password |
+| `/word` | The Microsoft Word add-in pane (see below) |
 | `/app` | Overview: greeting, setup checklist, usage today, active sessions, updates (notifications) |
-| `/app/sessions` | All sessions with filters, search and CSV export |
+| `/app/sessions` | All sessions with filters, search, sort, older pages and CSV export of what's shown |
 | `/app/session?id=…` | Live progress, countdown, text entered so far, pause / resume / stop, activity log (CSV export) |
-| `/app/new` | Start a session (document, text, step size, timing, approval) |
+| `/app/new` | Start a session (document, text, step size, timing, optional later start, approval); `?from=<id>` runs a past session again; unsent text is kept in the browser |
 | `/app/documents` | Google accounts (connect, disconnect, reconnect) and documents TypeWit wrote into |
 | `/app/billing` | Plan, usage meter, start trial, Stripe billing portal |
-| `/app/settings` | Profile name, notifications, password, agreement, data download, account deletion request |
+| `/app/settings` | Profile name, email choices (finished / needs attention), password (current one required) or set one for Word, email change, agreement, data download, delete account |
 | `/account` | Old address; forwards to `/app/billing` (Stripe still returns here) |
 | `/privacy`, `/terms`, `/support` | Legal pages and help |
 
@@ -54,7 +56,7 @@ pages: `/privacy`, `/terms`, `/support` (support address in `web/lib/site.ts`).
    `https://<project-ref>.supabase.co/functions/v1/stripe-webhook` for `customer.subscription.created`,
    `.updated` and `.deleted`, and add its signing secret as `STRIPE_WEBHOOK_SECRET`. Enable the Customer Portal.
 2. **Deploy `web/` to Netlify.** The app is a static export (`npm run build` writes `web/out`). Base directory `web`; `web/netlify.toml` sets the build command and publish directory `out`. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as environment variables.
-3. **Supabase secrets:** `APP_URL` = `https://typewit.com`, `TOKEN_ENCRYPTION_KEY`, `ENABLE_TEST_PROVIDER=false`;
+3. **Supabase secrets:** `APP_URL` = `https://typewit.com`, `TOKEN_ENCRYPTION_KEY`;
    optionally `RESEND_API_KEY` and `EMAIL_FROM` for email.
 4. **Supabase Auth:** set Site URL to `https://typewit.com` and add it to Authentication → URL Configuration; turn on leaked-password protection;
    keep the "Before User Created" hook on `public.hook_before_user_created`.
@@ -65,6 +67,18 @@ pages: `/privacy`, `/terms`, `/support` (support address in `web/lib/site.ts`).
    accounts are refused. People who tick the agreement before choosing Google have it recorded on first visit to the
    dashboard; everyone else is asked there.
 7. Test Stripe in test mode end to end (trial starts, plan becomes Pro, second trial refused, cancel returns to Free).
+8. **Google verification:** while the OAuth consent screen is in "Testing", only listed test users can connect and
+   their refresh tokens expire after 7 days (long sessions would pause with "reconnect"). Publish it: add the app
+   name, logo, `https://typewit.com/privacy/` and `/terms/`, and verify the `typewit.com` domain in Search Console.
+   `drive.file` is not a sensitive scope, so no security assessment is needed.
+9. **Google Picker:** enable the Picker API and set `GOOGLE_API_KEY` (see "Choosing any existing Google Doc").
+10. **Email:** verify `typewit.com` in Resend and set `EMAIL_FROM`; without it Resend only delivers to its own account.
+11. **Supabase Auth URLs:** add `https://typewit.com/**` to the redirect allow list, so password-reset links reach
+    `/reset-password/` and confirmation links return to the page people started from.
+12. **Uptime:** point a monitor (e.g. UptimeRobot) at `https://jopggisumjlfitapkgjh.supabase.co/functions/v1/drip-tick/health`;
+    it returns 503 if the once-a-minute worker stops.
+13. Leave `ENABLE_TEST_PROVIDER` unset in production (the test provider is off unless it is `true`).
+    `CORS_EXTRA_ORIGINS` (comma-separated) allows extra sites, such as a preview deploy, to call the API.
 
 ## How it works
 
@@ -166,6 +180,21 @@ cd web && npm run typecheck
 cd web && CHROMIUM_PATH=/path/to/chrome npm run test:e2e   # keyboard + screen reader + axe
 ```
 
+`.github/workflows/ci.yml` runs all of these on every push and pull request.
+
+### Operations
+
+- **Security headers** (`web/netlify.toml`): HSTS, and a Content-Security-Policy whose `frame-ancestors` allows
+  only Microsoft Office to frame the site (the Word add-in pane runs in a frame in Word on the web), plus
+  `base-uri`, `object-src` and `form-action` limits. Scripts are not restricted, because Office.js and Google
+  Picker load further code from hosts they choose.
+- **CORS:** the API answers browsers on typewit.com, `APP_URL`, localhost and `CORS_EXTRA_ORIGINS` only.
+- **Clean-up:** once a day the worker deletes start-request records after 7 days, rate-limit counters after
+  2 days, Stripe event ids after 90 days and read notifications after 90 days. Sessions and their logs stay until
+  people delete them (or their account).
+- **Stripe webhook:** an event whose processing fails is forgotten so Stripe's retry is processed; an event older
+  than the last one applied doesn't change the plan.
+
 ## Setup (already done on Supabase project `jopggisumjlfitapkgjh`)
 
 1. Apply `supabase/migrations/*` in order.
@@ -262,17 +291,23 @@ needs `Authorization: Bearer <user access token>` and `apikey: <publishable key>
 | `POST /drips/documents` | `{ connection_id, title }` | `{ document: { id, title, url } }` |
 | `POST /drips/plan` | `{ text, insertion_unit, pacing, schedule_seed }` | `{ plan }`: units, schedule, breaks, problems, warnings |
 | `POST /drips/check` | `{ connection_id, document_id? }` | `{ report }`: Test connection, changes nothing |
-| `POST /drips` | `{ connection_id, text, pacing \| duration_minutes, document_id \| new_document_title, approval, request_id }` | `201 { drip }`; a repeated `request_id` returns the same drip |
-| `GET /drips` | | `{ drips: [...] }`, each with `progress` |
+| `POST /drips` | `{ connection_id, text, pacing \| duration_minutes, document_id \| new_document_title, approval, request_id, start_at? }` | `201 { drip }`; a repeated `request_id` returns the same drip; `start_at` (ISO, up to 7 days ahead) starts it later |
+| `GET /drips?before=<iso>` | | `{ drips: [...], has_more }`, newest first, 100 per page, each with `progress` |
 | `GET /drips/:id` | | `{ drip, events }`; `drip.progress` includes `written_text` and `remaining_text` |
 | `POST /drips/:id/pause` · `/resume` · `/cancel` | | `{ drip }` |
 | `POST /drips/:id/check` | | `{ report }`, including whether the insertion point is still where TypeWit left it |
 | `POST /drips/:id/delete` · `POST /drips/clear` | | delete one / all finished sessions with their saved text and log |
+| `POST /drips/account/delete` | `{ confirm_email }` | stops sessions, revokes Google, deletes the user and (by cascade) everything stored for them; refused while Pro is active |
+| `GET /drip-tick/health` | | no auth; `{ ok, worker: { last_tick_at, seconds_since_tick }, configured: {...} }`, 503 when the worker has stopped |
+
+Limits: per user, 30 Starts, 20 new documents, 60 connection checks and 60 Picker tokens per hour, and 600
+schedule previews per hour (429 after that). The active-session limit is also enforced by a database trigger,
+so Starts sent at the same moment can't exceed it.
 
 `pacing` is `{ timing: "duration", duration_seconds }` or `{ timing: "speed", wpm }`, plus
 `variation_pct` (0–50) and `breaks: { enabled, every_seconds, every_variation_pct, min_seconds, max_seconds, align: "any" | "sentence" | "paragraph" }`.
 
-Errors are `{ "error": "message" }` with 400/401/404/409/422/503.
+Errors are `{ "error": "message" }` with 400/401/404/409/422/429/503.
 
 Example:
 
@@ -425,10 +460,10 @@ Automated, all passing:
 
 | Suite | Command | Result |
 |---|---|---|
-| Unit + simulated-time tests (scheduler, pacing, segmentation, engine, recovery, Test connection) | `deno task test` | 98 passed |
+| Unit + simulated-time tests (scheduler, pacing, segmentation, engine, recovery, Test connection) | `deno task test` | 101 passed |
 | Typecheck, lint, format | `deno task check` | clean |
 | Web typecheck and static build | `cd web && npm run typecheck && npm run build` | clean |
-| Browser tests (keyboard-only flow, axe in light/dark, reduced motion, announcements, sliders with number boxes, summary, Test connection, double-click Start, delete/clear, Word add-in pane with a fake Word, Google Picker with a fake Picker) | `cd web && CHROMIUM_PATH=… npm run test:e2e` | 18 passed |
+| Browser tests (keyboard-only flow, axe in light/dark, reduced motion, announcements, sliders with number boxes, summary, Test connection, double-click Start, delete/clear, Word add-in pane with a fake Word, Google Picker with a fake Picker, password reset, sign-in return path, Start later, Run again, drafts, settings and account deletion, sessions sort/CSV, 404 and page titles) | `cd web && CHROMIUM_PATH=… npm run test:e2e` | 30 passed |
 
 The simulated-time tests cover:
 
