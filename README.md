@@ -1,11 +1,13 @@
 # TypeWit
 
-Users paste and approve text, pick a document and a duration, and TypeWit
-enters the text into that Google Doc step by step (one sentence at a time by
-default) at varied, pre-planned times, finishing at the end of the duration.
-Each step is a real Docs API edit made at its scheduled time. Writing happens on
-the server, so the browser can be closed and the computer can sleep. Sessions can
-be paused, resumed and stopped, and every insertion is logged.
+Users paste and approve text, pick a document and a pace (a target duration or a
+typing speed, with optional breaks), and TypeWit enters the text into that
+Google Doc step by step (one sentence at a time by default) at varied,
+pre-planned times. Each step is a real Docs API edit made at its scheduled time.
+Writing happens on the server, so the browser can be closed and the computer can
+sleep. Sessions can be paused, resumed and stopped, and every insertion is
+logged. TypeWit never adds typos, corrections or backdated edits, and it is
+labelled as automated text entry throughout.
 
 This repo holds the backend (Supabase, `supabase/`) and the frontend (Next.js, `web/`).
 
@@ -78,13 +80,43 @@ pg_cron (every minute) ──x-tick-secret──▶ drip-tick ──▶ Google D
   Units always join back to the exact text. Text containing characters Google
   Docs would drop (control characters incl. `\r`, private-use characters, lone
   surrogates) is refused with an explanation instead of being altered.
-- **Schedule** (`_shared/schedule.ts`): built once, before the session starts,
-  and stored on the drip as millisecond offsets. The wait before each unit is
-  proportional to its length (clamped to 3× the median) times a random factor
-  in ±35 %, with at least 4 s between insertions; the last insertion lands
-  exactly at the end of the duration. The seed the user previewed is the seed
-  that runs. `POST /drips/plan` explains impossible combinations (e.g. 2,000
-  characters can't fit in 5 minutes) before anything starts.
+- **Sentences** are split with Unicode sentence boundaries, then pieces are
+  joined back where a full stop doesn't end the sentence: abbreviations
+  ("Dr.", "e.g.", "Jan.", "4 p.m."), initialisms ("U.S."), decimals ("3.5"),
+  list markers ("1. ") and a quote followed by lowercase (`"Go!" she said.`).
+  A line break always ends a unit, so headings and list items stand alone.
+- **Schedule** (`_shared/pacing.ts`): built once, before the session starts,
+  and stored on the drip as millisecond offsets plus a list of breaks. The
+  seed the user previewed is the seed that runs.
+  - *Target duration:* each unit's share of the active time is proportional
+    to its length (clamped to 3× the median) times a random factor within
+    ±variation; breaks are added inside the duration, and the last insertion
+    lands exactly at the end.
+  - *Typing speed:* a unit of `c` characters takes `c × 12 / WPM` seconds
+    (1 word = 5 characters, so 60 s ÷ (WPM × 5) per character), varied by
+    ±variation; the total shown is an estimate that includes breaks.
+  - *Breaks:* after a varied amount of active time (“active time between
+    breaks” ± its variation), a pause between the shortest and longest break,
+    optionally only after a sentence or paragraph ends.
+  - At least 4 s between insertions (Google Docs allows 60 edits a minute).
+    `POST /drips/plan` explains impossible combinations (e.g. 2,000
+    characters can't fit in 5 minutes) and warns when a speed can't be kept.
+- **Test connection** (`_shared/access.ts`): checks the Google account, that
+  the document opens, that it is editable, and (for a running session) that it
+  still ends with TypeWit's text. The edit check sends a `replaceAllText` for a
+  random marker that can't be in the document, with `requiredRevisionId`; it
+  changes nothing, and the revision before and after is compared. The worker
+  runs the same check before the first insertion. Failures name the cause:
+  permission missing, document not found, not editable, editor unavailable,
+  connection interrupted, insertion point uncertain.
+- **States:** Idle (client only), Preparing, Running, Paused, Recovering,
+  Completed, Cancelled, Failed (`_shared/progress.ts`), plus the current
+  activity (entering, waiting, on a break, recovering). Each insertion is
+  logged as scheduled (the plan), attempted (the write-ahead marker),
+  confirmed (`chunk_written`) or uncertain (`insertion_uncertain`).
+- **Duplicate starts:** each press of Start carries a `request_id`; a repeated
+  request returns the same session, and a unique index allows only one
+  unfinished session per document.
 - **Worker** (`_shared/session.ts`): pg_cron ticks each minute; a tick claims
   sessions due within the next minute and waits for each insertion's exact time.
   Before each insertion it checks the document still ends with TypeWit's text,
@@ -185,10 +217,17 @@ needs `Authorization: Bearer <user access token>` and `apikey: <publishable key>
 | `POST /drips/connections/:id/disconnect` | | stops that account's active drips, revokes the Google grant, clears tokens; history is kept |
 | `POST /drips/connections/test` | | `{ connection }` (test provider) |
 | `POST /drips/documents` | `{ connection_id, title }` | `{ document: { id, title, url } }` |
-| `POST /drips` | `{ connection_id, text, duration_minutes, document_id \| new_document_title }` | `201 { drip }` |
+| `POST /drips/plan` | `{ text, insertion_unit, pacing, schedule_seed }` | `{ plan }`: units, schedule, breaks, problems, warnings |
+| `POST /drips/check` | `{ connection_id, document_id? }` | `{ report }`: Test connection, changes nothing |
+| `POST /drips` | `{ connection_id, text, pacing \| duration_minutes, document_id \| new_document_title, approval, request_id }` | `201 { drip }`; a repeated `request_id` returns the same drip |
 | `GET /drips` | | `{ drips: [...] }`, each with `progress` |
-| `GET /drips/:id` | | `{ drip, events }`; `drip.progress` includes `written_text` |
+| `GET /drips/:id` | | `{ drip, events }`; `drip.progress` includes `written_text` and `remaining_text` |
 | `POST /drips/:id/pause` · `/resume` · `/cancel` | | `{ drip }` |
+| `POST /drips/:id/check` | | `{ report }`, including whether the insertion point is still where TypeWit left it |
+| `POST /drips/:id/delete` · `POST /drips/clear` | | delete one / all finished sessions with their saved text and log |
+
+`pacing` is `{ timing: "duration", duration_seconds }` or `{ timing: "speed", wpm }`, plus
+`variation_pct` (0–50) and `breaks: { enabled, every_seconds, every_variation_pct, min_seconds, max_seconds, align: "any" | "sentence" | "paragraph" }`.
 
 Errors are `{ "error": "message" }` with 400/401/404/409/422/503.
 
@@ -286,3 +325,114 @@ version history, which Google groups on its own.
 | Active drips | 1 | 3 |
 
 Plans are set in `profiles.plan`. Billing is not wired up yet.
+
+## Why there is no browser extension
+
+TypeWit writes through the Google Docs API (`documents.batchUpdate` →
+`insertText` at `endOfSegmentLocation`), not through keystrokes. A website
+can't control another browser tab, and synthetic key events into the Docs
+editor are unreliable and can't be confirmed (the dripwriter-origin code
+notes the same). The API approach needs no extension, runs on the server
+(close the page, let the computer sleep), is bound to one document ID rather
+than to whatever has focus, and can confirm each insertion from the document
+itself. The cost: TypeWit appends at the end of the document; it doesn't
+follow the user's cursor.
+
+Reference projects: WriterDrip (MIT) and dripwriter-origin (noncommercial-only
+license). Both were read for ideas; no code was copied from either. Their
+typo, false-start and "detour" features were deliberately left out.
+
+## Privacy and permissions
+
+- **Google scopes:** `openid`, `email`, `drive.file`. `drive.file` reaches
+  only documents TypeWit created (or the user picks), nothing else in Drive.
+- **Stored in TypeWit's database (Supabase), readable only by the owner via RLS:**
+  the approved text, its units and schedule, session state, and the activity
+  log. The log records times, counts, revision IDs and outcomes, not the text.
+- **Google tokens** are AES-GCM encrypted and never sent to the browser.
+- **In the browser:** only the pace settings and the screen-reader
+  announcement preference (`localStorage`).
+- **Clearing:** Settings → "Delete finished sessions", or Delete on a finished
+  session, removes its text, schedule, log and notifications. Unfinished
+  sessions must be stopped first. Documents are never touched.
+
+## Version history (observed, not assumed)
+
+Each insertion is one separate `batchUpdate`, made at its scheduled time from
+the user's connected account, so one sentence is one API edit. In the live
+tests, every insertion produced a new document revision ID. Google decides how
+those edits are grouped under File → Version history; TypeWit does not
+promise one history entry per edit. TypeWit can read that history through the
+Drive API, but the Drive API is **not enabled** in the current Google Cloud
+project (654277390095), so the completion log records
+`provider_revisions: { unavailable: … }`. The grouping has not been observed
+yet. Enable the Drive API in that project to have each completion log the
+revision count. Note: Google also issues a new revision ID for a
+`batchUpdate` that changes nothing (Test connection's check). That is why
+Test connection confirms "nothing changed" by re-reading the text, not by
+comparing revision IDs.
+
+## Validation (2026-10-19)
+
+Automated, all passing:
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit + simulated-time tests (scheduler, pacing, segmentation, engine, recovery, Test connection) | `deno task test` | 88 passed |
+| Typecheck, lint, format | `deno task check` | clean |
+| Web typecheck and static build | `cd web && npm run typecheck && npm run build` | clean |
+| Browser tests (keyboard-only flow, axe in light/dark, reduced motion, announcements, sliders with number boxes, summary, Test connection, double-click Start, delete/clear) | `cd web && CHROMIUM_PATH=… npm run test:e2e` | 13 passed |
+
+The simulated-time tests cover:
+
+- exact final text, Unicode and paragraphs;
+- the last insertion landing exactly at the duration;
+- variation bounds, no back-loading, and the WPM arithmetic;
+- very short and very long texts, and impossible durations;
+- pause and resume shifting by the pause length;
+- cancellation;
+- sleep (no worker ticks for hours, then a shifted schedule rather than a burst);
+- crashes between write and confirm, and uncertain or ambiguous insertions;
+- concurrent edits and refused writes;
+- outages with backoff;
+- preflight failures;
+- a fuzz run over random interruptions.
+
+Live, against the real Google Doc "Testing" through the deployed functions:
+
+- *Target duration 4 min, sentence mode, 2 breaks (29.5 s, 29.4 s):*
+  - Test connection passed before the first insertion.
+  - All 6 sentences were entered 0.3–1.3 s after their planned times, including after both breaks.
+  - The last one landed 1.1 s after the planned end (start + 240 s).
+  - The completion check found the document exactly equal to its prior content plus the approved text.
+  - Abbreviations ("Oct.", "Dr.", "U.S.", "4 p.m."), the decimal "3.5" and `"Done!" she said.` split correctly.
+- *Target duration 1 min, 2 sentences with "é" and "☕", after the Test connection fix:*
+  - The preflight logged `content_unchanged: true` (the document text was re-read after the edit check).
+  - Both parts were entered 0.4–0.5 s after their planned times.
+  - The completion check matched exactly.
+- *Earlier runs (same engine):*
+  - A conditional write (`requiredRevisionId`) was accepted by Google.
+  - A test-provider session paused correctly on a concurrent edit.
+- *Duplicate starts:* the database guards were exercised with SQL.
+  - Same document → refused.
+  - Same request ID → refused.
+  - New session after a finished one → allowed.
+
+Not tested live:
+
+- The `drips` HTTP endpoints with a real user JWT. Plan, check, create, pause, resume, clear and delete were exercised against the mock API in the browser tests, and their logic is unit-tested.
+- Google's version-history grouping (see above).
+- A Google outage or revoked grant (simulated only).
+
+## Known limitations
+
+- Insertions are at least 4 s apart (Google allows 60 writes a minute per user),
+  so character mode suits short texts; the planner says when a text won't fit.
+- Text is appended at the end of the document, not at the cursor. Edits
+  elsewhere are fine; text added after TypeWit's pauses the session.
+- Timing depends on pg_cron (once a minute) plus in-worker waits; typical
+  lateness observed was about 1 s. Outages or long editor delays move the rest
+  of the schedule later rather than rushing.
+- Existing documents can only be used if TypeWit created them (or after Google
+  Picker is added); otherwise TypeWit creates a new document.
+- Microsoft Word is not supported yet.

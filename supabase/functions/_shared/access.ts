@@ -27,8 +27,12 @@ export interface AccessReport {
   problem: AccessProblem | null;
   message: string;
   checks: AccessCheck[];
-  /** Whether the document's revision stayed the same across the edit check. */
-  revision_unchanged: boolean | null;
+  /**
+   * Whether the document text read again after the edit check is exactly what
+   * it was before. (Google gives the document a new revision id even for an
+   * edit that changes nothing, so the revision can't show this.)
+   */
+  content_unchanged: boolean | null;
   checked_at: string;
 }
 
@@ -65,12 +69,17 @@ export async function checkAccess(
   now: () => Date = () => new Date(),
 ): Promise<AccessReport> {
   const checks: AccessCheck[] = [];
-  const finish = (problem: AccessProblem | null, revisionUnchanged: boolean | null = null): AccessReport => ({
+  const finish = (problem: AccessProblem | null, contentUnchanged: boolean | null = null): AccessReport => ({
     ok: problem === null,
     problem,
-    message: problem ? ACCESS_MESSAGE[problem] : "Connection works. Nothing in the document was changed.",
+    message: problem
+      ? ACCESS_MESSAGE[problem]
+      : contentUnchanged === false
+      ? "Connection works, but the document changed while it was being checked; someone may be editing it. " +
+        "The check itself sends an edit that matches nothing."
+      : "Connection works. Nothing in the document was changed.",
     checks,
-    revision_unchanged: revisionUnchanged,
+    content_unchanged: contentUnchanged,
     checked_at: now().toISOString(),
   });
 
@@ -99,8 +108,7 @@ export async function checkAccess(
 
   let unchanged: boolean | null = null;
   try {
-    const after = await provider.probeEdit(documentId, doc.revisionId);
-    unchanged = after.revisionId === null ? null : after.revisionId === doc.revisionId;
+    await provider.probeEdit(documentId, doc.revisionId);
     checks.push({
       key: "editable",
       label: "Editing",
@@ -121,6 +129,13 @@ export async function checkAccess(
       checks.push({ key: "editable", label: "Editing", ok: false, detail: ACCESS_MESSAGE[problem] });
       return finish(problem);
     }
+  }
+
+  // Read the document again to confirm the check left the text exactly as it was.
+  try {
+    unchanged = (await provider.readDocument(documentId)).text === doc.text;
+  } catch {
+    unchanged = null;
   }
 
   if (expectedTail !== null) {

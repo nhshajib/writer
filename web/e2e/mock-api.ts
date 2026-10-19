@@ -150,7 +150,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
           ? { key: "document", label: "Document", ok: true, detail: "Opened." }
           : { key: "document", label: "Document", ok: null, detail: "A new document is created when you start." },
       ],
-      revision_unchanged: true,
+      content_unchanged: true,
       checked_at: new Date().toISOString(),
     };
     return send(res, 200, { report });
@@ -240,7 +240,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
             { key: "editable", label: "Editing", ok: true, detail: "Edits are allowed (checked without changing anything)." },
             { key: "location", label: "Insertion point", ok: true, detail: "The document ends with the text TypeWit entered." },
           ],
-          revision_unchanged: true,
+          content_unchanged: true,
           checked_at: new Date().toISOString(),
         },
       });

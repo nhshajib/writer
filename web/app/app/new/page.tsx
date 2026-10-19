@@ -265,7 +265,7 @@ export default function NewSessionPage() {
         problem: "connection_interrupted",
         message: e instanceof Error ? e.message : "The connection was interrupted.",
         checks: [],
-        revision_unchanged: null,
+        content_unchanged: null,
         checked_at: new Date().toISOString(),
       });
     } finally {

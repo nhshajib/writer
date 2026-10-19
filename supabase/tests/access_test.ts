@@ -12,7 +12,7 @@ Deno.test("test connection passes without changing the document", async () => {
     "location",
     true,
   ]]);
-  assertEquals(report.revision_unchanged, true);
+  assertEquals(report.content_unchanged, true);
   assertEquals({ content: doc.content, revision: doc.revision }, before);
   assertEquals(doc.writes.length, 0);
 });
@@ -36,6 +36,18 @@ Deno.test("test connection names the specific problem", async () => {
     assert(report.message.length > 20);
     assertEquals(doc.writes.length, 0);
   }
+});
+
+Deno.test("test connection says so when the document changes during the check", async () => {
+  const doc = new FakeDoc(new Clock(), "Existing text");
+  // Google gives a new revision id even for an edit that changes nothing; only the text counts.
+  doc.probeEdit = (_id: string, revisionId: string) => {
+    doc.edit(`${doc.content} typed meanwhile`);
+    return Promise.resolve({ revisionId });
+  };
+  const report = await checkAccess(doc, "doc");
+  assertEquals([report.ok, report.content_unchanged], [true, false]);
+  assert(!report.message.includes("Nothing in the document was changed"));
 });
 
 Deno.test("test connection before a new document checks the account only", async () => {

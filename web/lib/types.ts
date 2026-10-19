@@ -116,7 +116,7 @@ export interface AccessReport {
   problem: string | null;
   message: string;
   checks: { key: string; label: string; ok: boolean | null; detail: string }[];
-  revision_unchanged: boolean | null;
+  content_unchanged: boolean | null;
   checked_at: string;
 }
 

@@ -264,7 +264,7 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
       detail: {
         ok: report.ok,
         problem: report.problem,
-        revision_unchanged: report.revision_unchanged,
+        content_unchanged: report.content_unchanged,
         checks: report.checks.map((c) => ({ key: c.key, ok: c.ok })),
       },
     });
