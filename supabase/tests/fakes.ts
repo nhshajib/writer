@@ -206,7 +206,7 @@ export function makeSession(
   return {
     id: "d1",
     user_id: "u1",
-    document_id: "doc",
+    document_id: opts.document_id ?? "doc",
     chunks: plan.units,
     total_chunks: plan.units.length,
     chunks_written: 0,
@@ -242,7 +242,7 @@ export function makeSession(
  */
 export async function runWorker(
   store: FakeStore,
-  doc: FakeDoc,
+  doc: DocProvider,
   clock: Clock,
   until: number,
 ): Promise<Outcome[]> {

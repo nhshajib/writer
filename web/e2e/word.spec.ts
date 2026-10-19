@@ -1,0 +1,213 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+
+/*
+ * The Word add-in pane and Google Picker, against the mock API. Office.js and
+ * Google's Picker script can't run here, so small fakes stand in for them:
+ * the fake Word keeps the document as a list of paragraphs, like Word's API.
+ */
+
+const SESSION = {
+  access_token: "e2e-token",
+  refresh_token: "e2e-refresh",
+  token_type: "bearer",
+  expires_in: 3600 * 24,
+  expires_at: Math.floor(Date.now() / 1000) + 3600 * 24,
+  user: { id: "u1", aud: "authenticated", role: "authenticated", email: "me@gmail.com", user_metadata: {}, app_metadata: {} },
+};
+
+const DOC_URL = "https://contoso-my.sharepoint.com/personal/sam/Documents/Flood%20essay.docx";
+
+/** Stands in for https://appsforoffice.microsoft.com/lib/1/hosted/office.js. */
+function fakeOfficeJs(opts: { host: string | null; url: string | null; mode?: string }) {
+  return `
+    window.__paras = window.__paras || ["Notes from class: "];
+    window.__batches = 0;
+    window.Office = {
+      onReady: () => Promise.resolve({ host: ${JSON.stringify(opts.host)} }),
+      context: { document: { url: ${JSON.stringify(opts.url)}, mode: ${JSON.stringify(opts.mode ?? "readWrite")} } },
+    };
+    window.Word = {
+      run: async (batch) => {
+        window.__batches++;
+        const pending = [];
+        const context = {
+          document: { body: {
+            paragraphs: {
+              items: [],
+              load() {
+                this.items = window.__paras.map((text, i) => ({
+                  text,
+                  insertText: (more) => pending.push(() => { window.__paras[i] += more; }),
+                }));
+              },
+            },
+            insertParagraph: (text) => pending.push(() => { window.__paras.push(text); }),
+          } },
+          sync: async () => { pending.splice(0).forEach((f) => f()); },
+        };
+        return await batch(context);
+      },
+    };
+    // Office.js replaces these; the pane must put them back.
+    window.history.pushState = null;
+    window.history.replaceState = null;
+  `;
+}
+
+async function useFakeWord(page: Page, opts: { host: string | null; url: string | null; mode?: string }) {
+  await page.route("https://appsforoffice.microsoft.com/**", (route) =>
+    route.fulfill({ contentType: "text/javascript", body: fakeOfficeJs(opts) }));
+}
+
+async function tabTo(page: Page, target: Locator, max = 80) {
+  for (let i = 0; i < max; i++) {
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+    await page.keyboard.press("Tab");
+  }
+  throw new Error(`Couldn't reach ${target} with Tab`);
+}
+
+test.beforeEach(async ({ page, request }) => {
+  await request.post("/__test/reset");
+  await page.addInitScript((session) => {
+    localStorage.setItem("sb-localhost-auth-token", JSON.stringify(session));
+  }, SESSION);
+});
+
+test("the Word add-in enters the approved text into the open document, operated by keyboard", async ({ page, request }) => {
+  await useFakeWord(page, { host: "Word", url: DOC_URL });
+  await page.goto("/word/");
+  await expect(page.getByText("Document:")).toContainText("Flood essay");
+
+  const text = "Flood day.\nThe river rose overnight, émojis 👨‍👩‍👧 stay whole.\n\nThe end.";
+  await tabTo(page, page.getByLabel("Text to enter"));
+  await page.keyboard.insertText(text);
+  await page.getByRole("radio", { name: "All at once" }).check();
+  await expect(page.getByText(/planned 1 second/)).toBeVisible();
+
+  // Test connection checks the document without changing it.
+  const before = await page.evaluate(() => [...(window as unknown as { __paras: string[] }).__paras]);
+  await page.getByRole("button", { name: "Test connection" }).click();
+  await expect(page.getByText("Connection works.")).toBeVisible();
+  await expect(page.getByText(/Word add-in:/)).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __paras: string[] }).__paras)).toEqual(before);
+
+  await tabTo(page, page.getByLabel(/I've read this exact text/));
+  await page.keyboard.press("Space");
+  await tabTo(page, page.getByRole("button", { name: "Start session" }));
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByText("State: Completed")).toBeVisible({ timeout: 20_000 });
+  // The first line continues the last paragraph; each line break is a real new paragraph.
+  expect(await page.evaluate(() => (window as unknown as { __paras: string[] }).__paras)).toEqual([
+    "Notes from class: Flood day.",
+    "The river rose overnight, émojis 👨‍👩‍👧 stay whole.",
+    "",
+    "The end.",
+  ]);
+  await expect(page.getByText(/100% confirmed/)).toBeVisible();
+
+  // The log on the server has the connection check, the insertion and the completion, and no document text.
+  const { requests } = await (await request.get("/__test/requests")).json();
+  const ops = requests.filter((r: { path: string }) => r.path.endsWith("/engine")).map((r: { body: { op: string } }) => r.body.op);
+  expect(ops).toContain("claim");
+  expect(ops).toContain("confirm");
+  const logged = requests.filter((r: { body: { op?: string } }) => r.body?.op === "log")
+    .flatMap((r: { body: { events: { kind: string; detail: unknown }[] } }) => r.body.events);
+  expect(logged.map((e: { kind: string }) => e.kind)).toEqual(expect.arrayContaining(["connection_checked", "chunk_written", "completed"]));
+  expect(JSON.stringify(logged)).not.toContain("river rose");
+
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations.map((v) => v.id)).toEqual([]);
+});
+
+test("the Word add-in pauses and resumes, and stopping explains that entered text stays", async ({ page }) => {
+  await useFakeWord(page, { host: "Word", url: DOC_URL });
+  await page.goto("/word/");
+  await page.getByLabel("Text to enter").fill("One. Two. Three.");
+  await expect(page.getByText(/planned 1 hour/)).toBeVisible();
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole("button", { name: "Start session" }).click();
+
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByText("State: Paused")).toBeVisible();
+  await page.getByRole("button", { name: "Resume" }).click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Stop…" }).click();
+  await expect(page.getByText("Text already entered stays in your document")).toBeVisible();
+  await page.getByRole("button", { name: "Stop session" }).click();
+  await expect(page.getByText("State: Cancelled")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start another session" })).toBeVisible();
+});
+
+test("outside Word, or in an unsaved document, the pane explains what to do", async ({ page }) => {
+  await useFakeWord(page, { host: null, url: null });
+  await page.goto("/word/");
+  await expect(page.getByRole("heading", { name: "Open TypeWit from Word" })).toBeVisible();
+
+  const second = await page.context().newPage();
+  await useFakeWord(second, { host: "Word", url: null });
+  await second.goto("/word/");
+  await expect(second.getByText("Save this document first")).toBeVisible();
+});
+
+test("a read-only Word document is reported by Test connection", async ({ page }) => {
+  await useFakeWord(page, { host: "Word", url: DOC_URL, mode: "readOnly" });
+  await page.goto("/word/");
+  await page.getByRole("button", { name: "Test connection" }).click();
+  await expect(page.getByText("Connection problem.")).toBeVisible();
+  await expect(page.getByText(/isn't editable/).first()).toBeVisible();
+});
+
+test("any Google Doc can be chosen with Google Picker and is used for the session", async ({ page, request }) => {
+  await page.addInitScript(() => {
+    const calls: string[] = [];
+    (window as unknown as { __pickerCalls: string[] }).__pickerCalls = calls;
+    const picker = {
+      ViewId: { DOCUMENTS: "documents" },
+      Response: { ACTION: "action", DOCUMENTS: "docs" },
+      Action: { PICKED: "picked", CANCEL: "cancel" },
+      Document: { ID: "id", NAME: "name" },
+      DocsView: class {
+        setMimeTypes(m: string) { calls.push(`mime:${m}`); return this; }
+        setIncludeFolders() { return this; }
+        setSelectFolderEnabled() { return this; }
+      },
+      PickerBuilder: class {
+        private callback: (data: Record<string, unknown>) => void = () => {};
+        addView() { return this; }
+        setTitle() { return this; }
+        setOAuthToken(t: string) { calls.push(`token:${t}`); return this; }
+        setAppId(id: string) { calls.push(`app:${id}`); return this; }
+        setDeveloperKey(k: string) { calls.push(`key:${k}`); return this; }
+        setCallback(cb: (data: Record<string, unknown>) => void) { this.callback = cb; return this; }
+        build() {
+          return { setVisible: () => setTimeout(() => this.callback({ action: "picked", docs: [{ id: "picked-doc-123", name: "Lab report" }] }), 50) };
+        }
+      },
+    };
+    (window as unknown as Record<string, unknown>).google = { picker };
+    (window as unknown as Record<string, unknown>).gapi = { load: (_n: string, o: { callback: () => void }) => o.callback() };
+  });
+
+  await page.goto("/app/new/");
+  await page.getByRole("radio", { name: /Existing document/ }).check();
+  await page.getByRole("button", { name: "Choose from Google Drive…" }).click();
+  await expect(page.locator("#doc")).toHaveValue("c1:picked-doc-123");
+  await expect(page.locator("#doc option:checked")).toHaveText("Lab report");
+  expect(await page.evaluate(() => (window as unknown as { __pickerCalls: string[] }).__pickerCalls)).toEqual(
+    expect.arrayContaining(["mime:application/vnd.google-apps.document", "token:picker-token", "app:654277390095"]),
+  );
+
+  await page.getByLabel("Text to enter").fill("A short report. It has two sentences.");
+  await expect(page.getByText(/sentences, one insertion each/)).toBeVisible();
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.waitForURL(/\/app\/session\/?\?id=/);
+  const { requests } = await (await request.get("/__test/requests")).json();
+  const create = requests.find((r: { method: string; path: string }) => r.method === "POST" && r.path === "/functions/v1/drips");
+  expect(create.body.document_id).toBe("picked-doc-123");
+});

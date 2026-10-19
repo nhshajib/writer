@@ -74,8 +74,8 @@ export const ATTENTION_MESSAGE: Record<Attention, string> = {
   reconnect: "Google access stopped working. Reconnect your Google account, then resume.",
   document_unavailable: "TypeWit can no longer open the document. It may have been deleted, or access was removed.",
   unreachable:
-    "Google Docs couldn't be reached for a while. Nothing was entered while it was down. Resume to try again.",
-  insert_rejected: "Google Docs refused the insertion.",
+    "The document couldn't be reached for a while. Nothing was entered while it was down. Resume to try again.",
+  insert_rejected: "The document refused the insertion.",
   not_editable: "The document isn't editable with this Google account (it may be view or comment only). " +
     "Ask for edit access, then resume.",
 };

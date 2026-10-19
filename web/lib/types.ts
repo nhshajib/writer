@@ -202,8 +202,8 @@ export const ATTENTION_TITLE: Record<Attention, string> = {
   confirm_last_part: "Check the last part",
   reconnect: "Reconnect Google",
   document_unavailable: "The document can't be opened",
-  unreachable: "Google Docs couldn't be reached",
-  insert_rejected: "Google Docs refused an insertion",
+  unreachable: "The document couldn't be reached",
+  insert_rejected: "The document refused an insertion",
   not_editable: "The document isn't editable",
 };
 

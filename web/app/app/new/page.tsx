@@ -6,13 +6,13 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
-import { SliderField } from "@/components/app/SliderField";
+import { PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
 import { api, ApiError, sha256Hex } from "@/lib/api";
 import { ACTIVE_STATUSES, useDashboard } from "@/lib/dashboard";
+import { pickGoogleDoc } from "@/lib/googlePicker";
 import { span } from "@/lib/time";
 import {
   type AccessReport,
-  type BreakAlignment,
   type InsertionUnit,
   type PacingSettings,
   type PlanProblem,
@@ -50,36 +50,6 @@ const UNITS: { value: InsertionUnit; hint: string }[] = [
   { value: "paragraph", hint: "One paragraph at a time." },
   { value: "chunk", hint: "Equal groups of words, about once a minute." },
 ];
-
-const ALIGN: { value: BreakAlignment; label: string }[] = [
-  { value: "sentence", label: "After a sentence ends" },
-  { value: "paragraph", label: "After a paragraph ends" },
-  { value: "any", label: "After any step" },
-];
-
-/** The pace controls, remembered in this browser between sessions. */
-interface Pace {
-  wpm: number;
-  variation: number;
-  breaksOn: boolean;
-  everyMinutes: number;
-  everyVariation: number;
-  minBreakSeconds: number;
-  maxBreakSeconds: number;
-  align: BreakAlignment;
-}
-
-const DEFAULT_PACE: Pace = {
-  wpm: 40,
-  variation: 25,
-  breaksOn: true,
-  everyMinutes: 8,
-  everyVariation: 30,
-  minBreakSeconds: 20,
-  maxBreakSeconds: 120,
-  align: "sentence",
-};
-const PACE_KEY = "typewit.pace";
 
 function countWords(text: string): number {
   return (text.match(/\S+/g) ?? []).length;
@@ -125,7 +95,11 @@ export default function NewSessionPage() {
   const [timing, setTiming] = useState<Timing>("duration");
   const [preset, setPreset] = useState<string>("60");
   const [customMinutes, setCustomMinutes] = useState("90");
-  const [pace, setPace] = useState<Pace>(DEFAULT_PACE);
+  const [pace, updatePace] = usePace();
+  // Google Docs chosen with Google Picker in this visit.
+  const [picked, setPicked] = useState<PastDoc[]>([]);
+  const [picking, setPicking] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,27 +118,6 @@ export default function NewSessionPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [seed, setSeed] = useState<number | undefined>(undefined);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(PACE_KEY);
-      if (saved) setPace({ ...DEFAULT_PACE, ...JSON.parse(saved) });
-    } catch { /* storage unavailable: defaults */ }
-  }, []);
-
-  function updatePace(change: Partial<Pace>) {
-    setPace((p) => {
-      const next = { ...p, ...change };
-      if (next.maxBreakSeconds < next.minBreakSeconds) {
-        if ("minBreakSeconds" in change) next.maxBreakSeconds = next.minBreakSeconds;
-        else next.minBreakSeconds = next.maxBreakSeconds;
-      }
-      try {
-        localStorage.setItem(PACE_KEY, JSON.stringify(next));
-      } catch { /* storage unavailable */ }
-      return next;
-    });
-  }
-
   // "Add text" on the Documents page links here with ?doc=<connection>:<document>.
   useEffect(() => {
     const key = new URLSearchParams(window.location.search).get("doc");
@@ -181,22 +134,11 @@ export default function NewSessionPage() {
   const overWords = words > limits.words;
   const minutes = preset === "custom" ? Number(customMinutes) : Number(preset);
   const minutesValid = Number.isFinite(minutes) && minutes >= 1 && minutes <= 10080;
-  const docsForAccount = pastDocs.filter((d) => d.connectionId === connectionId);
-  const chosenDoc = pastDocs.find((d) => d.key === pastDocKey);
+  const allDocs = [...pastDocs, ...picked.filter((p) => !pastDocs.some((d) => d.key === p.key))];
+  const docsForAccount = allDocs.filter((d) => d.connectionId === connectionId);
+  const chosenDoc = allDocs.find((d) => d.key === pastDocKey);
 
-  const pacing: PacingSettings | null = timing === "asap" ? null : {
-    timing,
-    ...(timing === "duration" ? { duration_seconds: Math.round(minutes * 60) } : { wpm: pace.wpm }),
-    variation_pct: pace.variation,
-    breaks: {
-      enabled: pace.breaksOn,
-      every_seconds: Math.round(pace.everyMinutes * 60),
-      every_variation_pct: pace.everyVariation,
-      min_seconds: pace.minBreakSeconds,
-      max_seconds: pace.maxBreakSeconds,
-      align: pace.align,
-    },
-  };
+  const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, pace);
   const pacingKey = JSON.stringify(pacing);
   const inputKey = JSON.stringify([text, unit, timing, pacingKey, seed ?? null]);
   const current = preview !== null && previewKey === inputKey;
@@ -237,6 +179,33 @@ export default function NewSessionPage() {
       clearTimeout(handle);
     };
   }, [text, unit, timing, pacingKey, ready, seed]);
+
+  async function chooseFromDrive() {
+    setPickError(null);
+    setPicking(true);
+    try {
+      const doc = await pickGoogleDoc(connectionId);
+      if (!doc) return;
+      const key = `${connectionId}:${doc.id}`;
+      const known = pastDocs.find((d) => d.key === key);
+      if (!known) {
+        setPicked((list) => [...list.filter((d) => d.key !== key), {
+          key,
+          connectionId,
+          documentId: doc.id,
+          title: doc.name,
+          busy: false,
+        }]);
+      }
+      setTarget("existing");
+      setPastDocKey(key);
+      setReport(null);
+    } catch (e) {
+      setPickError(e instanceof Error ? e.message : "Google Drive couldn't be opened.");
+    } finally {
+      setPicking(false);
+    }
+  }
 
   function changeText(next: string) {
     setText(next);
@@ -351,7 +320,10 @@ export default function NewSessionPage() {
         <fieldset className="form-section">
           <legend className="sr-only">Document</legend>
           <h2 aria-hidden="true">Document</h2>
-          <p className="muted">Where the text should go. TypeWit always adds it at the end of the document.</p>
+          <p className="muted">
+            Where the text should go. TypeWit always adds it at the end of the document. Writing in Microsoft Word? Start
+            from the <Link href="/app/documents#word">TypeWit add-in in Word</Link>.
+          </p>
           {connections.length > 1 && (
             <div className="field" style={{ marginBottom: "1rem", maxWidth: 420 }}>
               <label className="label" htmlFor="account">Google account</label>
@@ -366,8 +338,8 @@ export default function NewSessionPage() {
               <span><strong>New Google Doc</strong><small>Created in your Drive when you start.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="target" value="existing" checked={target === "existing"} onChange={() => { setTarget("existing"); setReport(null); }} disabled={docsForAccount.length === 0} />
-              <span><strong>Existing document</strong><small>{docsForAccount.length ? "One TypeWit created before." : "None from past sessions yet."}</small></span>
+              <input type="radio" name="target" value="existing" checked={target === "existing"} onChange={() => { setTarget("existing"); setReport(null); }} />
+              <span><strong>Existing document</strong><small>Any Google Doc you choose from your Drive.</small></span>
             </label>
           </div>
           <div className="field" style={{ marginTop: "1rem", maxWidth: 520 }}>
@@ -381,13 +353,22 @@ export default function NewSessionPage() {
               : (
                 <>
                   <label className="label" htmlFor="doc">Document</label>
-                  <select id="doc" value={pastDocKey} onChange={(e) => { setPastDocKey(e.target.value); setReport(null); }} aria-describedby="doc-hint">
-                    <option value="">Choose a document</option>
-                    {docsForAccount.map((d) => (
-                      <option key={d.key} value={d.key} disabled={d.busy}>{d.title}{d.busy ? " (has an unfinished session)" : ""}</option>
-                    ))}
-                  </select>
-                  <span id="doc-hint" className="hint">A document can have one unfinished session at a time.</span>
+                  <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+                    <select id="doc" value={pastDocKey} onChange={(e) => { setPastDocKey(e.target.value); setReport(null); }} aria-describedby="doc-hint" style={{ flex: "1 1 240px" }}>
+                      <option value="">{docsForAccount.length ? "Choose a document" : "No documents yet: choose one from Drive"}</option>
+                      {docsForAccount.map((d) => (
+                        <option key={d.key} value={d.key} disabled={d.busy}>{d.title}{d.busy ? " (has an unfinished session)" : ""}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={chooseFromDrive} disabled={picking || !connectionId}>
+                      {picking ? "Opening Drive…" : "Choose from Google Drive…"}
+                    </button>
+                  </div>
+                  <span id="doc-hint" className="hint">
+                    Choosing a document in Google&apos;s file picker lets TypeWit open that one document, nothing else in your
+                    Drive. A document can have one unfinished session at a time.
+                  </span>
+                  {pickError && <p className="alert alert-error small" role="alert" style={{ marginTop: "0.5rem" }}>{pickError}</p>}
                 </>
               )}
           </div>
@@ -484,52 +465,7 @@ export default function NewSessionPage() {
             </div>
           )}
 
-          {timing !== "asap" && (
-            <>
-              <fieldset className="settings-group">
-                <legend>Speed</legend>
-                <div className="slider-grid">
-                  {timing === "speed" && (
-                    <SliderField label="Typing speed" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={5} max={200}
-                      onChange={(v) => updatePace({ wpm: v })}
-                      hint={'A "word" is 5 characters, including spaces and punctuation (the standard typing measure). At 40 WPM, 200 characters take 1 minute.'} />
-                  )}
-                  <SliderField label="Timing variation" unit="%" unitLabel="percent" value={pace.variation} min={0} max={50}
-                    onChange={(v) => updatePace({ variation: v })}
-                    hint={`Each wait varies within ${pace.variation}% of its baseline. 0% means even spacing.`} />
-                </div>
-              </fieldset>
-
-              <fieldset className="settings-group">
-                <legend>Breaks</legend>
-                <label className="check">
-                  <input type="checkbox" checked={pace.breaksOn} onChange={(e) => updatePace({ breaksOn: e.target.checked })} />
-                  <span>Take breaks</span>
-                </label>
-                {pace.breaksOn && (
-                  <>
-                    <div className="slider-grid" style={{ marginTop: "0.5rem" }}>
-                      <SliderField label="Active time between breaks" unit="min" unitLabel="minutes" value={pace.everyMinutes} min={1} max={120}
-                        onChange={(v) => updatePace({ everyMinutes: v })} hint="Time spent entering text before a break." />
-                      <SliderField label="Variation in that time" unit="%" unitLabel="percent" value={pace.everyVariation} min={0} max={50}
-                        onChange={(v) => updatePace({ everyVariation: v })}
-                        hint={`Each stretch varies within ${pace.everyVariation}% of ${pace.everyMinutes} minutes.`} />
-                      <SliderField label="Shortest break" unit="s" unitLabel="seconds" value={pace.minBreakSeconds} min={5} max={1800} step={5}
-                        onChange={(v) => updatePace({ minBreakSeconds: v })} hint={span(pace.minBreakSeconds * 1000)} />
-                      <SliderField label="Longest break" unit="s" unitLabel="seconds" value={pace.maxBreakSeconds} min={5} max={1800} step={5}
-                        onChange={(v) => updatePace({ maxBreakSeconds: v })} hint={span(pace.maxBreakSeconds * 1000)} />
-                    </div>
-                    <div className="field" style={{ marginTop: "1rem", maxWidth: 320 }}>
-                      <label className="label" htmlFor="align">Breaks may start</label>
-                      <select id="align" value={pace.align} onChange={(e) => updatePace({ align: e.target.value as BreakAlignment })}>
-                        {ALIGN.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                      </select>
-                    </div>
-                  </>
-                )}
-              </fieldset>
-            </>
-          )}
+          {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} />}
 
           <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
             onReshuffle={() => setSeed(undefined)} />

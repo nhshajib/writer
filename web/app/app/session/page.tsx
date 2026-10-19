@@ -313,7 +313,7 @@ function SessionView() {
         <div className="row">
           {drip.document_url && (
             <a href={drip.document_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-              Open in Google Docs <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
+              Open in {drip.provider === "microsoft" ? "Word" : "Google Docs"} <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
             </a>
           )}
           {active && <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
@@ -321,9 +321,11 @@ function SessionView() {
           {(active || paused) && !confirmStop && (
             <button type="button" ref={stopButton} className="btn btn-danger btn-sm" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
           )}
-          <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking}>
-            {checking ? "Testing…" : "Test connection"}
-          </button>
+          {drip.provider !== "microsoft" && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking}>
+              {checking ? "Testing…" : "Test connection"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -341,8 +343,20 @@ function SessionView() {
           <strong>
             {active ? "Automated text entry in progress" : paused ? "Automated text entry paused" : "Automated text entry session"}
           </strong>
-          TypeWit enters your approved text into this Google Doc at scheduled times, through the Google Docs API, using your
-          Google account. It runs on TypeWit&apos;s servers: you can close this page or let your computer sleep.
+          {drip.provider === "microsoft"
+            ? (
+              <>
+                TypeWit enters your approved text into this Word document at scheduled times, through the TypeWit add-in in
+                Word. It runs only while the document and the TypeWit panel are open in Word; while they&apos;re closed,
+                nothing is entered and the rest of the schedule moves later.
+              </>
+            )
+            : (
+              <>
+                TypeWit enters your approved text into this Google Doc at scheduled times, through the Google Docs API, using
+                your Google account. It runs on TypeWit&apos;s servers: you can close this page or let your computer sleep.
+              </>
+            )}
         </div>
       </div>
 

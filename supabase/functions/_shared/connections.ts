@@ -46,7 +46,10 @@ export function providerFor(connection: ConnectionRow): DocProvider {
     case "test":
       return new TestDocProvider(adminClient(), connection.user_id);
     case "microsoft":
-      throw new ProviderError("permanent", "Microsoft Word support is not available yet.");
+      throw new ProviderError(
+        "permanent",
+        "Word sessions run in the TypeWit add-in in Word, not on TypeWit's servers.",
+      );
   }
 }
 
@@ -58,7 +61,7 @@ const EXPIRY_SKEW_SECONDS = 60;
  * persisting the new ciphertext) when the cached one is missing, near expiry,
  * or `force` is set. Mutates `connection` so repeated calls in one tick reuse it.
  */
-async function googleAccessToken(connection: ConnectionRow, force: boolean): Promise<string> {
+export async function googleAccessToken(connection: ConnectionRow, force = false): Promise<string> {
   const key = await encryptionKey();
   const expiresAt = connection.access_token_expires_at ? Date.parse(connection.access_token_expires_at) : 0;
 

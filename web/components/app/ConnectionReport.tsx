@@ -4,7 +4,7 @@ import type { AccessReport } from "@/lib/types";
 export function ConnectionReport({ report }: { report: AccessReport }) {
   return (
     <div className={`alert ${report.ok ? "alert-success" : "alert-error"}`} style={{ display: "block", marginTop: "0.75rem" }}>
-      <p><strong>{report.ok ? "Connection works." : "Connection problem."}</strong> {report.ok ? "Nothing in the document was changed." : report.message}</p>
+      <p><strong>{report.ok ? "Connection works." : "Connection problem."}</strong> {report.ok ? report.message.replace(/^Connection works\.\s*/, "") : report.message}</p>
       <ul className="check-list">
         {report.checks.map((c) => (
           <li key={c.key}>

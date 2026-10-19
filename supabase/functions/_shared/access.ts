@@ -38,8 +38,8 @@ export interface AccessReport {
 
 export const ACCESS_MESSAGE: Record<AccessProblem, string> = {
   permission_missing: "Permission missing: TypeWit's access to this Google account isn't working. Reconnect Google.",
-  not_found: "TypeWit can't open this document. It may have been deleted, or it wasn't created by TypeWit " +
-    "(TypeWit can only open documents it created).",
+  not_found: "TypeWit can't open this document. It may have been deleted, or TypeWit hasn't been given access " +
+    'to it (choose it with "Choose from Google Drive").',
   not_editable: "The document isn't editable with this account (it may be view or comment only).",
   editor_unavailable: "Google Docs is unavailable right now. Try again in a few minutes.",
   connection_interrupted: "The connection to Google was interrupted. Check your connection and try again.",
@@ -57,6 +57,18 @@ function classify(error: unknown, step: "account" | "document" | "editable"): Ac
   return step === "editable" ? "not_editable" : "editor_unavailable";
 }
 
+/** The same messages for a Word document: TypeWit reaches it through the add-in, not a Google account. */
+function forWord(text: string): string {
+  return text
+    .replace(
+      "Permission missing: TypeWit's access to this Google account isn't working. Reconnect Google.",
+      "Permission missing: the TypeWit add-in can't use this document.",
+    )
+    .replace(/ It may have been deleted, or TypeWit hasn't been given access.*$/, " It may have been closed or moved.")
+    .replace("Google Docs is unavailable", "Word is unavailable")
+    .replace("The connection to Google was interrupted", "The connection to Word was interrupted");
+}
+
 /**
  * Runs the checks in order and stops at the first failure. `documentId` null
  * checks the account only (a new document is created at start). With
@@ -68,12 +80,15 @@ export async function checkAccess(
   expectedTail: string | null = null,
   now: () => Date = () => new Date(),
 ): Promise<AccessReport> {
+  const word = provider.name === "microsoft";
+  const say = (text: string) => (word ? forWord(text) : text);
+  const accountLabel = word ? "Word add-in" : "Google account";
   const checks: AccessCheck[] = [];
   const finish = (problem: AccessProblem | null, contentUnchanged: boolean | null = null): AccessReport => ({
     ok: problem === null,
     problem,
     message: problem
-      ? ACCESS_MESSAGE[problem]
+      ? say(ACCESS_MESSAGE[problem])
       : contentUnchanged === false
       ? "Connection works, but the document changed while it was being checked; someone may be editing it. " +
         "The check itself sends an edit that matches nothing."
@@ -85,10 +100,10 @@ export async function checkAccess(
 
   try {
     await provider.verifyAccount();
-    checks.push({ key: "account", label: "Google account", ok: true, detail: "Access works." });
+    checks.push({ key: "account", label: accountLabel, ok: true, detail: "Access works." });
   } catch (error) {
     const problem = classify(error, "account");
-    checks.push({ key: "account", label: "Google account", ok: false, detail: ACCESS_MESSAGE[problem] });
+    checks.push({ key: "account", label: accountLabel, ok: false, detail: say(ACCESS_MESSAGE[problem]) });
     return finish(problem);
   }
   if (documentId === null) {
@@ -102,7 +117,7 @@ export async function checkAccess(
     checks.push({ key: "document", label: "Document", ok: true, detail: "Opened." });
   } catch (error) {
     const problem = classify(error, "document");
-    checks.push({ key: "document", label: "Document", ok: false, detail: ACCESS_MESSAGE[problem] });
+    checks.push({ key: "document", label: "Document", ok: false, detail: say(ACCESS_MESSAGE[problem]) });
     return finish(problem);
   }
 
@@ -126,7 +141,7 @@ export async function checkAccess(
         detail: "The document changed during the check; try again.",
       });
     } else {
-      checks.push({ key: "editable", label: "Editing", ok: false, detail: ACCESS_MESSAGE[problem] });
+      checks.push({ key: "editable", label: "Editing", ok: false, detail: say(ACCESS_MESSAGE[problem]) });
       return finish(problem);
     }
   }

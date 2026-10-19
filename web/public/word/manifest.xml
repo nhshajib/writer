@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TypeWit add-in for Microsoft Word (task pane).
+  Upload in Word on the web: Home → Add-ins → More add-ins → My add-ins → Upload my add-in.
+  It edits only the document it is open in (ReadWriteDocument) and stores no Microsoft credentials.
+-->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:type="TaskPaneApp">
+  <Id>1917743e-0896-43f5-88d1-a476769ff436</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>TypeWit</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="TypeWit" />
+  <Description DefaultValue="Enters text you approve into this document step by step, at the pace you choose. Automated text entry; no typos or fake corrections." />
+  <IconUrl DefaultValue="https://typewit.com/word/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://typewit.com/word/icon-64.png" />
+  <SupportUrl DefaultValue="https://typewit.com/support/" />
+  <AppDomains>
+    <AppDomain>https://typewit.com</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+  <Requirements>
+    <Sets DefaultMinVersion="1.1">
+      <Set Name="WordApi" MinVersion="1.1" />
+    </Sets>
+  </Requirements>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://typewit.com/word/" />
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

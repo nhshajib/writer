@@ -12,7 +12,8 @@ labelled as automated text entry throughout.
 This repo holds the backend (Supabase, `supabase/`) and the frontend (Next.js, `web/`).
 
 - Google Docs: supported (needs Google OAuth credentials, see below)
-- Microsoft Word Online: planned, behind the same provider interface
+- Microsoft Word (on the web and desktop): supported through the TypeWit add-in
+  (a task pane in Word, see below)
 - `test` provider: writes into a database table so the whole pipeline can be
   exercised without Google
 
@@ -202,8 +203,50 @@ Edge Function secrets (Dashboard → Edge Functions → Secrets):
 4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Edge Function secrets.
 5. While the app is in "Testing" mode, add your Google account as a test user.
 
-Writing into an **existing** doc with `drive.file` requires the user to pick it
-with Google Picker in the frontend; until then, use `new_document_title`.
+### Choosing any existing Google Doc (Google Picker)
+
+`drive.file` only reaches files TypeWit created or the user picked. "Choose from
+Google Drive…" on `/app/new` opens Google Picker with a short-lived access token
+from `POST /drips/connections/:id/picker` and `setAppId(<project number>)`;
+picking a document grants TypeWit access to that one file. Setup:
+
+1. In project 654277390095, enable the **Google Picker API**.
+2. Create a **browser API key** restricted to the Picker API and to
+   `https://typewit.com/*`.
+3. Add it as the Edge Function secret `GOOGLE_API_KEY`. The project number is
+   taken from the OAuth client ID; set `GOOGLE_PROJECT_NUMBER` only if that
+   differs.
+
+## Microsoft Word add-in
+
+Word's file APIs can't safely append to a document someone has open, so Word
+sessions run inside Word itself: a task-pane add-in (`/word/`, manifest at
+`web/public/word/manifest.xml`) edits the open document through Word's
+JavaScript API and runs the same session engine as the Google worker
+(`_shared/session.ts` with `_shared/providers/word.ts`). The server keeps the
+session, its schedule and the log; the pane claims each step with
+`claim_client_drip` (a lease bound to that document) through
+`POST /drips/:id/engine`.
+
+Install:
+
+- **Word on the web:** Home → Add-ins → More add-ins → My add-ins → Upload my
+  add-in → choose `manifest.xml` (downloadable from Documents → Microsoft Word).
+- **Word desktop:** sideload from a shared folder, or have an admin deploy it in
+  the Microsoft 365 admin center.
+
+Permissions: `ReadWriteDocument` (only the open document). TypeWit stores no
+Microsoft credentials. The user signs in to TypeWit with email and password in
+the pane.
+
+How it behaves:
+
+- The first line continues the last paragraph; every line break starts a real
+  new paragraph. Each step is checked against the document before it is
+  written (a text hash acts as the revision), so text typed after TypeWit's
+  pauses the session, like Google.
+- The document must be saved (its URL identifies it). The same file opened in
+  Word desktop and Word on the web can have different URLs.
 
 ## API
 
@@ -345,7 +388,11 @@ typo, false-start and "detour" features were deliberately left out.
 ## Privacy and permissions
 
 - **Google scopes:** `openid`, `email`, `drive.file`. `drive.file` reaches
-  only documents TypeWit created (or the user picks), nothing else in Drive.
+  only documents TypeWit created or the user picked with Google Picker,
+  nothing else in Drive. For Picker, the browser receives a short-lived
+  (about one hour) access token; the refresh token never leaves the server.
+- **Word:** the add-in reads and edits only the open document, and only while
+  the pane is open. No Microsoft tokens are stored.
 - **Stored in TypeWit's database (Supabase), readable only by the owner via RLS:**
   the approved text, its units and schedule, session state, and the activity
   log. The log records times, counts, revision IDs and outcomes, not the text.
@@ -378,10 +425,10 @@ Automated, all passing:
 
 | Suite | Command | Result |
 |---|---|---|
-| Unit + simulated-time tests (scheduler, pacing, segmentation, engine, recovery, Test connection) | `deno task test` | 88 passed |
+| Unit + simulated-time tests (scheduler, pacing, segmentation, engine, recovery, Test connection) | `deno task test` | 98 passed |
 | Typecheck, lint, format | `deno task check` | clean |
 | Web typecheck and static build | `cd web && npm run typecheck && npm run build` | clean |
-| Browser tests (keyboard-only flow, axe in light/dark, reduced motion, announcements, sliders with number boxes, summary, Test connection, double-click Start, delete/clear) | `cd web && CHROMIUM_PATH=… npm run test:e2e` | 13 passed |
+| Browser tests (keyboard-only flow, axe in light/dark, reduced motion, announcements, sliders with number boxes, summary, Test connection, double-click Start, delete/clear, Word add-in pane with a fake Word, Google Picker with a fake Picker) | `cd web && CHROMIUM_PATH=… npm run test:e2e` | 18 passed |
 
 The simulated-time tests cover:
 
@@ -396,7 +443,10 @@ The simulated-time tests cover:
 - concurrent edits and refused writes;
 - outages with backoff;
 - preflight failures;
-- a fuzz run over random interruptions.
+- a fuzz run over random interruptions;
+- Word: exact paragraphs in sentence, word and character modes, read-only
+  documents, typing after TypeWit's text, concurrent typing, a lost
+  confirmation and document binding.
 
 Live, against the real Google Doc "Testing" through the deployed functions:
 
@@ -413,6 +463,15 @@ Live, against the real Google Doc "Testing" through the deployed functions:
 - *Earlier runs (same engine):*
   - A conditional write (`requiredRevisionId`) was accepted by Google.
   - A test-provider session paused correctly on a concurrent edit.
+- *After the Word release (drips v22, drip-tick v17):* a 1-minute, 6-sentence
+  session passed Test connection and completed with the document equal to its
+  prior content plus the text. Steps 2–6 were 0.4–0.5 s late; step 1 waited for
+  the next cron tick (the row was inserted with SQL, which skips the API's
+  worker kick) and the rest of the schedule moved 30 s later instead of
+  bursting.
+- *Word claims (SQL, rolled back):* the server worker skips Word sessions; a
+  claim for another document, a second claim during a lease, and another
+  user's claim are all refused.
 - *Duplicate starts:* the database guards were exercised with SQL.
   - Same document → refused.
   - Same request ID → refused.
@@ -433,6 +492,12 @@ Not tested live:
 - Timing depends on pg_cron (once a minute) plus in-worker waits; typical
   lateness observed was about 1 s. Outages or long editor delays move the rest
   of the schedule later rather than rushing.
-- Existing documents can only be used if TypeWit created them (or after Google
-  Picker is added); otherwise TypeWit creates a new document.
-- Microsoft Word is not supported yet.
+- Google Picker needs the `GOOGLE_API_KEY` secret (see above); without it the
+  picker may refuse to open.
+- Word sessions run only while the document and the TypeWit pane are open.
+  Browsers slow down background tabs, so in Word on the web keep the tab
+  visible for on-time steps; if it falls behind, the rest of the schedule
+  moves later instead of rushing. Images and other objects are not seen by
+  the change check.
+- The Picker and the Word add-in were tested with browser fakes of Google's and
+  Microsoft's scripts, not against real Google Picker or real Word.

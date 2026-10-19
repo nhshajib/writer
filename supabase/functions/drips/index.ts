@@ -14,12 +14,15 @@
 //   GET  /drips/connections         my connected accounts
 //   POST /drips/connections/test    create a test connection (dev only)
 //   POST /drips/connections/:id/disconnect  revoke Google access, stop that account's active drips
+//   POST /drips/connections/:id/picker      short-lived token for Google Picker (choose a Drive document)
+//   POST /drips/connections/microsoft       the Word add-in's connection (no Microsoft tokens are stored)
+//   POST /drips/:id/engine          the Word add-in runs a Word session through this (claim, update, confirm, log)
 //   POST /drips/documents           create a new document in a connected account
 
 import { requireUser } from "../_shared/auth.ts";
 import { INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
 import { decrypt, sha256Hex } from "../_shared/crypto.ts";
-import { loadConnection, providerFor } from "../_shared/connections.ts";
+import { googleAccessToken, loadConnection, providerFor } from "../_shared/connections.ts";
 import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { checkAccess } from "../_shared/access.ts";
@@ -28,10 +31,14 @@ import { type BreakAlignment, type PacingSettings } from "../_shared/pacing.ts";
 import { planSession, type SessionPlan } from "../_shared/plan.ts";
 import { revokeGoogleToken } from "../_shared/providers/google.ts";
 import { ProviderError } from "../_shared/providers/types.ts";
+import { textRevision } from "../_shared/providers/word.ts";
+import { notifyUser } from "../_shared/notifyUser.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
 import { randomSeed } from "../_shared/schedule.ts";
 import {
+  CLAIM_LOOKAHEAD_SECONDS,
   expectedTail,
+  LEASE_SECONDS,
   nextTickAfter,
   planResume,
   type ResumableRow,
@@ -56,6 +63,9 @@ const DRIP_COLUMNS =
 const RESUME_COLUMNS =
   `${DRIP_COLUMNS}, chunks, pending_revision, pending_doc_length, resync_index, resync_tail, last_revision_id`;
 
+const WORD_ONLY_IN_ADDIN =
+  "TypeWit's servers can't open Word documents. Run Test connection from the TypeWit add-in in Word.";
+
 serve(async (req) => {
   const user = await requireUser(req);
   const parts = routeParts(req);
@@ -71,6 +81,12 @@ serve(async (req) => {
   if (parts[0] === "connections") {
     if (parts.length === 1 && method === "GET") return await listConnections(user.id);
     if (parts[1] === "test" && method === "POST") return await createTestConnection(user.id, user.email);
+    if (parts[1] === "microsoft" && parts.length === 2 && method === "POST") {
+      return await createWordConnection(user.id, user.email);
+    }
+    if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "picker" && method === "POST") {
+      return await pickerToken(user.id, parts[1]);
+    }
     if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "disconnect" && method === "POST") {
       return await disconnectConnection(user.id, parts[1]);
     }
@@ -87,6 +103,7 @@ serve(async (req) => {
       if (parts[1] === "cancel") return await cancelDrip(user.id, id);
       if (parts[1] === "check") return await checkSession(user.id, id);
       if (parts[1] === "delete") return await deleteDrip(user.id, id);
+      if (parts[1] === "engine") return await engine(user.id, id, req);
     }
   }
   throw new HttpError(404, "Not found.");
@@ -107,6 +124,8 @@ interface CreateDripBody {
   connection_id?: string;
   document_id?: string;
   new_document_title?: string;
+  /** Word: the document's name (the id is its address). */
+  document_title?: string;
   text?: string;
   duration_minutes?: number;
   insertion_unit?: InsertionUnit;
@@ -223,6 +242,9 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (!body.document_id && !body.new_document_title) {
     throw new HttpError(400, "Provide document_id or new_document_title.");
   }
+  if (body.document_id !== undefined && (typeof body.document_id !== "string" || body.document_id.length > 2000)) {
+    throw new HttpError(400, "document_id must be a string of at most 2000 characters.");
+  }
 
   if (body.request_id !== undefined && !UUID_RE.test(String(body.request_id))) {
     throw new HttpError(400, "request_id must be a UUID.");
@@ -231,6 +253,9 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   const db = adminClient();
   const connection = await loadConnection(body.connection_id, userId);
   if (!connection) throw new HttpError(404, "Connection not found.");
+  if (connection.provider === "microsoft" && !body.document_id) {
+    throw new HttpError(400, "Open the Word document in Word and start the session from the TypeWit add-in.");
+  }
 
   // A repeated Start (double click, retry after a lost response) returns the
   // session the first one made instead of starting another.
@@ -298,10 +323,19 @@ async function startSession(
   const { text } = input;
   // Resolve the target document before reserving quota, so a bad document id
   // doesn't use up the day's words.
-  const provider = providerFor(connection);
-  const doc = await withProviderErrors(() =>
-    body.document_id ? provider.getDoc(body.document_id) : provider.createDoc(body.new_document_title!.slice(0, 200))
-  );
+  // A Word document is identified by its address in Word; only the add-in running in it can write to it.
+  const doc = connection.provider === "microsoft"
+    ? {
+      id: body.document_id!,
+      title: (body.document_title?.trim() || wordTitle(body.document_id!)).slice(0, 200),
+      url: /^https?:\/\//.test(body.document_id!) ? body.document_id! : null,
+    }
+    : await withProviderErrors(() => {
+      const provider = providerFor(connection);
+      return body.document_id
+        ? provider.getDoc(body.document_id)
+        : provider.createDoc(body.new_document_title!.slice(0, 200));
+    });
 
   const { data: reserved, error: reserveError } = await db.rpc("reserve_words", {
     target_user: userId,
@@ -376,7 +410,7 @@ async function startSession(
     min_gap_seconds: (plan.stats?.min_gap_ms ?? 0) / 1000,
     max_gap_seconds: (plan.stats?.max_gap_ms ?? 0) / 1000,
   });
-  await kickWorkerIfDue(started.getTime() + plan.schedule[0]);
+  if (connection.provider !== "microsoft") await kickWorkerIfDue(started.getTime() + plan.schedule[0]);
   return json({ drip }, 201);
 }
 
@@ -440,15 +474,22 @@ async function pauseDrip(userId: string, id: string): Promise<Response> {
   );
 }
 
-type ResumeRow = ResumableRow & { id: string; status: string; connection_id: string; document_id: string };
+type ResumeRow = ResumableRow & {
+  id: string;
+  status: string;
+  connection_id: string;
+  document_id: string;
+  provider: string;
+};
 
 /**
  * Resumes a paused session; see planResume. Sessions TypeWit paused itself
  * are checked against the document first.
  */
 async function resumeDrip(userId: string, id: string, req: Request): Promise<Response> {
-  // The body is optional; a plain resume sends none.
-  const options = (await req.json().catch(() => ({}))) as ResumeOptions;
+  // The body is optional; a plain resume sends none. The Word add-in sends the document's text,
+  // because TypeWit's servers can't open a Word document themselves.
+  const options = (await req.json().catch(() => ({}))) as ResumeOptions & { document?: { text?: unknown } };
   const db = adminClient();
   const { data, error } = await db.from("drips").select(RESUME_COLUMNS).eq("id", id).eq("user_id", userId)
     .maybeSingle();
@@ -458,7 +499,15 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   if (row.status !== "paused") throw new HttpError(409, "Only a paused session can be resumed.");
 
   let doc = null;
-  if (resumeNeedsDocument(row, options)) {
+  if (resumeNeedsDocument(row, options) && row.provider === "microsoft") {
+    if (typeof options.document?.text !== "string") {
+      throw new HttpError(
+        409,
+        "Open the document in Word and resume from the TypeWit add-in, so it can check the document first.",
+      );
+    }
+    doc = { revisionId: textRevision(options.document.text), text: options.document.text };
+  } else if (resumeNeedsDocument(row, options)) {
     const connection = await loadConnection(row.connection_id, userId);
     if (!connection) throw new HttpError(409, "Reconnect the document's account first.");
     doc = await withProviderErrors(() => providerFor(connection).readDocument(row.document_id));
@@ -537,6 +586,7 @@ async function checkConnection(userId: string, req: Request): Promise<Response> 
   if (!body.connection_id || !UUID_RE.test(body.connection_id)) throw new HttpError(400, "connection_id is required.");
   const connection = await loadConnection(body.connection_id, userId);
   if (!connection) throw new HttpError(404, "Connection not found.");
+  if (connection.provider === "microsoft") throw new HttpError(409, WORD_ONLY_IN_ADDIN);
   const report = await checkAccess(providerFor(connection), body.document_id ?? null);
   return json({ report });
 }
@@ -550,6 +600,7 @@ async function checkSession(userId: string, id: string): Promise<Response> {
   if (!data) throw new HttpError(404, "Drip not found.");
   const connection = await loadConnection(data.connection_id, userId);
   if (!connection) throw new HttpError(409, "Reconnect the document's account first.");
+  if (connection.provider === "microsoft") throw new HttpError(409, WORD_ONLY_IN_ADDIN);
   const unfinished = ACTIVE_STATUSES.includes(data.status);
   const tail = unfinished
     ? expectedTail(data as { chunks: string[]; resync_index: number; resync_tail: string }, data.chunks_written)
@@ -596,7 +647,7 @@ async function listConnections(userId: string): Promise<Response> {
   // Never return tokens; only whether the account can still be written to.
   const connections = (data ?? []).map(({ refresh_token_enc, ...c }) => ({
     ...c,
-    connected: c.provider === "test" || Boolean(refresh_token_enc),
+    connected: c.provider === "test" || c.provider === "microsoft" || Boolean(refresh_token_enc),
   }));
   return json({ connections });
 }
@@ -653,6 +704,193 @@ async function createTestConnection(userId: string, email: string | null): Promi
     .single();
   if (error) throw new Error(error.message);
   return json({ connection: data }, 201);
+}
+
+/** The Word add-in's connection. Word sessions edit the open document through Word itself, so no Microsoft tokens exist. */
+async function createWordConnection(userId: string, email: string | null): Promise<Response> {
+  const { data, error } = await adminClient()
+    .from("provider_connections")
+    .upsert(
+      { user_id: userId, provider: "microsoft", account_email: email ?? "Word" },
+      { onConflict: "user_id,provider,account_email" },
+    )
+    .select("id, provider, account_email, created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return json({ connection: data }, 201);
+}
+
+/**
+ * Google Picker runs in the browser and needs an access token from the same
+ * OAuth client. Picking a document there gives TypeWit (drive.file) access to
+ * that one document. The token is short-lived and only sent to its owner.
+ */
+async function pickerToken(userId: string, id: string): Promise<Response> {
+  const connection = await loadConnection(id, userId);
+  if (!connection) throw new HttpError(404, "Connection not found.");
+  if (connection.provider !== "google") throw new HttpError(400, "Google Picker is only for Google accounts.");
+  const accessToken = await withProviderErrors(() => googleAccessToken(connection));
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
+  return json({
+    access_token: accessToken,
+    expires_at: connection.access_token_expires_at,
+    // Picker's app id is the Cloud project number, which starts every OAuth client id.
+    app_id: Deno.env.get("GOOGLE_PROJECT_NUMBER") ?? clientId.match(/^(\d+)-/)?.[1] ?? null,
+    api_key: Deno.env.get("GOOGLE_API_KEY") ?? null,
+  });
+}
+
+/** Word documents are named after their file: ".../Essay.docx?web=1" is "Essay". */
+function wordTitle(address: string): string {
+  const last = address.split(/[?#]/)[0].split(/[\\/]/).filter(Boolean).pop() ?? "";
+  let name = last;
+  try {
+    name = decodeURIComponent(last);
+  } catch { /* keep it as it is */ }
+  return name.replace(/\.(docx?|dotx?|docm)$/i, "") || "Word document";
+}
+
+// ---------------------------------------------------------------------------
+// Word sessions: the add-in in Word runs the same session engine as the
+// server worker, with Word as the document and this endpoint as its store.
+// ---------------------------------------------------------------------------
+
+/** The fields the engine may change, as SessionPatch. Everything else (text, units, schedule) is fixed at start. */
+const ENGINE_FIELDS = new Set([
+  "status",
+  "next_run_at",
+  "lease_id",
+  "paused_at",
+  "completed_at",
+  "attention",
+  "last_error",
+  "deadline_at",
+  "chunks_written",
+  "schedule_shift_seconds",
+  "attempts",
+  "pending_index",
+  "pending_revision",
+  "pending_doc_length",
+  "retry_at",
+  "last_revision_id",
+  "last_written_at",
+  "resync_index",
+  "resync_tail",
+  "document_baseline_length",
+  "preflight_at",
+]);
+const ENGINE_STATUSES = new Set(["running", "paused", "completed"]);
+const ENGINE_EVENTS = new Set([
+  "chunk_written",
+  "schedule_shifted",
+  "retry_scheduled",
+  "attention",
+  "paused",
+  "completed",
+  "connection_checked",
+  "insertion_uncertain",
+]);
+
+function enginePatch(raw: unknown): Record<string, unknown> {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new HttpError(400, "patch must be an object.");
+  }
+  const patch = raw as Record<string, unknown>;
+  for (const key of Object.keys(patch)) {
+    if (!ENGINE_FIELDS.has(key)) throw new HttpError(400, `The add-in can't change ${key}.`);
+  }
+  if ("status" in patch && !ENGINE_STATUSES.has(String(patch.status))) throw new HttpError(400, "Invalid status.");
+  return patch;
+}
+
+interface EngineBody {
+  op?: "claim" | "control" | "update" | "confirm" | "log";
+  document_id?: string;
+  lease?: string;
+  expected?: number;
+  patch?: unknown;
+  events?: { kind?: unknown; detail?: unknown }[];
+}
+
+async function engine(userId: string, id: string, req: Request): Promise<Response> {
+  const body = await readJson<EngineBody>(req);
+  const db = adminClient();
+  const { data: drip, error } = await db.from("drips")
+    .select(
+      "id, user_id, provider, document_id, document_title, document_url, status, lease_id, next_run_at, attention, " +
+        "word_count, chunks_written, total_chunks",
+    )
+    .eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!drip) throw new HttpError(404, "Drip not found.");
+  const row = drip as unknown as {
+    id: string;
+    user_id: string;
+    provider: string;
+    document_id: string;
+    document_title: string | null;
+    document_url: string | null;
+    status: string;
+    lease_id: string | null;
+    next_run_at: string | null;
+    attention: string | null;
+    word_count: number;
+    chunks_written: number;
+    total_chunks: number;
+  };
+  if (row.provider !== "microsoft") throw new HttpError(409, "This session runs on TypeWit's servers.");
+
+  switch (body.op) {
+    case "claim": {
+      if (body.document_id !== row.document_id) {
+        throw new HttpError(409, "This session belongs to a different Word document.");
+      }
+      const { data, error: claimError } = await db.rpc("claim_client_drip", {
+        drip: id,
+        owner: userId,
+        document: row.document_id,
+        lease_seconds: LEASE_SECONDS,
+        lookahead_seconds: CLAIM_LOOKAHEAD_SECONDS,
+      });
+      if (claimError) throw new Error(claimError.message);
+      const claimed = ((data ?? []) as Record<string, unknown>[])[0] ?? null;
+      return json({ row: claimed, status: row.status, next_run_at: row.next_run_at, attention: row.attention });
+    }
+    case "control":
+      return json({ status: row.status, lease_id: row.lease_id });
+    case "update":
+    case "confirm": {
+      const patch = enginePatch(body.patch);
+      let query = db.from("drips").update(patch).eq("id", id).eq("user_id", userId);
+      if (body.op === "update") {
+        if (typeof body.lease !== "string" || !UUID_RE.test(body.lease)) throw new HttpError(400, "lease is required.");
+        query = query.eq("lease_id", body.lease).eq("status", "running");
+      } else {
+        if (!Number.isInteger(body.expected)) throw new HttpError(400, "expected is required.");
+        query = query.eq("chunks_written", body.expected!);
+      }
+      const { data, error: updateError } = await query.select("id");
+      if (updateError) throw new HttpError(400, updateError.message);
+      const ok = (data ?? []).length > 0;
+      if (ok && body.op === "update" && (patch.status === "completed" || patch.status === "paused")) {
+        await notifyUser(row, patch.status === "completed" ? "drip_completed" : "drip_attention");
+      }
+      return json({ ok });
+    }
+    case "log": {
+      const events = (Array.isArray(body.events) ? body.events : []).filter((e) =>
+        ENGINE_EVENTS.has(String(e?.kind)) && typeof e.detail === "object" && e.detail !== null
+      );
+      if (events.length) {
+        const { error: logError } = await db.from("drip_events").insert(
+          events.slice(0, 20).map((e) => ({ drip_id: id, user_id: userId, kind: String(e.kind), detail: e.detail })),
+        );
+        if (logError) console.error("Failed to log session events", id, logError.message);
+      }
+      return json({ logged: events.length });
+    }
+  }
+  throw new HttpError(400, "Unknown op.");
 }
 
 async function createDocument(userId: string, req: Request): Promise<Response> {

@@ -9,6 +9,7 @@ import type { Connection } from "@/lib/types";
 
 interface DocSummary {
   key: string;
+  provider: "google" | "microsoft";
   title: string;
   url: string | null;
   account: string;
@@ -37,7 +38,7 @@ export default function DocumentsPage() {
   const docs = useMemo(() => {
     const byKey = new Map<string, DocSummary>();
     for (const d of drips) {
-      if (d.provider !== "google") continue;
+      if (d.provider !== "google" && d.provider !== "microsoft") continue;
       const key = `${d.connection_id}:${d.document_id}`;
       const conn = connections.find((c) => c.id === d.connection_id);
       const existing = byKey.get(key);
@@ -48,9 +49,10 @@ export default function DocumentsPage() {
       } else {
         byKey.set(key, {
           key,
+          provider: d.provider,
           title: d.document_title ?? "Untitled document",
           url: d.document_url,
-          account: conn?.account_email ?? "Google account",
+          account: d.provider === "microsoft" ? "Microsoft Word" : conn?.account_email ?? "Google account",
           connected: conn?.connected !== false,
           sessions: 1,
           words: d.progress.words_written,
@@ -97,7 +99,7 @@ export default function DocumentsPage() {
       <div className="page-head">
         <div>
           <h1>Documents</h1>
-          <p>Your Google accounts and the documents TypeWit has written into.</p>
+          <p>Your Google accounts, Microsoft Word, and the documents TypeWit has written into.</p>
         </div>
         {google.length > 0 && <button type="button" className="btn btn-secondary btn-sm" onClick={connect} disabled={busy}>Connect another account</button>}
       </div>
@@ -154,6 +156,28 @@ export default function DocumentsPage() {
           )}
       </section>
 
+      <section className="card" id="word" aria-labelledby="word-title" style={{ marginBottom: "1.5rem" }}>
+        <h2 id="word-title">Microsoft Word</h2>
+        <p className="muted">
+          In Word, TypeWit runs as an add-in: a panel beside your document that enters your approved text into that
+          document, at the pace you set. It can only change the document it is open in, and TypeWit stores no Microsoft
+          password or token.
+        </p>
+        <ol className="small" style={{ paddingLeft: "1.2rem", lineHeight: 1.7 }}>
+          <li>Download the add-in file: <a href="/word/manifest.xml" download="typewit-word-manifest.xml">typewit-word-manifest.xml</a>.</li>
+          <li>
+            In Word on the web, open a document saved in OneDrive or SharePoint, choose <strong>Home → Add-ins → More
+            add-ins → My add-ins → Upload my add-in</strong>, and choose the file. (Word for Windows or Mac: your
+            organization&apos;s admin can deploy the same file, or see Microsoft&apos;s guide to sideloading add-ins.)
+          </li>
+          <li>Open <strong>TypeWit</strong> from Add-ins, sign in with your TypeWit email and password, and start a session.</li>
+        </ol>
+        <p className="hint">
+          Word sessions run only while the document and the TypeWit panel are open. If you close them, nothing is entered
+          and the rest of the schedule moves later when you come back. Pause, resume and stop also work from this website.
+        </p>
+      </section>
+
       <section aria-labelledby="docs-title">
         <h2 id="docs-title" style={{ fontSize: "0.9375rem", marginBottom: "0.75rem" }}>Documents</h2>
         {docs.length === 0
@@ -184,10 +208,10 @@ export default function DocumentsPage() {
                         <div className="row" style={{ justifyContent: "flex-end", gap: "0.25rem", flexWrap: "nowrap" }}>
                           {doc.url && (
                             <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
-                              Open<span className="sr-only"> {doc.title} in Google Docs (opens in a new tab)</span> <Icon.external />
+                              Open<span className="sr-only"> {doc.title} in {doc.provider === "microsoft" ? "Word" : "Google Docs"} (opens in a new tab)</span> <Icon.external />
                             </a>
                           )}
-                          {doc.connected && (
+                          {doc.connected && doc.provider === "google" && (
                             <Link href={`/app/new?doc=${encodeURIComponent(doc.key)}`} className="btn btn-secondary btn-sm">
                               Add text<span className="sr-only"> to {doc.title}</span>
                             </Link>

@@ -18,8 +18,9 @@ const TERMS = "2026-10-17";
 
 interface Row {
   id: string;
+  user_id: string;
   connection_id: string;
-  provider: "google";
+  provider: "google" | "microsoft";
   document_id: string;
   document_title: string;
   document_url: string;
@@ -55,7 +56,20 @@ interface Row {
   retry_at: string | null;
   attempts: number;
   request_id: string | null;
+  lease_id: string | null;
+  preflight_at: string | null;
+  document_baseline_length: number | null;
+  last_revision_id: string | null;
+  [field: string]: unknown;
 }
+
+/** What the Word add-in may change through POST /drips/:id/engine, as on the server. */
+const ENGINE_FIELDS = new Set([
+  "status", "next_run_at", "lease_id", "paused_at", "completed_at", "attention", "last_error", "deadline_at",
+  "chunks_written", "schedule_shift_seconds", "attempts", "pending_index", "pending_revision", "pending_doc_length",
+  "retry_at", "last_revision_id", "last_written_at", "resync_index", "resync_tail", "document_baseline_length",
+  "preflight_at",
+]);
 
 const drips = new Map<string, Row>();
 const events = new Map<string, { kind: string; detail: Record<string, unknown>; created_at: string }[]>();
@@ -128,6 +142,12 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path.startsWith("/auth/v1/")) return send(res, 200, {});
 
   const parts = path.replace(/^\/functions\/v1\/drips\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "connections" && parts[1] === "microsoft") {
+    return send(res, 201, { connection: { id: "m1", provider: "microsoft", account_email: "me@gmail.com" } });
+  }
+  if (parts[0] === "connections" && parts[2] === "picker") {
+    return send(res, 200, { access_token: "picker-token", app_id: "654277390095", api_key: null });
+  }
   if (parts[0] === "connections") {
     return send(res, 200, { connections: [{ id: "c1", provider: "google", account_email: "me@gmail.com", connected: true }] });
   }
@@ -172,13 +192,15 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!plan.ok) return send(res, 422, { error: plan.problems[0].message, problems: plan.problems });
     const id = `00000000-0000-4000-8000-${String(drips.size + 1).padStart(12, "0")}`;
     const now = new Date().toISOString();
+    const word = body.connection_id === "m1";
     const row: Row = {
       id,
-      connection_id: "c1",
-      provider: "google",
-      document_id: "doc1",
-      document_title: String(body.new_document_title ?? "Essay"),
-      document_url: "https://docs.google.com/document/d/doc1/edit",
+      user_id: "u1",
+      connection_id: word ? "m1" : "c1",
+      provider: word ? "microsoft" : "google",
+      document_id: word ? String(body.document_id) : "doc1",
+      document_title: String(body.document_title ?? body.new_document_title ?? "Essay"),
+      document_url: word ? String(body.document_id) : "https://docs.google.com/document/d/doc1/edit",
       status: "scheduled",
       insertion_unit: String(body.insertion_unit ?? "sentence"),
       mode: String(body.mode ?? "scheduled"),
@@ -210,6 +232,10 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       retry_at: null,
       attempts: 0,
       request_id: (body.request_id as string) ?? null,
+      lease_id: null,
+      preflight_at: null,
+      document_baseline_length: null,
+      last_revision_id: null,
     };
     drips.set(id, row);
     events.set(id, []);
@@ -252,8 +278,18 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       Object.assign(row, { status: "canceled" });
       log(row.id, "canceled");
       return send(res, 200, { drip: view(row, false) });
+    case "engine":
+      try {
+        return engine(res, row, body);
+      } catch (error) {
+        return send(res, 400, { error: String(error) });
+      }
     case "resume": {
-      const result = planResume(row, now, { revisionId: "r2", text: `${row.doc}\n` }, body);
+      // The Word add-in sends the document's text; Google documents are read by the server.
+      const text = row.provider === "microsoft"
+        ? String((body.document as { text?: string } | undefined)?.text ?? "")
+        : `${row.doc}\n`;
+      const result = planResume(row, now, { revisionId: "r2", text }, body);
       if (!result.ok) return send(res, 409, { error: result.message, attention: result.attention });
       Object.assign(row, result.patch);
       log(row.id, "resumed", result.detail);
@@ -261,6 +297,46 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     }
   }
   return send(res, 404, { error: "Not found." });
+}
+
+/** The Word add-in's store, with the server's rules: claim by document, lease-guarded updates, guarded confirms. */
+function engine(res: ServerResponse, row: Row, body: Record<string, unknown>) {
+  if (row.provider !== "microsoft") return send(res, 409, { error: "This session runs on TypeWit's servers." });
+  const patchOf = (raw: unknown) => {
+    const patch = raw as Record<string, unknown>;
+    for (const key of Object.keys(patch)) if (!ENGINE_FIELDS.has(key)) throw new Error(`can't change ${key}`);
+    return patch;
+  };
+  const now = Date.now();
+  switch (body.op) {
+    case "claim": {
+      if (body.document_id !== row.document_id) return send(res, 409, { error: "This session belongs to a different Word document." });
+      const due = row.next_run_at !== null && Date.parse(row.next_run_at) <= now + 60_000;
+      if (["scheduled", "running"].includes(row.status) && due) {
+        Object.assign(row, { status: "running", next_run_at: new Date(now + 240_000).toISOString(), lease_id: crypto.randomUUID() });
+        return send(res, 200, { row, status: row.status, next_run_at: row.next_run_at });
+      }
+      return send(res, 200, { row: null, status: row.status, next_run_at: row.next_run_at });
+    }
+    case "control":
+      return send(res, 200, { status: row.status, lease_id: row.lease_id });
+    case "update": {
+      const patch = patchOf(body.patch);
+      const ok = row.lease_id === body.lease && row.status === "running";
+      if (ok) Object.assign(row, patch);
+      return send(res, 200, { ok });
+    }
+    case "confirm": {
+      const patch = patchOf(body.patch);
+      const ok = row.chunks_written === body.expected;
+      if (ok) Object.assign(row, patch);
+      return send(res, 200, { ok });
+    }
+    case "log":
+      for (const e of (body.events as { kind: string; detail: Record<string, unknown> }[]) ?? []) log(row.id, e.kind, e.detail);
+      return send(res, 200, { logged: true });
+  }
+  return send(res, 400, { error: "Unknown op." });
 }
 
 /** Test hooks: move a session along without waiting for real time. */

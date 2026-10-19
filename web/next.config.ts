@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
   images: { unoptimized: true },
+  // The Word add-in runs TypeWit's session engine (supabase/functions/_shared) in the browser.
+  experimental: { externalDir: true },
 };
 
 export default nextConfig;

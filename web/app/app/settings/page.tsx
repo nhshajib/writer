@@ -187,7 +187,8 @@ export default function SettingsPage() {
             <ul className="small muted" style={{ paddingLeft: "1.1rem" }}>
               <li>Each session&apos;s approved text, its split into steps and its schedule are stored in TypeWit&apos;s database (Supabase), readable only by your account.</li>
               <li>The activity log stores times, counts and outcomes, not your text.</li>
-              <li>Your Google access token is stored encrypted and is never sent to your browser. TypeWit can only open documents it created (Google&apos;s <code>drive.file</code> permission).</li>
+              <li>Your Google access token is stored encrypted. A short-lived copy is sent to your browser only while Google&apos;s file picker is open. TypeWit can only open documents it created or that you chose in that picker (Google&apos;s <code>drive.file</code> permission).</li>
+              <li>Word sessions run in the TypeWit add-in inside Word, which edits only the document it is open in. TypeWit stores no Microsoft password or token.</li>
               <li>This browser remembers only your pace settings and announcement preference.</li>
             </ul>
             <button type="button" className="btn btn-secondary btn-sm" onClick={downloadData}>Download my data</button>
