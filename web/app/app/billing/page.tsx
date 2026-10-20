@@ -64,18 +64,6 @@ export default function BillingPage() {
     }
   }
 
-  async function openPortal() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { url } = await api<{ url: string }>("billing/portal", { method: "POST", body: {} });
-      window.location.assign(url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't open billing.");
-      setBusy(false);
-    }
-  }
-
   const tick = (t: React.ReactNode, key: string) => <li key={key}><Icon.check /><span>{t}</span></li>;
 
   return (
@@ -86,9 +74,9 @@ export default function BillingPage() {
           <p>Your plan, what you&apos;ve used today, and payments.</p>
         </div>
         {(isPro || profile.subscription_status === "canceled") && (
-          <button type="button" className="btn btn-secondary btn-sm" onClick={openPortal} disabled={busy}>
-            <Icon.card />{busy ? "Opening…" : isPro ? "Manage billing" : "Billing history"}
-          </button>
+          <Link href="/app/billing/manage/" className="btn btn-secondary btn-sm">
+            <Icon.card />{isPro ? "Manage billing" : "Billing history"}
+          </Link>
         )}
       </div>
 

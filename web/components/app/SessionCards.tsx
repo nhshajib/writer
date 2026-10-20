@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Problem } from "@/components/app/Problem";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { friendlyError } from "@/lib/errors";
@@ -122,5 +123,73 @@ export function AttentionCard({ drip, control }: { drip: Drip; control: ReturnTy
           )}
       </div>
     </li>
+  );
+}
+
+/** The main live session on Home: large progress, what happens next, and its controls. */
+export function LiveHero({ drip, now, control }: { drip: Drip; now: number; control: ReturnType<typeof useSessionControl> }) {
+  const [confirmStop, setConfirmStop] = useState(false);
+  const p = drip.progress;
+  const title = titleOf(drip);
+  const busy = control.busyId === drip.id;
+  const running = drip.status === "running" || drip.status === "scheduled";
+  const word = drip.provider === "microsoft";
+  const error = control.error?.id === drip.id ? control.error.message : null;
+  return (
+    <article className="live-hero" aria-labelledby={`hero-${drip.id}`}>
+      <div className="lh-top">
+        <span className={`doc-icon lg ${word ? "word" : "gdoc"}`} aria-hidden="true"><Icon.doc /></span>
+        <div className="lh-title">
+          <Link id={`hero-${drip.id}`} href={`/app/session?id=${drip.id}`} className="title">{title}</Link>
+          <span className="meta">
+            {word ? "Microsoft Word" : "Google Docs"} · {drip.mode === "as_soon_as_possible" ? "All at once" : UNIT_LABEL[drip.insertion_unit].title}
+          </span>
+        </div>
+        <StatusBadge state={stateOf(drip)} />
+      </div>
+      <div className="lh-figures">
+        <p className="lh-pct" aria-hidden="true">{p.percent}<span>%</span></p>
+        <div className="lh-facts">
+          <p><strong>{p.words_written.toLocaleString()}</strong> of {p.words_total.toLocaleString()} words entered</p>
+          <p className="muted">{statusLine(drip, now)}</p>
+        </div>
+      </div>
+      <div className="progress xl" role="progressbar" aria-label={`Progress for ${title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.percent}>
+        <span style={{ width: `${p.percent}%` }} />
+      </div>
+      <div className="lh-actions">
+        {running && (
+          <button type="button" className="btn btn-primary btn-lg" disabled={busy} onClick={() => control.run(drip.id, "pause")}>
+            <Icon.pause />Pause<span className="sr-only"> {title}</span>
+          </button>
+        )}
+        {drip.status === "paused" && !drip.attention && (
+          <button type="button" className="btn btn-primary btn-lg" disabled={busy} onClick={() => control.run(drip.id, "resume")}>
+            <Icon.play />Resume<span className="sr-only"> {title}</span>
+          </button>
+        )}
+        <button type="button" className="btn btn-secondary btn-lg" disabled={busy} onClick={() => setConfirmStop(true)} aria-expanded={confirmStop}>
+          <Icon.stop />Stop<span className="sr-only"> {title}</span>
+        </button>
+        {drip.document_url && (
+          <a className="btn btn-ghost btn-lg lh-open" href={drip.document_url} target="_blank" rel="noopener noreferrer">
+            Open in {word ? "Word" : "Google Docs"}<Icon.external /><span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )}
+      </div>
+      {confirmStop && (
+        <div className="confirm" role="alertdialog" aria-labelledby={`stop-${drip.id}`} aria-describedby={`stopd-${drip.id}`}
+          onKeyDown={(e) => e.key === "Escape" && setConfirmStop(false)}>
+          <p id={`stop-${drip.id}`}>Stop this session?</p>
+          <p id={`stopd-${drip.id}`} className="small muted">Stopping cancels every insertion still planned. Text already entered stays in your document, and the session can&apos;t be resumed.</p>
+          <div className="row">
+            <button type="button" className="btn btn-danger-solid btn-sm" autoFocus disabled={busy}
+              onClick={async () => { await control.run(drip.id, "cancel"); setConfirmStop(false); }}>Stop session</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmStop(false)}>Keep going</button>
+          </div>
+        </div>
+      )}
+      {error && <p className="alert alert-error small" role="alert">{error}</p>}
+    </article>
   );
 }

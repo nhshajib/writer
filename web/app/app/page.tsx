@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart, ProgressRing, Sparkline } from "@/components/app/Charts";
-import { AttentionCard, LiveSessionCard, titleOf } from "@/components/app/SessionCards";
+import { BarChart } from "@/components/app/Charts";
+import { AttentionCard, LiveHero, statusLine, titleOf } from "@/components/app/SessionCards";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { ACTIVE_STATUSES, connectGoogleDocs, formatRelative, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
@@ -56,11 +56,17 @@ export default function HomePage() {
   }, []);
 
   const limits = PLAN_LIMITS[profile.plan];
-  const live = drips.filter((d) => ACTIVE_STATUSES.has(d.status) && !d.attention);
+  // Running sessions come first, so the main card shows one that is moving.
+  const live = drips.filter((d) => ACTIVE_STATUSES.has(d.status) && !d.attention)
+    .sort((a, b) => Number(a.status === "paused") - Number(b.status === "paused"));
   const needsYou = drips.filter((d) =>
     (d.status === "paused" && d.attention) || (d.status === "failed" && now - Date.parse(d.created_at) < 7 * DAY));
   const recent = drips.filter((d) => !ACTIVE_STATUSES.has(d.status)).slice(0, 4);
   const googleConnected = connections.some((c) => c.provider === "google" && c.connected !== false);
+  const googleAccounts = connections.filter((c) => c.provider === "google");
+  // Word is only shown as connected when a Word session has actually been run.
+  const wordUsed = connections.some((c) => c.provider === "microsoft") || drips.some((d) => d.provider === "microsoft");
+  const active = drips.filter((d) => ACTIVE_STATUSES.has(d.status)).length;
   const isNew = !googleConnected || drips.length === 0;
   const usage = limits.dailyWords ? Math.min(100, Math.round((wordsToday / limits.dailyWords) * 100)) : 0;
 
@@ -94,7 +100,7 @@ export default function HomePage() {
     ? `${needsYou.length} session${needsYou.length === 1 ? " needs" : "s need"} you.`
     : running
     ? `${running} session${running === 1 ? "" : "s"} running${Number.isFinite(nextPart) ? ` · next part in ${clock(Math.max(0, Math.ceil((nextPart - now) / 1000)))}` : ""}.`
-    : drips.length ? "Nothing running right now." : "Let's get your first session going.";
+    : drips.length ? "Your writing, at your pace." : "Let's get your first session going.";
 
   async function connect() {
     setConnectError(null);
@@ -156,133 +162,178 @@ export default function HomePage() {
       )}
 
       {drips.length > 0 && (
-        <section aria-label="At a glance" className="kpis mb-6 home-kpis">
-          <div className="kpi-pair">
-          <div className="kpi">
-            <div className="kpi-text">
-              <p className="kpi-label">Words today</p>
-              <p className="kpi-value">{wordsToday.toLocaleString()}<small>{limits.dailyWords ? ` / ${limits.dailyWords}` : ""}</small></p>
-              <p className="kpi-note">
-                {limits.dailyWords
-                  ? usage >= 80
-                    ? <>Resets at {dailyResetTime()} · <Link href="/app/billing">No limit with Pro</Link></>
-                    : `${(limits.dailyWords - wordsToday).toLocaleString()} left · resets at ${dailyResetTime()}`
-                  : "No daily limit on Pro"}
-              </p>
-            </div>
-            {limits.dailyWords && <ProgressRing value={usage} tone={usage >= 90 ? "warn" : "accent"} label={`${usage}% of today's words used`} />}
-          </div>
-          <div className="kpi">
-            <div className="kpi-text">
-              <p className="kpi-label">Active sessions</p>
-              <p className="kpi-value">{drips.filter((d) => ACTIVE_STATUSES.has(d.status)).length}<small> / {limits.activeSessions}</small></p>
-              <p className="kpi-note">{running} running{needsYou.length ? ` · ${needsYou.length} need${needsYou.length === 1 ? "s" : ""} you` : ""}</p>
-            </div>
-            <span className="kpi-icon" aria-hidden="true"><Icon.activity /></span>
-          </div>
-          </div>
-          <div className="kpi-pair">
-          <div className="kpi">
-            <div className="kpi-text">
-              <p className="kpi-label">Words this week</p>
-              <p className="kpi-value">{weekTotal.toLocaleString()}</p>
-              <p className="kpi-note">Last 7 days</p>
-            </div>
-            <Sparkline values={week.map((d) => d.value)} />
-          </div>
-          <div className="kpi">
-            <div className="kpi-text">
-              <p className="kpi-label">Finished this month</p>
-              <p className="kpi-value">{finishedThisMonth}</p>
-              <p className="kpi-note">{drips.filter((d) => d.status === "completed").length} in total</p>
-            </div>
-            <span className="kpi-icon good" aria-hidden="true"><Icon.check /></span>
-          </div>
-          </div>
-        </section>
-      )}
-
-      {drips.length > 0 && (
-        <div className="home-grid">
-          <div className="stack-6">
-            <section aria-labelledby="live-title" className="home-live">
-              <div className="block-head">
-                <h2 id="live-title" className="section-title">Live now{live.length > 0 && <span className="count-pill">{live.length}</span>}</h2>
-                <Link href="/app/sessions" className="small">All sessions</Link>
+        <div className="home-board">
+          <div className="home-col">
+            <section className="card home-live" aria-labelledby="live-title">
+              <div className="card-head">
+                <h2 id="live-title">{live.length > 1 ? "Live sessions" : "Live session"}{live.length > 1 && <span className="count-pill">{live.length}</span>}</h2>
+                <span className="small muted">Automated text entry</span>
               </div>
               {live.length === 0
                 ? (
-                  <div className="card empty compact">
+                  <div className="empty compact">
                     <div className="icon"><Icon.play /></div>
                     <h3>Nothing running</h3>
                     <p>Start a session and it shows up here with its progress and controls.</p>
                     <Link href="/app/new" className="btn btn-primary btn-sm"><Icon.plus /> New session</Link>
                   </div>
                 )
-                : <div className="live-grid">{live.map((d) => <LiveSessionCard key={d.id} drip={d} now={now} control={control} />)}</div>}
+                : (
+                  <>
+                    <LiveHero drip={live[0]} now={now} control={control} />
+                    {live.length > 1 && (
+                      <ul className="live-more" aria-label="Other live sessions">
+                        {live.slice(1).map((d) => (
+                          <li key={d.id}>
+                            <Link href={`/app/session?id=${d.id}`} className="title">{titleOf(d)}</Link>
+                            <span className="meta">{statusLine(d, now)}</span>
+                            <span className="progress" role="progressbar" aria-label={`Progress for ${titleOf(d)}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={d.progress.percent}>
+                              <span style={{ width: `${d.progress.percent}%` }} />
+                            </span>
+                            <span className="pct">{d.progress.percent}%</span>
+                            {d.status === "paused"
+                              ? (
+                                <button type="button" className="btn btn-secondary btn-sm" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "resume")}>
+                                  <Icon.play />Resume<span className="sr-only"> {titleOf(d)}</span>
+                                </button>
+                              )
+                              : (
+                                <button type="button" className="btn btn-secondary btn-sm" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "pause")}>
+                                  <Icon.pause />Pause<span className="sr-only"> {titleOf(d)}</span>
+                                </button>
+                              )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
             </section>
 
             {live.length > 0 && <Link href="/app/new/" className="btn btn-primary btn-lg btn-block mobile-only home-new"><Icon.plus /> New session</Link>}
 
             <section className="card home-week" aria-labelledby="week-title">
               <div className="card-head">
-                <div>
-                  <h2 id="week-title">Words entered, last 7 days</h2>
-                  <p className="small muted">By the day each session started</p>
-                </div>
-                <span className="kpi-value sm">{weekTotal.toLocaleString()}</span>
+                <h2 id="week-title">Words this week</h2>
+                <span className="small muted">Grouped by session start date</span>
               </div>
+              <p className="week-total">{weekTotal.toLocaleString()}</p>
+              <p className="small muted week-note">Total words entered, last 7 days</p>
               <BarChart data={week} unit="words" caption="Words entered in sessions started each day, last 7 days" />
             </section>
           </div>
 
-          <div className="rail stack-6">
-            <section className="card home-today" aria-labelledby="today-title">
-              <div className="card-head">
-                <h2 id="today-title">Today</h2>
-                <span className="small muted">{new Date(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}</span>
-              </div>
-              {moments.length === 0
-                ? <p className="small muted">Nothing scheduled. Starts, breaks and finish times appear here.</p>
-                : (
-                  <ol className="timeline">
-                    {moments.map((m) => (
-                      <li key={`${m.drip.id}-${m.label}`} data-past={m.at < now}>
-                        <time dateTime={new Date(m.at).toISOString()}>{when(m.at)}</time>
-                        <span>
-                          <strong>{m.label}</strong>
-                          <Link href={`/app/session?id=${m.drip.id}`}>{titleOf(m.drip)}</Link>
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+          <div className="home-col">
+            <section className="card home-glance" aria-labelledby="glance-title">
+              <h2 id="glance-title" className="card-title">Today at a glance</h2>
+              <ul className="glance">
+                <li>
+                  <span className="glance-icon" aria-hidden="true"><Icon.doc /></span>
+                  <span className="glance-label">
+                    Words entered
+                    <small>
+                      {limits.dailyWords
+                        ? usage >= 80
+                          ? <>Today, of {limits.dailyWords} · resets at {dailyResetTime()} · <Link href="/app/billing">No limit with Pro</Link></>
+                          : `Today, of ${limits.dailyWords} · resets at ${dailyResetTime()}`
+                        : "Today · no daily limit"}
+                    </small>
+                  </span>
+                  <span className="glance-value">{wordsToday.toLocaleString()}</span>
+                </li>
+                <li>
+                  <span className="glance-icon" aria-hidden="true"><Icon.bolt /></span>
+                  <span className="glance-label">Active sessions<small>{running} running{needsYou.length ? ` · ${needsYou.length} need${needsYou.length === 1 ? "s" : ""} you` : ""}</small></span>
+                  <span className="glance-value">{active} <span className="of">/ {limits.activeSessions}</span></span>
+                </li>
+                <li>
+                  <span className="glance-icon" aria-hidden="true"><Icon.chart /></span>
+                  <span className="glance-label">Words this week<small>Last 7 days</small></span>
+                  <span className="glance-value">{weekTotal.toLocaleString()}</span>
+                </li>
+                <li>
+                  <span className="glance-icon" aria-hidden="true"><Icon.checkCircle /></span>
+                  <span className="glance-label">Completed this month<small>{drips.filter((d) => d.status === "completed").length} in total</small></span>
+                  <span className="glance-value">{finishedThisMonth}</span>
+                </li>
+              </ul>
             </section>
 
             <section className="card card-flush home-recent" aria-labelledby="recent-title">
               <div className="card-head">
-                <h2 id="recent-title">Recent</h2>
+                <h2 id="recent-title">Recent sessions</h2>
                 <Link href="/app/sessions" className="small">View all</Link>
               </div>
               {recent.length === 0
                 ? <p className="small muted pad">Finished sessions appear here.</p>
                 : (
-                  <ul className="list">
+                  <ul className="rows">
                     {recent.map((d) => (
-                      <li key={d.id}>
-                        <div className="list-item">
-                          <div className="main">
-                            <Link href={`/app/session?id=${d.id}`} className="title">{titleOf(d)}</Link>
-                            <div className="meta">{d.progress.words_written.toLocaleString()} words · {formatRelative(d.created_at)}</div>
-                          </div>
-                          <StatusBadge state={stateOf(d)} />
-                        </div>
+                      <li key={d.id} className="doc-row">
+                        <span className={`doc-icon ${d.provider === "microsoft" ? "word" : "gdoc"}`} aria-hidden="true"><Icon.doc /></span>
+                        <span className="doc-main">
+                          <Link href={`/app/session?id=${d.id}`} className="title">{titleOf(d)}</Link>
+                          <span className="meta">{d.provider === "microsoft" ? "Word" : "Google Docs"} · {formatRelative(d.created_at)}</span>
+                        </span>
+                        <span className="doc-words">{d.progress.words_written.toLocaleString()} words</span>
+                        <StatusBadge state={stateOf(d)} />
                       </li>
                     ))}
                   </ul>
                 )}
             </section>
 
+            <section className="card card-flush home-docs" aria-labelledby="docs-title">
+              <div className="card-head">
+                <h2 id="docs-title">Connected documents</h2>
+                <Link href="/app/documents" className="small">Manage</Link>
+              </div>
+              <ul className="rows">
+                {googleAccounts.map((c) => (
+                  <li key={c.id}>
+                    <Link href="/app/documents" className="doc-row link-row">
+                      <span className="doc-icon gdoc" aria-hidden="true"><Icon.doc /></span>
+                      <span className="doc-main"><span className="title">Google Docs</span><span className="meta">{c.account_email ?? "Google account"}</span></span>
+                      {c.connected === false
+                        ? <span className="tag warn">Reconnect</span>
+                        : <span className="tag good">Connected</span>}
+                      <Icon.chevronRight />
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link href="/app/documents#word" className="doc-row link-row">
+                    <span className="doc-icon word" aria-hidden="true"><Icon.doc /></span>
+                    <span className="doc-main">
+                      <span className="title">Word add-in</span>
+                      <span className="meta">{wordUsed ? "Used from Microsoft Word" : "Runs inside Word · how to add it"}</span>
+                    </span>
+                    {wordUsed ? <span className="tag good">Connected</span> : <span className="tag">Not set up</span>}
+                    <Icon.chevronRight />
+                  </Link>
+                </li>
+              </ul>
+            </section>
+
+            {moments.length > 0 && (
+              <section className="card home-today" aria-labelledby="today-title">
+                <div className="card-head">
+                  <h2 id="today-title">Coming up today</h2>
+                  <span className="small muted">{new Date(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}</span>
+                </div>
+                <ol className="timeline">
+                  {moments.map((m) => (
+                    <li key={`${m.drip.id}-${m.label}`} data-past={m.at < now}>
+                      <time dateTime={new Date(m.at).toISOString()}>{when(m.at)}</time>
+                      <span>
+                        <strong>{m.label}</strong>
+                        <Link href={`/app/session?id=${m.drip.id}`}>{titleOf(m.drip)}</Link>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
           </div>
         </div>
       )}

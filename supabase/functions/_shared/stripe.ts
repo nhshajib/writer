@@ -33,6 +33,24 @@ export async function stripeRequest<T>(
   return body as T;
 }
 
+/** A read from the Stripe API: parameters go in the query string. */
+export async function stripeGet<T>(
+  secretKey: string,
+  path: string,
+  params: Record<string, string> = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  const query = new URLSearchParams(params).toString();
+  const res = await fetchFn(`https://api.stripe.com/v1/${path}${query ? `?${query}` : ""}`, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new StripeError(res.status, body?.error?.message ?? `Stripe request failed (${res.status}).`);
+  }
+  return body as T;
+}
+
 /**
  * Verifies a `Stripe-Signature` header ("t=...,v1=...,v1=...") against the raw
  * request body. Rejects signatures older than `toleranceSeconds`.

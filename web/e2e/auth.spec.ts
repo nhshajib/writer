@@ -101,20 +101,38 @@ async function aboutYou(page: Page, country: string, age: number) {
   await page.getByLabel("Year you were born").selectOption(String(year - age));
 }
 
+test("sign-up is one screen, and the account options stay locked until the age answers allow joining", async ({ page }) => {
+  await page.goto("/signup/");
+  const create = page.getByRole("button", { name: "Create free account" });
+  // Locked: inert, so the keyboard skips from the age answers past every account field.
+  await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", true);
+  await page.getByLabel("Year you were born").focus();
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".signup-form").getByRole("button", { name: "Terms" })).toBeFocused();
+  await expect(page.getByText("Answer the questions above to continue")).toBeVisible();
+  await expectNoAxeViolations(page);
+  await aboutYou(page, "US", 30);
+  await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", false);
+  await expect(page.getByText("Answer the questions above to continue")).toHaveCount(0);
+  await create.focus();
+  await expect(create).toBeFocused();
+  await expectNoAxeViolations(page);
+});
+
 test("joining under 18 needs a parent or guardian, and the answers go with the sign-up", async ({ page, request }) => {
   await page.goto("/signup/");
   await aboutYou(page, "US", 15);
   const guardian = page.getByLabel(/A parent or guardian knows I'm using TypeWit/);
   await expect(guardian).toBeVisible();
-  await page.getByLabel("I agree to the Responsible Use Agreement").check();
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.locator(".alert-error")).toHaveText(/parent or guardian agrees/);
+  await expect(page.getByText("Tick the parent or guardian box to continue")).toBeVisible();
+  await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", true);
   await guardian.check();
-  await page.getByRole("button", { name: "Continue" }).click();
 
-  await expect(page.getByText("Step 2 of 2")).toBeVisible();
   await page.getByLabel("Email").fill("teen@gmail.com");
   await page.getByLabel("Password").fill("a good password");
+  await page.getByRole("button", { name: "Create free account" }).click();
+  await expect(page.locator(".alert-error")).toHaveText(/Responsible Use Agreement/);
+  await page.getByLabel("I agree to the Responsible Use Agreement").check();
   await page.getByRole("button", { name: "Create free account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 
@@ -127,9 +145,6 @@ test("joining under 18 needs a parent or guardian, and the answers go with the s
 test("someone below the minimum age is turned away, and a quick retry stays closed", async ({ page }) => {
   await page.goto("/signup/");
   await aboutYou(page, "GB", 12);
-  await expect(page.getByLabel(/A parent or guardian/)).toHaveCount(0);
-  await page.getByLabel("I agree to the Responsible Use Agreement").check();
-  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();

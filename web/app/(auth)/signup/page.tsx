@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useState } from "react";
 import { AboutYou, type AboutYouValue, aboutYouCheck, EMPTY_ABOUT_YOU } from "@/components/AboutYou";
 import { GoogleMark, Icon } from "@/components/Icons";
 import { LegalDialog } from "@/components/LegalDialog";
@@ -17,8 +17,7 @@ const AGREE_FIRST = "Please tick the box to agree to the Responsible Use Agreeme
 
 function SignupForm() {
   const router = useRouter();
-  const params = useSearchParams();
-  const next = safeNext(params.get("next"));
+  const [next, setNext] = useState("/app/");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -28,26 +27,28 @@ function SignupForm() {
   const [sent, setSent] = useState(false);
   const [resent, setResent] = useState<string | null>(null);
   const [about, setAbout] = useState<AboutYouValue>(EMPTY_ABOUT_YOU);
-  const [step, setStep] = useState<"about" | "account" | "refused">("about");
+  const [step, setStep] = useState<"form" | "refused">("form");
+  const check = aboutYouCheck(about);
+  // The account options open only once the age answers allow joining.
+  const unlocked = check === "ok" || (check === "guardian" && about.guardian);
 
   useEffect(() => {
+    setNext(safeNext(new URLSearchParams(window.location.search).get("next")));
     if (ageBlocked()) setStep("refused");
   }, []);
 
-  // Step 1: who is joining. Nothing is sent until step 2.
-  function continueToAccount(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    const check = aboutYouCheck(about);
-    if (!check) return setError("Choose your country and the month and year you were born.");
+  useEffect(() => {
     if (check === "too_young") {
       rememberAgeBlock();
       setStep("refused");
-      return;
     }
-    if (check === "guardian" && !about.guardian) return setError("Please tick the box to confirm a parent or guardian agrees.");
-    if (!agreed) return setError(AGREE_FIRST);
-    setStep("account");
+  }, [check]);
+
+  /** The age answers again, as a safety net: the locked fields can't normally be reached. */
+  function ageProblem(): string | null {
+    if (!check) return "Choose your country and the month and year you were born.";
+    if (check === "guardian" && !about.guardian) return "Please tick the box to confirm a parent or guardian agrees.";
+    return null;
   }
 
   const ageAnswers = {
@@ -68,7 +69,8 @@ function SignupForm() {
   }
 
   async function google() {
-    setError(null);
+    setError(ageProblem());
+    if (ageProblem()) return;
     if (!agreed) {
       setError(AGREE_FIRST);
       return;
@@ -83,7 +85,8 @@ function SignupForm() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setError(ageProblem());
+    if (ageProblem()) return;
     const problem = emailProblem(email);
     setEmailError(problem);
     if (problem) return;
@@ -155,28 +158,13 @@ function SignupForm() {
     <div className="auth">
       <div className="auth-box">
         <h1 id="signup-title">Create your account</h1>
-        <p className="sub">{step === "about" ? "Step 1 of 2 · Free plan, no card needed." : "Step 2 of 2 · Choose how you'll sign in."}</p>
+        <p className="sub">Free plan, no card needed.</p>
 
-        {step === "about"
-          ? (
-            <form className="auth-form" onSubmit={continueToAccount} noValidate aria-labelledby="signup-title">
-              <AboutYou value={about} onChange={setAbout} />
-              <div className="agree-row">
-                <label className="check" htmlFor="agree">
-                  <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-                  <span>I agree to the Responsible Use&nbsp;Agreement</span>
-                </label>
-                <LegalDialog doc="agreement" onAgree={() => setAgreed(true)}>Read it</LegalDialog>
-              </div>
-              {error && <p className="alert alert-error" role="alert">{error}</p>}
-              <button type="submit" className="btn btn-primary btn-lg btn-block">Continue <Icon.arrowRight /></button>
-              <p className="hint center">
-                By joining you also accept the <LegalDialog doc="terms">Terms</LegalDialog> and <LegalDialog doc="privacy">Privacy Policy</LegalDialog>.
-              </p>
-            </form>
-          )
-          : (
-            <form className="auth-form" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
+        <form className="auth-form signup-form" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
+          <AboutYou value={about} onChange={setAbout} legend="First, your age" />
+
+          <div className="signup-locked" data-locked={!unlocked || undefined}>
+            <div className="signup-fields" inert={!unlocked}>
               <button type="button" className="btn btn-google btn-lg btn-block" onClick={google} disabled={busy}>
                 <GoogleMark /> Continue with Google
               </button>
@@ -196,22 +184,32 @@ function SignupForm() {
                   onChange={(e) => setPassword(e.target.value)} aria-describedby="password-hint" placeholder="At least 8 characters" />
                 <span id="password-hint" className="sr-only">At least 8 characters.</span>
               </div>
+              <div className="agree-row">
+                <label className="check" htmlFor="agree">
+                  <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                  <span>I agree to the Responsible Use&nbsp;Agreement</span>
+                </label>
+                <LegalDialog doc="agreement" onAgree={() => setAgreed(true)}>Read it</LegalDialog>
+              </div>
               {error && <p className="alert alert-error" role="alert">{error}</p>}
               <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>
                 {busy ? "Creating account…" : "Create free account"}
               </button>
-              <button type="button" className="link-btn center-self" onClick={() => { setStep("about"); setError(null); }}>Back</button>
-            </form>
-          )}
+            </div>
+            {!unlocked && (
+              <p className="signup-lock-note"><Icon.lock /> {check === "guardian" ? "Tick the parent or guardian box to continue" : "Answer the questions above to continue"}</p>
+            )}
+          </div>
+          <p className="sr-only" role="status">{unlocked ? "Account options are now available." : ""}</p>
+          <p className="hint center">
+            By joining you also accept the <LegalDialog doc="terms">Terms</LegalDialog> and <LegalDialog doc="privacy">Privacy Policy</LegalDialog>.
+          </p>
+        </form>
       </div>
     </div>
   );
 }
 
 export default function SignupPage() {
-  return (
-    <Suspense>
-      <SignupForm />
-    </Suspense>
-  );
+  return <SignupForm />;
 }

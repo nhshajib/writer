@@ -22,10 +22,11 @@ export function aboutYouCheck(value: AboutYouValue): AgeCheck | null {
  * Country and month and year of birth, asked neutrally (no hint of the age
  * needed), plus a parent or guardian's agreement for under-18s.
  */
-export function AboutYou({ value, onChange, idPrefix = "about" }: {
+export function AboutYou({ value, onChange, idPrefix = "about", legend = "About you" }: {
   value: AboutYouValue;
   onChange: (value: AboutYouValue) => void;
   idPrefix?: string;
+  legend?: string;
 }) {
   const list = useMemo(() => countries(), []);
   const months = useMemo(
@@ -48,16 +49,13 @@ export function AboutYou({ value, onChange, idPrefix = "about" }: {
 
   return (
     <fieldset className="about-you">
-      <legend className="label">About you</legend>
-      <div className="field">
+      <legend className="label">{legend}</legend>
+      <div className="about-row">
         <label className="sr-only" htmlFor={`${idPrefix}-country`}>Country you live in</label>
-        <select id={`${idPrefix}-country`} value={value.country} onChange={(e) => set({ country: e.target.value })} required>
+        <select id={`${idPrefix}-country`} className="about-country" value={value.country} onChange={(e) => set({ country: e.target.value })} required>
           <option value="">Country you live in</option>
           {list.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
         </select>
-      </div>
-      <div className="about-born" role="group" aria-labelledby={`${idPrefix}-born`}>
-        <span id={`${idPrefix}-born`} className="hint">Born</span>
         <label className="sr-only" htmlFor={`${idPrefix}-month`}>Month you were born</label>
         <select id={`${idPrefix}-month`} value={value.month} onChange={(e) => set({ month: e.target.value })} required>
           <option value="">Month</option>
@@ -75,7 +73,7 @@ export function AboutYou({ value, onChange, idPrefix = "about" }: {
           <span>A parent or guardian knows I&apos;m using TypeWit and agrees to it.</span>
         </label>
       )}
-      <p className="hint">We only use this to check who can use TypeWit, and keep just the month and year.</p>
+      <p className="hint">Only to check who can join. We keep month and year.</p>
     </fieldset>
   );
 }

@@ -26,8 +26,8 @@ import {
 
 type Timing = TimingMode | "asap";
 
-/** On phones the form is shown as five steps; the fields and checks are the same as on desktop. */
-const STEP_NAMES = ["Document", "Text", "Insertion", "Timing", "Review and start"];
+/** The form is shown as five steps, one at a time; every check still runs again on Start. */
+const STEP_NAMES = ["Document", "Text", "Insertion", "Timing", "Review"];
 /** The field to focus when a step has a problem. */
 const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 4: ["custom-minutes", "duration", "start-at"] };
 type Target = "new" | "existing";
@@ -147,7 +147,14 @@ export default function NewSessionPage() {
   const errorRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [step, setStep] = useState(1);
+  // The furthest step reached, so finished steps can be revisited from the progress steps.
+  const [reached, setReached] = useState(1);
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [stepError, setStepError] = useState<string | null>(null);
+  const [pasteNote, setPasteNote] = useState<string | null>(null);
+  const [canPaste, setCanPaste] = useState(false);
+  useEffect(() => setCanPaste(typeof navigator.clipboard?.readText === "function"), []);
+  const stepperCurrent = useRef<HTMLLIElement>(null);
   const [leaving, setLeaving] = useState(false);
   const stepHeading = useRef<HTMLParagraphElement>(null);
   // One id per Start press, so a repeated request can't start a second session.
@@ -368,10 +375,43 @@ export default function NewSessionPage() {
   }
 
   function goToStep(next: number) {
+    setDirection(next < step ? "back" : "forward");
     setStep(next);
+    setReached((r) => Math.max(r, next));
     setStepError(null);
     window.scrollTo(0, 0);
-    requestAnimationFrame(() => stepHeading.current?.focus());
+    requestAnimationFrame(() => (isMobile ? stepHeading.current : stepperCurrent.current)?.focus());
+  }
+
+  /** From the progress steps: back freely, forward only through steps that pass their checks. */
+  function jumpTo(target: number) {
+    if (target <= step) return goToStep(target);
+    for (let n = step; n < target; n++) {
+      const problem = stepProblem(n);
+      if (problem) {
+        if (n !== step) goToStep(n);
+        setStepError(problem);
+        return;
+      }
+    }
+    goToStep(target);
+  }
+
+  async function pasteText() {
+    setPasteNote(null);
+    try {
+      const clip = await navigator.clipboard.readText();
+      if (clip) changeText(text ? `${text}${text.endsWith("\n") ? "" : "\n"}${clip}` : clip);
+      else setPasteNote("Nothing to paste. Copy your text first.");
+    } catch {
+      setPasteNote("Your browser didn't allow pasting from here. Press Ctrl+V (⌘V on a Mac) in the box instead.");
+    }
+    document.getElementById("text")?.focus();
+  }
+
+  function cancel() {
+    if (text.trim() || title.trim()) setLeaving(true);
+    else router.push("/app/sessions/");
   }
 
   function continueStep() {
@@ -457,26 +497,45 @@ export default function NewSessionPage() {
 
   const optionFor = (u: InsertionUnit) => (current ? preview.options.find((o) => o.unit === u) : undefined);
   const steps = current && preview.ok ? preview.unit_count : 0;
+  const plannedDuration = current && preview.ok
+    ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
+    : timing === "asap" ? "All at once" : "—";
   const docLabel = target === "new" ? (title.trim() ? `New Google Doc "${title.trim()}"` : "New Google Doc (add a title)") : chosenDoc?.title ?? "Choose a document";
 
   return (
     <>
-      <nav className="crumbs" aria-label="Breadcrumb"><Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span aria-current="page">New</span></nav>
+      <nav className="crumbs" aria-label="Breadcrumb"><Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span aria-current="page">New session</span></nav>
       <div className="page-head">
         <div>
           <h1 id="new-title">New session</h1>
           {isMobile
             ? <p className="step-indicator" ref={stepHeading} tabIndex={-1} aria-live="polite">Step {step} of 5 · {STEP_NAMES[step - 1]}</p>
-            : <p>Choose a document, add your text and set the pace. TypeWit enters it for you, step by step, as automated text entry.</p>}
+            : <p className="new-sub">Your words. Your document. Your pace.</p>}
         </div>
       </div>
+      {!isMobile && (
+        <ol className="stepper" aria-label="Steps">
+          {STEP_NAMES.map((name, i) => {
+            const n = i + 1;
+            const state = n === step ? "current" : n < step || n <= reached ? "done" : "todo";
+            const label = <><span className="stepper-dot" aria-hidden="true">{n < step ? <Icon.check /> : n}</span><span className="stepper-name">{n}. {name}</span></>;
+            return (
+              <li key={name} data-state={state} aria-current={n === step ? "step" : undefined} ref={n === step ? stepperCurrent : undefined} tabIndex={n === step ? -1 : undefined}>
+                {n !== step && n <= reached
+                  ? <button type="button" onClick={() => jumpTo(n)}>{label}<span className="sr-only">{n < step ? ", done" : ""}</span></button>
+                  : <span className="stepper-item">{label}{n === step && <span className="sr-only">, current step</span>}</span>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
       {fromNote && <p className="alert alert-info mb-4" role="status">{fromNote}</p>}
 
-      <form className="new-grid" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-mobile-step={isMobile ? step : undefined}>
+      <form className="new-grid" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-step={step} data-direction={direction}>
         <div className="card card-flush new-main">
         <fieldset className="form-section" data-step-section="1">
           <legend className="sr-only">Document</legend>
-          <h2 aria-hidden="true"><span className="step-n">1</span>Document</h2>
+          <h2 aria-hidden="true"><span className="step-n">1</span>Choose a document</h2>
           <p className="muted">
             Where the text should go. TypeWit always adds it at the end of the document. Writing in Microsoft Word? Start
             from the <Link href="/app/documents#word">TypeWit add-in in Word</Link>.
@@ -539,8 +598,8 @@ export default function NewSessionPage() {
         </fieldset>
 
         <div className="form-section" data-step-section="2">
-          <h2><span className="step-n" aria-hidden="true">2</span>Text</h2>
-          <p className="muted">Paste or dictate it here. It is entered exactly as written, in order, including line breaks.</p>
+          <h2><span className="step-n" aria-hidden="true">2</span>Add your text</h2>
+          <p className="muted">Paste or dictate your text. TypeWit enters it exactly as written, in order, including line breaks.</p>
           <div className="field">
             {draft && !text && (
               <p className="alert alert-info" style={{ marginBottom: "0.75rem" }}>
@@ -549,7 +608,13 @@ export default function NewSessionPage() {
                 <button type="button" className="link-btn" onClick={() => { writeDraft(""); setDraft(""); }}>Discard</button>
               </p>
             )}
-            <label className="sr-only" htmlFor="text">Text to enter</label>
+            <div className="text-head">
+              <label className="label" htmlFor="text">Text to enter</label>
+              {canPaste && (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={pasteText}><Icon.clipboard />Paste text</button>
+              )}
+            </div>
+            {pasteNote && <p className="hint" role="status">{pasteNote}</p>}
             <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span id="text-count" className={overWords ? "error-text" : "hint"}>
@@ -558,12 +623,13 @@ export default function NewSessionPage() {
               </span>
               {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
             </div>
+            <p className="dictation-hint"><Icon.mic />Use your device&apos;s dictation to add text by voice.</p>
           </div>
         </div>
 
         <fieldset className="form-section" data-step-section="3">
           <legend className="sr-only">Insertion mode</legend>
-          <h2 aria-hidden="true"><span className="step-n">3</span>Insertion mode</h2>
+          <h2 aria-hidden="true"><span className="step-n">3</span>Choose how it&apos;s entered</h2>
           <p className="muted">What each insertion adds to the document.</p>
           <div className="choices" role="radiogroup" aria-label="Insert one">
             {UNITS.map((u) => {
@@ -585,7 +651,7 @@ export default function NewSessionPage() {
 
         <fieldset className="form-section" data-step-section="4">
           <legend className="sr-only">Timing</legend>
-          <h2 aria-hidden="true"><span className="step-n">4</span>Timing</h2>
+          <h2 aria-hidden="true"><span className="step-n">4</span>Set the timing</h2>
           <p className="muted">Pick a total time, or a typing speed. Breaks and variation apply to both.</p>
           <div className="choices" role="radiogroup" aria-label="Timing mode">
             <label className="choice">
@@ -631,6 +697,11 @@ export default function NewSessionPage() {
 
           {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} collapsed={isMobile} />}
 
+          <div className="plan-preview">
+            <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
+              onReshuffle={() => setSeed(undefined)} />
+          </div>
+
           <div className="field" style={{ marginTop: "1.25rem" }}>
             <label className="check" htmlFor="start-later">
               <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} />
@@ -658,69 +729,80 @@ export default function NewSessionPage() {
             {text || <span className="pending">Your text will appear here.</span>}
           </div>
           {steps > 1 && current && <StepList text={text} plan={preview} />}
-          <label className="check" htmlFor="approve" style={{ marginTop: "0.75rem" }}>
+          <h3 className="review-sub">Before you start</h3>
+          <dl className="summary-list" aria-label="Before you start">
+            <dt>Document</dt><dd>{docLabel}</dd>
+            <dt>Insertion location</dt><dd>At the end of the document</dd>
+            <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
+            <dt>Text length</dt><dd>{words.toLocaleString()} words, {text.length.toLocaleString()} characters</dd>
+            <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
+            <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
+            <dt>Planned duration</dt>
+            <dd>{plannedDuration}</dd>
+          </dl>
+          <label className="check approve-check" htmlFor="approve">
             <input id="approve" type="checkbox" checked={approved} disabled={words === 0} onChange={(e) => setApproved(e.target.checked)} />
             <span>I&apos;ve read this exact text and approve TypeWit entering it into my document.</span>
           </label>
+          {error && (
+            <div className="alert alert-error" role="alert" tabIndex={-1} ref={errorRef} style={{ marginTop: "1rem", display: "block" }}>
+              <p>{error}</p>
+              {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
+            </div>
+          )}
           <p className="hint">
-            Your text and its schedule are stored with TypeWit until you delete the session (Settings → Your data). The
-            activity log records times and counts, not your text.
+            Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
+            account. TypeWit never adds typos, false starts or fake corrections, and it runs on TypeWit&apos;s servers, so
+            you can close this page. Your text and its schedule are stored with TypeWit until you delete the session
+            (Settings → Your data); the activity log records times and counts, not your text.
           </p>
         </div>
         </div>
 
-        <aside className="new-rail" aria-labelledby="summary-title" data-step-section="5">
+        <aside className="new-rail" aria-labelledby="summary-title">
           <div className="card rail-card">
-            <h2 id="summary-title" className="card-title">Before you start</h2>
-            <dl className="summary-list" aria-label="Session summary">
-              <dt>Document</dt><dd>{docLabel}</dd>
-              <dt>Insertion location</dt><dd>At the end of the document</dd>
-              <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
-              <dt>Text length</dt><dd>{words.toLocaleString()} words, {text.length.toLocaleString()} characters</dd>
-              <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
-              <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
-              <dt>Planned duration</dt>
-              <dd>
-                {current && preview.ok
-                  ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
-                  : "—"}
-              </dd>
-            </dl>
-            <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
-              onReshuffle={() => setSeed(undefined)} />
-            {error && (
-              <div className="alert alert-error" role="alert" tabIndex={-1} ref={errorRef} style={{ marginTop: "1rem", display: "block" }}>
-                <p>{error}</p>
-                {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
-              </div>
-            )}
-            {!isMobile && (
-              <>
-                <button type="submit" className="btn btn-primary btn-lg btn-block mt-4" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>
-                <Link href="/app" className="btn btn-ghost btn-block btn-sm mt-2">Cancel</Link>
-              </>
-            )}
-            <p className="hint mt-4">
-              Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
-              account. TypeWit never adds typos, false starts or fake corrections, and it runs on TypeWit&apos;s servers,
-              so you can close this page.
-            </p>
+            <h2 id="summary-title" className="card-title">Session summary</h2>
+            <ul className="summary-rows">
+              <li><span className="sr-icon" aria-hidden="true"><Icon.doc /></span><span className="sr-label">Document</span>
+                <span className="sr-value">{target === "new" ? title.trim() || <span className="muted">Add a title</span> : chosenDoc?.title ?? <span className="muted">Choose a document</span>}</span></li>
+              <li><span className="sr-icon gdoc" aria-hidden="true"><Icon.doc /></span><span className="sr-label">Provider</span><span className="sr-value">Google Docs</span></li>
+              <li><span className="sr-icon" aria-hidden="true"><Icon.list /></span><span className="sr-label">Insert at</span><span className="sr-value">End of document</span></li>
+              <li><span className="sr-icon" aria-hidden="true"><Icon.text /></span><span className="sr-label">Text</span>
+                <span className="sr-value">
+                  {words > 0 && !overWords
+                    ? <span className="pill good"><Icon.check />{reached > 2 ? `${words.toLocaleString()} words` : "Ready to review"}</span>
+                    : <span className="muted">{overWords ? "Over today's limit" : "Add your text"}</span>}
+                </span></li>
+              <li><span className="sr-icon" aria-hidden="true"><Icon.clock /></span><span className="sr-label">Timing</span>
+                <span className="sr-value">{reached >= 4 ? plannedDuration : <span className="muted">Set in next steps</span>}</span></li>
+              <li><span className="sr-icon" aria-hidden="true"><Icon.eye /></span><span className="sr-label">Review</span>
+                <span className="sr-value">{approved ? <span className="pill good"><Icon.check />Approved</span> : <span className="muted">{reached >= 5 ? "Not approved yet" : "Set in next steps"}</span>}</span></li>
+            </ul>
+            <div className="control-note">
+              <span aria-hidden="true"><Icon.info /></span>
+              <p><strong>You stay in control</strong>You review and approve the exact text before anything is entered, and you can pause or stop at any time.</p>
+            </div>
           </div>
         </aside>
-        {isMobile && (
-          <div className="step-bar">
-            {stepError && <p className="alert alert-error" role="alert">{stepError}</p>}
-            <div className="step-bar-row">
+        <div className="step-bar">
+          {stepError && <p className="alert alert-error" role="alert">{stepError}</p>}
+          <div className="step-bar-row">
+            {!isMobile && <button type="button" className="btn btn-ghost btn-lg step-cancel" onClick={cancel}>Cancel</button>}
+            {(step > 1 || isMobile) && (
               <button type="button" className="btn btn-secondary btn-lg" onClick={() => (step > 1 ? goToStep(step - 1) : setLeaving(true))}>
                 {step > 1 ? "Back" : "Exit"}
               </button>
-              {step < 5
-                // Different keys: the tap on Continue must not land on a submit button swapped into its place.
-                ? <button key="continue" type="button" className="btn btn-primary btn-lg" onClick={continueStep}>Continue</button>
-                : <button key="start" type="submit" className="btn btn-primary btn-lg" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>}
-            </div>
+            )}
+            {step < 5
+              // Different keys: the press on Continue must not land on a submit button swapped into its place.
+              ? (
+                <button key="continue" type="button" className="btn btn-primary btn-lg" onClick={continueStep}>
+                  {isMobile ? "Continue" : <>Continue to {STEP_NAMES[step].toLowerCase()}<Icon.chevronRight /></>}
+                </button>
+              )
+              : <button key="start" type="submit" className="btn btn-primary btn-lg" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>}
           </div>
-        )}
+        </div>
       </form>
 
       <Sheet open={leaving} onClose={() => setLeaving(false)} title="Leave without starting?" dismissible={false}>

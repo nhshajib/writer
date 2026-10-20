@@ -48,7 +48,7 @@ export function Header() {
               : (
                 <>
                   <Link href="/login/" aria-current={current("/login")}>Sign in</Link>
-                  <Link href="/signup/" className="btn btn-primary btn-sm">Join free</Link>
+                  <Link href="/signup/" className="btn btn-primary btn-sm">Get started free</Link>
                 </>
               )}
           </div>
@@ -64,7 +64,7 @@ export function Header() {
             : (
               <>
                 <Link href="/login/">Sign in</Link>
-                <Link href="/signup/" className="btn btn-primary btn-block">Join free</Link>
+                <Link href="/signup/" className="btn btn-primary btn-block">Get started free</Link>
               </>
             )}
         </nav>

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { fillNewSession } from "./helpers";
 
 /*
  * The Word add-in pane and Google Picker, against the mock API. Office.js and
@@ -202,9 +203,7 @@ test("any Google Doc can be chosen with Google Picker and is used for the sessio
     expect.arrayContaining(["mime:application/vnd.google-apps.document", "token:picker-token", "app:654277390095"]),
   );
 
-  await page.getByLabel("Text to enter").fill("A short report. It has two sentences.");
-  await expect(page.getByText(/sentences, one insertion each/)).toBeVisible();
-  await page.getByLabel(/I've read this exact text/).check();
+  await fillNewSession(page, { text: "A short report. It has two sentences." });
   await page.getByRole("button", { name: "Start session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
   const { requests } = await (await request.get("/__test/requests")).json();

@@ -36,19 +36,31 @@ export function Sparkline({ values, width = 96, height = 32 }: { values: number[
   );
 }
 
-/** Vertical bars with day labels, plus a hidden table with the same numbers. */
+/** A round axis maximum: 1, 2 or 5 times a power of ten, at or above the largest value. */
+function niceMax(value: number): number {
+  if (value <= 4) return 4;
+  const power = 10 ** Math.floor(Math.log10(value));
+  const step = [1, 2, 2.5, 5, 10].find((m) => m * power >= value)!;
+  return step * power;
+}
+
+/** Vertical bars with day labels and a light value axis, plus a hidden table with the same numbers. */
 export function BarChart({ data, unit, caption }: { data: { label: string; full: string; value: number }[]; unit: string; caption: string }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
+  const max = niceMax(Math.max(0, ...data.map((d) => d.value)));
+  const ticks = [max, (max * 3) / 4, max / 2, max / 4, 0];
   return (
     <figure className="bars">
-      <div className="bars-plot" aria-hidden="true">
-        {data.map((d) => (
-          <div key={d.full} className="bar-col" title={`${d.full}: ${d.value.toLocaleString()} ${unit}`}>
-            <span className="bar-val">{d.value ? d.value.toLocaleString() : ""}</span>
-            <span className="bar-fill" style={{ height: `${Math.max(d.value ? 4 : 0, (d.value / max) * 100)}%` }} />
-            <span className="bar-label">{d.label}</span>
-          </div>
-        ))}
+      <div className="bars-chart" aria-hidden="true">
+        <div className="bars-axis">{ticks.map((t) => <span key={t}>{Math.round(t).toLocaleString()}</span>)}</div>
+        <div className="bars-plot">
+          <div className="bars-grid">{ticks.map((t) => <span key={t} />)}</div>
+          {data.map((d) => (
+            <div key={d.full} className="bar-col" title={`${d.full}: ${d.value.toLocaleString()} ${unit}`}>
+              <span className="bar-fill" style={{ height: `${Math.max(d.value ? 2 : 0, (d.value / max) * 100)}%` }} />
+              <span className="bar-label">{d.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="sr-only">
         <table>

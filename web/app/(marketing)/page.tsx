@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
+import { Logo } from "@/components/Logo";
 import { pageMeta, SITE_URL } from "@/lib/seo";
 import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
 
@@ -15,9 +16,15 @@ export const metadata: Metadata = {
 
 const WHO = [
   { icon: Icon.hand, title: "Pain or fatigue", text: "RSI, arthritis or tired hands. Dictate or paste once, and let TypeWit enter it into your document." },
+  { icon: Icon.mic, title: "Voice and dictation", text: "Use the dictation you already have, then let TypeWit put the words into Google Docs or Word." },
+  { icon: Icon.person, title: "Limited hand movement", text: "Large controls and full keyboard and screen-reader support. Nothing to do once a session starts." },
   { icon: Icon.layers, title: "Dyslexia and dyspraxia", text: "Draft wherever it's easiest, check it at your own speed, then have it placed in the document for you." },
-  { icon: Icon.mic, title: "Voice and dictation users", text: "Turn what you dictated into a Google Doc or Word document without fighting the cursor." },
-  { icon: Icon.check, title: "Limited hand movement", text: "Large controls and full keyboard and screen-reader support. Nothing to do once a session starts." },
+];
+
+const STEPS = [
+  { icon: Icon.doc, title: "Add your text", text: "Paste or dictate your text into TypeWit, using any input method you prefer." },
+  { icon: Icon.sliders, title: "Approve and set your pace", text: "Read the exact text, make any changes, and choose a pace that works for you." },
+  { icon: Icon.list, title: "Follow your progress", text: "TypeWit enters your approved text into your document while you stay in control." },
 ];
 
 const FEATURES = [
@@ -84,104 +91,88 @@ const STRUCTURED_DATA = {
 export default function Home() {
   return (
     <>
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="container">
-          <span className="chip"><span className="dot" aria-hidden="true" /> For Google Docs and Microsoft Word</span>
-          <h1 id="hero-title" className="display">
-            Your words in Google Docs and Word, <span className="soft">without typing.</span>
-          </h1>
-          <p className="lead">
-            Paste or dictate your text, approve it, and TypeWit enters it into your document at the pace you choose.
-            Built for people who find typing difficult, slow or painful.
-          </p>
-          <div className="cta-row">
-            <Link href="/signup/" className="btn btn-primary btn-lg">Get started free</Link>
-            <a href="#how" className="btn btn-secondary btn-lg">See how it works</a>
+      <section className="mk-hero" aria-labelledby="hero-title">
+        <div className="container mk-hero-grid">
+          <div className="mk-hero-copy">
+            <span className="mk-chip">
+              <span className="mk-chip-icon gdoc" aria-hidden="true"><Icon.doc /></span>
+              <span className="mk-chip-icon word" aria-hidden="true">W</span>
+              For Google Docs and Microsoft Word
+            </span>
+            <h1 id="hero-title" className="mk-display">Your words.<br /> Without the typing.</h1>
+            <p className="mk-lead">
+              Paste or dictate your text, approve it, and let TypeWit enter it into your document at the pace you choose.
+            </p>
+            <div className="mk-cta">
+              <Link href="/signup/" className="btn btn-primary btn-lg">Get started free</Link>
+              <a href="#how" className="btn btn-outline btn-lg"><span className="play" aria-hidden="true"><Icon.play /></span>See how it works</a>
+            </div>
+            <p className="fine">Free plan · No card needed</p>
           </div>
-          <p className="fine">Free plan · No card needed</p>
 
-          <div className="product" aria-hidden="true">
-            <div className="product-window">
-              <div className="product-bar">
-                <span className="lights"><i /><i /><i /></span>
-                <span className="title"><Icon.doc /> History essay · Google Docs</span>
+          <div className="mk-demo" aria-hidden="true">
+            <div className="mk-doc">
+              <div className="mk-doc-head">
+                <span className="mk-doc-mark"><Icon.doc /></span>
+                <div>
+                  <strong>Research notes</strong>
+                  <span className="mk-menu"><span>File</span><span>Edit</span><span>View</span><span>Insert</span><span>Format</span><span>Tools</span><span>Help</span></span>
+                </div>
               </div>
-              <div className="product-body">
-                <div className="doc-pane">
-                  <div className="doc-page">
-                    <h4>The printing press and the spread of ideas</h4>
-                    <p>
-                      Within fifty years of Gutenberg&apos;s press, books that once took months to copy could be produced in
-                      days. Ideas began to travel faster than any authority could answer them.
-                    </p>
-                    <p>
-                      That speed had consequences nobody predicted.{" "}
-                      <span className="arriving">Pamphlets spread arguments across borders, and readers began to compare
-                      sources for themselves.</span>
-                      <span className="caret" />
-                    </p>
-                    <span className="ghost" style={{ width: "92%" }} />
-                    <span className="ghost" style={{ width: "78%" }} />
-                    <span className="ghost" style={{ width: "85%" }} />
-                  </div>
-                </div>
-                <div className="tw-pane">
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <span className="badge badge-blue"><span className="dot" /> Writing</span>
-                    <span className="label-sm">Sentence by sentence</span>
-                  </div>
-                  <div>
-                    <div className="label-sm">Progress</div>
-                    <div className="big">62%</div>
-                    <div className="progress lg" style={{ marginTop: "0.6rem" }}><span style={{ width: "62%" }} /></div>
-                  </div>
-                  <div className="tw-kv">
-                    <div><span className="label-sm">Words</span><strong>248 / 400</strong></div>
-                    <div><span className="label-sm">Next in</span><strong>0:42</strong></div>
-                  </div>
-                  <ul className="tw-log">
-                    <li><time>10:24</time><span>Sentence 7 entered</span></li>
-                    <li><time>10:23</time><span>Sentence 6 entered</span></li>
-                    <li><time>10:15</time><span>You approved the text</span></li>
-                  </ul>
-                  <div className="row">
-                    <span className="btn btn-secondary btn-sm">Pause</span>
-                    <span className="btn btn-ghost btn-sm">Stop</span>
-                  </div>
-                </div>
+              <div className="mk-toolbar">
+                <span>↶</span><span>↷</span><span className="mk-field">Normal text ▾</span><span className="mk-field">Inter ▾</span><span className="mk-field">11 ▾</span>
+                <b>B</b><i>I</i><u>U</u>
+              </div>
+              <div className="mk-page">
+                <p>
+                  Rural communities face unique challenges in accessing healthcare, including distance, transportation and
+                  limited specialist availability. <span className="arriving">Telehealth can help reduce these barriers and
+                  increase access to care.</span><span className="caret" />
+                </p>
               </div>
             </div>
+            <div className="mk-panel">
+              <div className="mk-panel-head"><Logo className="mk-logo" /><strong>TypeWit</strong><span className="mk-dots">···</span></div>
+              <div className="mk-row"><span>Session progress</span><span>248 / 400 words</span></div>
+              <div className="mk-bar"><span style={{ width: "62%" }}>62%</span></div>
+              <div className="mk-status"><span className="mk-running"><i />Running</span><span>Automated text entry into your document.</span></div>
+              <div className="mk-pause"><Icon.pause />Pause</div>
+              <div className="mk-row mk-last"><span>Finish in</span><span className="mk-select">1 hour ▾</span></div>
+            </div>
           </div>
-
         </div>
       </section>
 
-      <section id="who" className="section" aria-labelledby="who-title">
+      <section className="mk-band" aria-labelledby="band-title">
         <div className="container">
-          <div className="section-head">
-            <p className="kicker">Who it&apos;s for</p>
-            <h2 id="who-title">For anyone who finds typing hard.</h2>
-            <p>You bring the words: written slowly, dictated, or drafted elsewhere. TypeWit does the typing part.</p>
-          </div>
-          <ul className="who-grid">
+          <h2 id="band-title">Built for people who find typing difficult, slow or painful.</h2>
+          <p>Whether you use a keyboard, voice dictation or another way to write, TypeWit helps you get your words into Google Docs and Word.</p>
+        </div>
+      </section>
+
+      <section id="how" className="mk-section" aria-labelledby="how-title">
+        <div className="container">
+          <h2 id="how-title" className="mk-h2">Three steps. You stay in control.</h2>
+          <ol className="mk-steps">
+            {STEPS.map(({ icon: StepIcon, title, text }, i) => (
+              <li key={title}>
+                <span className="mk-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <span className="mk-step-icon" aria-hidden="true"><StepIcon /></span>
+                <div><h3>{title}</h3><p>{text}</p></div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section id="who" className="mk-section" aria-labelledby="who-title">
+        <div className="container">
+          <h2 id="who-title" className="mk-h2">Designed around your needs.</h2>
+          <ul className="mk-needs">
             {WHO.map(({ icon: WhoIcon, title, text }) => (
-              <li key={title}><span className="who-icon" aria-hidden="true"><WhoIcon /></span><h3>{title}</h3><p>{text}</p></li>
+              <li key={title}><span className="mk-need-icon" aria-hidden="true"><WhoIcon /></span><div><h3>{title}</h3><p>{text}</p></div></li>
             ))}
           </ul>
-        </div>
-      </section>
-
-      <section id="how" className="section" aria-labelledby="how-title">
-        <div className="container">
-          <div className="section-head">
-            <p className="kicker">How it works</p>
-            <h2 id="how-title">Three steps, then nothing to do.</h2>
-          </div>
-          <ol className="steps">
-            <li><h3>Add your text</h3><p>Paste it, or dictate it with your device&apos;s voice input. Edit it as much as you like first.</p></li>
-            <li><h3>Approve it and pick a pace</h3><p>Read the exact text, then choose sentence or paragraph steps over minutes, hours or days.</p></li>
-            <li><h3>TypeWit enters it</h3><p>Your Google Doc or Word document fills in on schedule. Pause, resume or stop whenever you like.</p></li>
-          </ol>
         </div>
       </section>
 

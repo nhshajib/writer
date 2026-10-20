@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { fillNewSession, toStep } from "./helpers";
 
 /* Run again, Start later, drafts, settings, sessions list and the 404 page, against the mock API. */
 
@@ -22,11 +23,13 @@ async function expectNoAxeViolations(page: Page) {
 
 async function createSession(page: Page, opts: { startLater?: boolean } = {}) {
   await page.goto("/app/new/");
-  await page.getByLabel("Title").fill("Lab report");
-  await page.getByLabel("Text to enter").fill(TEXT);
-  await expect(page.getByText(/sentences, one insertion each/)).toBeVisible();
-  if (opts.startLater) await page.getByLabel("Start later instead of now").check();
-  await page.getByLabel(/I've read this exact text/).check();
+  await fillNewSession(page, {
+    title: "Lab report",
+    text: TEXT,
+    atTiming: async () => {
+      if (opts.startLater) await page.getByLabel("Start later instead of now").check();
+    },
+  });
   await page.getByRole("button", { name: "Start session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
   return new URL(page.url()).searchParams.get("id")!;
@@ -55,26 +58,36 @@ test("Run again starts a new session from a finished one's text, settings and do
   await page.reload();
   await page.getByRole("link", { name: "Run again…" }).click();
   await page.waitForURL(/\/app\/new\/?\?from=/);
-  await expect(page.getByLabel("Text to enter")).toHaveValue(TEXT);
   await expect(page.getByText(/Started from "Lab report"/)).toBeVisible();
   await expect(page.getByRole("radio", { name: /Existing document/ })).toBeChecked();
+  await toStep(page, 2);
+  await expect(page.getByLabel("Text to enter")).toHaveValue(TEXT);
   // A fresh approval is always needed.
+  await toStep(page, 5);
   await expect(page.getByLabel(/I've read this exact text/)).not.toBeChecked();
 });
 
 test("unsent text is kept in this browser and can be restored or discarded", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Draft");
+  await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("A draft I don't want to lose.");
   await page.waitForTimeout(700);
   await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Draft");
+  await toStep(page, 2);
   await expect(page.getByText(/You have unsent text from before \(7 words\)/)).toBeVisible();
   await page.getByRole("button", { name: "Restore it" }).click();
   await expect(page.getByLabel("Text to enter")).toHaveValue("A draft I don't want to lose.");
 
   await page.getByLabel("Text to enter").fill("");
   await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Draft");
+  await toStep(page, 2);
   await page.getByRole("button", { name: "Discard" }).click();
   await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Draft");
+  await toStep(page, 2);
   await expect(page.getByText(/You have unsent text/)).toHaveCount(0);
 });
 
@@ -132,4 +145,28 @@ test("dashboard pages have their own titles", async ({ page }) => {
   await expect(page).toHaveTitle("Sessions · TypeWit");
   await page.goto("/app/settings/");
   await expect(page).toHaveTitle("Settings · TypeWit");
+});
+
+test("Manage billing shows the subscription, card and invoices, and each change opens the matching Stripe page", async ({ page, request }) => {
+  await page.goto("/app/billing/");
+  await page.getByRole("link", { name: "Manage billing" }).click();
+  await page.waitForURL(/\/app\/billing\/manage\/?$/);
+  const sub = page.getByRole("region", { name: "Subscription" });
+  await expect(sub).toContainText("TypeWit Pro");
+  await expect(sub).toContainText("$9 / month");
+  await expect(sub).toContainText("Billed yearly at $108");
+  await expect(page.getByRole("region", { name: "Payment method" })).toContainText("Visa ending in 4242");
+  const invoices = page.getByRole("region", { name: "Invoices" });
+  await expect(invoices.getByRole("row")).toHaveCount(3);
+  await expect(invoices.getByRole("link", { name: /Download/ }).first()).toHaveAttribute("href", /\.pdf$/);
+  await expectNoAxeViolations(page);
+
+  await page.getByRole("button", { name: "Update payment method" }).click();
+  await page.waitForURL(/__test\/portal/);
+  await page.goBack();
+  await page.getByRole("button", { name: "Cancel subscription" }).click();
+  await page.waitForURL(/__test\/portal/);
+  const { requests } = await (await request.get("/__test/requests")).json();
+  const flows = requests.filter((r: { path: string }) => r.path === "/functions/v1/billing/portal").map((r: { body: { flow?: string } }) => r.body.flow);
+  expect(flows).toEqual(["payment_method_update", "subscription_cancel"]);
 });

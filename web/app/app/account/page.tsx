@@ -46,6 +46,7 @@ export default function AccountPage() {
 
       <Group title="Plan">
         <Row icon={Icon.card} href="/app/billing/" label="Plan & usage" value={isPro ? "Pro" : `${Math.min(wordsToday, limit)} / ${limit} today`} />
+        {(isPro || profile.subscription_status === "canceled") && <Row icon={Icon.receipt} href="/app/billing/manage/" label="Manage billing" />}
       </Group>
 
       <Group title="Settings">

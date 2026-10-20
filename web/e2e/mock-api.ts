@@ -195,6 +195,22 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   }
   if (path.startsWith("/auth/v1/")) return send(res, 200, {});
 
+  // Billing: Stripe's test card and made-up invoices, never real payment data.
+  if (path === "/functions/v1/billing/summary") {
+    const day = 86_400;
+    const now = Math.floor(Date.now() / 1000);
+    return send(res, 200, {
+      email: MOCK_USER.email,
+      subscription: { status: "active", interval: "year", amount: 10800, currency: "usd", period_start: now - 30 * day, period_end: now + 335 * day, cancel_at_period_end: false, trial_end: null },
+      card: { brand: "visa", last4: "4242", exp_month: 8, exp_year: 2030 },
+      invoices: [0, 1].map((n) => ({
+        id: `in_test_${n}`, number: `TEST-000${n + 1}`, created: now - (30 + 365 * n) * day, amount: 10800, currency: "usd", status: "paid",
+        description: "1 × TypeWit Pro (yearly)", url: `https://invoice.example.test/${n}`, pdf: `https://invoice.example.test/${n}.pdf`,
+      })),
+    }, { "Cache-Control": "no-store" });
+  }
+  if (path === "/functions/v1/billing/portal") return send(res, 200, { url: `/__test/portal?flow=${String(body.flow ?? "")}` });
+
   const parts = path.replace(/^\/functions\/v1\/drips\/?/, "").split("/").filter(Boolean);
   if (parts[0] === "account" && parts[1] === "delete") {
     if (String(body.confirm_email ?? "").toLowerCase() !== MOCK_USER.email) {

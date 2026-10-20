@@ -11,6 +11,15 @@ const base = {
 };
 
 export const Icon = {
+  clipboard: () => <svg {...base}><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4.5V3.8A.8.8 0 0 1 9.8 3h4.4a.8.8 0 0 1 .8.8v.7M9 10h6M9 14h6M9 18h3" /></svg>,
+  text: () => <svg {...base}><path d="M4 7V5h10v2M9 5v14M7 19h4M14 12v-1h6v1M17 11v8M15.5 19h3" /></svg>,
+  eye: () => <svg {...base}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></svg>,
+  info: () => <svg {...base}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>,
+  bolt: () => <svg {...base}><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z" /></svg>,
+  checkCircle: () => <svg {...base}><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></svg>,
+  sliders: () => <svg {...base}><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>,
+  person: () => <svg {...base}><circle cx="12" cy="4.5" r="1.8" /><path d="M5 8.5l7 1.5 7-1.5M12 10v4.5M12 14.5l-3.5 6.5M12 14.5l3.5 6.5" /></svg>,
+  receipt: () => <svg {...base}><path d="M6 3h12v18l-2.5-1.5L13 21l-2-1.5L9 21l-3-1.5V3Z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>,
   hand: () => (
     <svg {...base}><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5A5.5 5.5 0 0 1 5 14.5V11a1.5 1.5 0 0 1 3 0" /></svg>
   ),

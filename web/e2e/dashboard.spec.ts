@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { fillNewSession } from "./helpers";
 
 /* Home, the top bar (search, updates, theme) and the sessions list's quick actions, against the mock API. */
 
@@ -22,10 +23,7 @@ async function expectNoAxeViolations(page: Page) {
 
 async function createSession(page: Page, title: string) {
   await page.goto("/app/new/");
-  await page.getByLabel("Title").fill(title);
-  await page.getByLabel("Text to enter").fill(TEXT);
-  await expect(page.getByText(/one insertion each/)).toBeVisible();
-  await page.getByLabel(/I've read this exact text/).check();
+  await fillNewSession(page, { title, text: TEXT });
   await page.getByRole("button", { name: "Start session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
   return new URL(page.url()).searchParams.get("id")!;
@@ -55,10 +53,25 @@ test("Home shows what needs you with the fix right there, and live sessions can 
   await expect(page.locator(".toast")).toHaveText(/Session resumed\./);
   await expect(needs).toBeHidden();
 
-  const live = page.getByRole("region", { name: /Live now/ });
+  const live = page.getByRole("region", { name: /Live session/ });
   await live.getByRole("button", { name: "Pause History essay" }).click();
   await expect(page.locator(".toast")).toHaveText(/Session paused\./);
   await expect(live.getByRole("button", { name: "Resume History essay" })).toBeVisible();
+
+  // The day at a glance, and connections that only claim what is true.
+  const glance = page.getByRole("region", { name: "Today at a glance" });
+  await expect(glance).toContainText("Active sessions");
+  await expect(glance).toContainText("2 / 3");
+  const docs = page.getByRole("region", { name: "Connected documents" });
+  await expect(docs.getByRole("link", { name: /Google Docs.*Connected/ })).toBeVisible();
+  await expect(docs.getByRole("link", { name: /Word add-in.*Not set up/ })).toBeVisible();
+
+  // Stop asks first, and keeping it going changes nothing.
+  await live.getByRole("button", { name: /^Stop / }).click();
+  const confirm = live.getByRole("alertdialog", { name: "Stop this session?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Keep going" }).click();
+  await expect(confirm).toBeHidden();
 
   await page.emulateMedia({ colorScheme: "dark" });
   await expectNoAxeViolations(page);

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { fillNewSession } from "./helpers";
 
 /* The phone layout (390×844, touch), against the mock API. Desktop Chromium emulation, not a real iPhone. */
 
@@ -26,10 +27,7 @@ async function expectNoAxeViolations(page: Page) {
 async function createSession(page: Page, title: string) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/app/new/");
-  await page.getByLabel("Title").fill(title);
-  await page.getByLabel("Text to enter").fill(TEXT);
-  await expect(page.getByText(/one insertion each/)).toBeVisible();
-  await page.getByLabel(/I've read this exact text/).check();
+  await fillNewSession(page, { title, text: TEXT });
   await page.getByRole("button", { name: "Start session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -124,7 +122,7 @@ test("a new session is five steps: each checks itself, Back keeps everything, an
   await expect(page.getByText("Advanced timing")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
 
-  await expect(page.getByText("Step 5 of 5 · Review and start")).toBeVisible();
+  await expect(page.getByText("Step 5 of 5 · Review")).toBeVisible();
   const approve = page.getByLabel(/I've read this exact text/);
   await expect(approve).not.toBeChecked();
   await approve.check();
@@ -134,10 +132,11 @@ test("a new session is five steps: each checks itself, Back keeps everything, an
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByLabel("Text to enter")).toHaveValue(TEXT);
   await page.getByLabel("Text to enter").fill(`${TEXT} One more.`);
-  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Continue" }).click();
-  await expect(approve).not.toBeChecked();
+  for (let i = 0; i < 2; i++) await page.getByRole("button", { name: "Continue" }).click();
   // The schedule for the edited text has been checked.
   await expect(page.getByRole("status").filter({ hasText: "6 sentences, one insertion each" })).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(approve).not.toBeChecked();
   await approve.check();
   await page.getByRole("button", { name: "Start session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
