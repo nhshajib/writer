@@ -154,6 +154,42 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="google-data" className="section" aria-labelledby="data-title">
+        <div className="container">
+          <div className="section-head">
+            <p className="kicker">Your data</p>
+            <h2 id="data-title">What TypeWit does with your Google account.</h2>
+          </div>
+          <div className="prose" style={{ maxWidth: 760, margin: "0 auto" }}>
+            <p>
+              TypeWit asks Google for two things, and uses them only to enter the text you approve into your documents:
+            </p>
+            <ul>
+              <li>
+                <strong>Your name and email address</strong> (<code>openid</code>, <code>email</code>,{" "}
+                <code>profile</code>), to sign you in with Google and to show which Google account you connected.
+              </li>
+              <li>
+                <strong>Access to the files you use with TypeWit</strong> (<code>drive.file</code>): the Google Docs TypeWit
+                creates for you and the ones you choose with Google&apos;s file picker. TypeWit can&apos;t see or open
+                anything else in your Google Drive. It reads those documents only to check where the next part of your
+                text goes, and writes only the text you approved.
+              </li>
+            </ul>
+            <p>
+              Your Google tokens are stored encrypted, are never sold or shared, and are never used for advertising or to
+              train AI models. You can disconnect Google at any time from Documents, which revokes TypeWit&apos;s access,
+              and delete your account and data from Settings. TypeWit&apos;s use of information received from Google APIs
+              follows the{" "}
+              <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements. Details are in our <Link href="/privacy/">Privacy Policy</Link>.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="section" aria-labelledby="plans-title">
         <div className="container">
           <div className="section-head">
