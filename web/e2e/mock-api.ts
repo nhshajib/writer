@@ -201,10 +201,10 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const now = Math.floor(Date.now() / 1000);
     return send(res, 200, {
       email: MOCK_USER.email,
-      subscription: { status: "active", interval: "year", amount: 10800, currency: "usd", period_start: now - 30 * day, period_end: now + 335 * day, cancel_at_period_end: false, trial_end: null },
+      subscription: { status: "active", interval: "year", amount: 6000, currency: "usd", period_start: now - 30 * day, period_end: now + 335 * day, cancel_at_period_end: false, trial_end: null },
       card: { brand: "visa", last4: "4242", exp_month: 8, exp_year: 2030 },
       invoices: [0, 1].map((n) => ({
-        id: `in_test_${n}`, number: `TEST-000${n + 1}`, created: now - (30 + 365 * n) * day, amount: 10800, currency: "usd", status: "paid",
+        id: `in_test_${n}`, number: `TEST-000${n + 1}`, created: now - (30 + 365 * n) * day, amount: 6000, currency: "usd", status: "paid",
         description: "1 × TypeWit Pro (yearly)", url: `https://invoice.example.test/${n}`, pdf: `https://invoice.example.test/${n}.pdf`,
       })),
     }, { "Cache-Control": "no-store" });

@@ -153,8 +153,8 @@ test("Manage billing shows the subscription, card and invoices, and each change 
   await page.waitForURL(/\/app\/billing\/manage\/?$/);
   const sub = page.getByRole("region", { name: "Subscription" });
   await expect(sub).toContainText("TypeWit Pro");
-  await expect(sub).toContainText("$9 / month");
-  await expect(sub).toContainText("Billed yearly at $108");
+  await expect(sub).toContainText("$5 / month");
+  await expect(sub).toContainText("Billed yearly at $60");
   await expect(page.getByRole("region", { name: "Payment method" })).toContainText("Visa ending in 4242");
   const invoices = page.getByRole("region", { name: "Invoices" });
   await expect(invoices.getByRole("row")).toHaveCount(3);

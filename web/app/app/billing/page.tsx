@@ -6,7 +6,7 @@ import { ProgressRing } from "@/components/app/Charts";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
-import { PRO_PRICE } from "@/lib/site";
+import { PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
 import { ADULT_AGE, ageFrom } from "@/lib/age";
 import { dailyResetTime, span } from "@/lib/time";
 
@@ -137,7 +137,7 @@ export default function BillingPage() {
               <p className="desc">For essays, reports and anything long.</p>
             </div>
             <div className="seg" role="group" aria-label="Billing period" style={{ "--n": 2, "--i": interval === "year" ? 0 : 1 } as React.CSSProperties}>
-              <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · save 40%</button>
+              <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · {YEARLY_SAVING}</button>
               <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
             </div>
           </div>

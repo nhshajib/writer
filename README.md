@@ -51,7 +51,7 @@ pages: `/privacy`, `/terms`, `/support` (support address in `web/lib/site.ts`).
 
 ## Launch checklist
 
-1. **Stripe:** create a Pro product with a $15 monthly and a $108 yearly price. Add Edge Function secrets
+1. **Stripe:** create a Pro product with a $6.99 monthly and a $60 yearly price (keep `PRO_PRICE` in `web/lib/site.ts` in step). Add Edge Function secrets
    `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`. Create a webhook to
    `https://<project-ref>.supabase.co/functions/v1/stripe-webhook` for `customer.subscription.created`,
    `.updated` and `.deleted`, and add its signing secret as `STRIPE_WEBHOOK_SECRET`. Enable the Customer Portal.

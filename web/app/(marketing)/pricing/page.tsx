@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
-import { PRO_PRICE } from "@/lib/site";
+import { PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 
 type Interval = "year" | "month";
@@ -99,7 +99,7 @@ function PricingContent() {
           )}
           <div style={{ marginTop: "2rem" }}>
             <div className="seg" role="group" aria-label="Billing period" style={{ "--n": 2, "--i": interval === "year" ? 0 : 1 } as React.CSSProperties}>
-              <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · save 40%</button>
+              <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · {YEARLY_SAVING}</button>
               <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
             </div>
           </div>
