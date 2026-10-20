@@ -67,7 +67,7 @@ pages: `/privacy`, `/terms`, `/support` (support address in `web/lib/site.ts`).
    accounts are refused. People who tick the agreement before choosing Google have it recorded on first visit to the
    dashboard; everyone else is asked there.
 7. Test Stripe in test mode end to end (trial starts, plan becomes Pro, second trial refused, cancel returns to Free).
-8. **Google verification:** while the OAuth consent screen is in "Testing", only listed test users can connect and
+8. **Google verification** (logo and the exact values to enter are in `docs/brand.md`): while the OAuth consent screen is in "Testing", only listed test users can connect and
    their refresh tokens expire after 7 days (long sessions would pause with "reconnect"). Publish it: add the app
    name, logo, `https://typewit.com/privacy/` and `/terms/`, and verify the `typewit.com` domain in Search Console.
    `drive.file` is not a sensitive scope, so no security assessment is needed.

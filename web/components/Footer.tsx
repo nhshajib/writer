@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { Logo, Wordmark } from "@/components/Logo";
 
 export function Footer() {
   return (
@@ -7,7 +7,7 @@ export function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div>
-            <Link href="/" className="brand" aria-label="TypeWit home"><Logo /> TypeWit</Link>
+            <Link href="/" className="brand" aria-label="TypeWit home"><Logo /><Wordmark /></Link>
             <p style={{ maxWidth: 300, marginTop: "0.5rem" }}>
               Assistive writing for people who find typing difficult. Your words, entered into your own Google Docs and Word documents.
             </p>

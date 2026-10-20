@@ -253,6 +253,8 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 650; font-size: 1.0625rem; letter-spacing: -0.02em; color: var(--text); min-height: 44px; }
 .brand:hover { color: var(--text); text-decoration: none; }
 .logo { width: 26px; height: 26px; flex: none; }
+.wordmark { font-weight: 700; letter-spacing: -0.025em; }
+.wordmark-wit { color: var(--accent); }
 .nav { display: flex; align-items: center; gap: 0.25rem; }
 .nav-center { justify-self: center; }
 .nav-end { justify-self: end; gap: 0.5rem; }

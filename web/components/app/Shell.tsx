@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { Icon } from "@/components/Icons";
-import { Logo } from "@/components/Logo";
+import { Logo, Wordmark } from "@/components/Logo";
 import { ToastProvider } from "@/components/Toast";
 import { DashboardProvider, PLAN_LIMITS, useDashboardLoader } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
@@ -109,7 +109,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <ToastProvider>
       <div className="app">
         <header className="app-topbar" inert={open}>
-          <Link href="/app" className="brand"><Logo /> TypeWit</Link>
+          <Link href="/app" className="brand"><Logo /><Wordmark /></Link>
           <button ref={menuButton} type="button" className="icon-btn" aria-expanded={open} aria-controls="sidebar" onClick={() => setOpen(true)}>
             <Icon.menu /><span className="sr-only">Open menu</span>
           </button>
@@ -118,7 +118,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="scrim" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
 
         <aside id="sidebar" ref={sidebar} className="sidebar" data-open={open} aria-label="Dashboard">
-          <Link href="/app" className="brand"><Logo /> TypeWit</Link>
+          <Link href="/app" className="brand"><Logo /><Wordmark /></Link>
           <Link href="/app/new" className="btn btn-primary btn-block side-new"><Icon.plus /> New session</Link>
           <nav aria-label="Main">
             <ul className="side-nav">{MAIN_NAV.map(navItem)}</ul>

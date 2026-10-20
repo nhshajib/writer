@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
-import { Logo } from "@/components/Logo";
+import { Logo, Wordmark } from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 
 export function Header() {
@@ -40,7 +40,7 @@ export function Header() {
     <header className="site-header">
       <div className="container">
         <div className="bar">
-          <Link href="/" className="brand" aria-label="TypeWit home"><Logo /> TypeWit</Link>
+          <Link href="/" className="brand" aria-label="TypeWit home"><Logo /><Wordmark /></Link>
           <nav className="nav nav-center" aria-label="Main">{links}</nav>
           <div className="nav nav-end">
             {signedIn
