@@ -220,7 +220,7 @@ export default function SettingsPage() {
               <span className="avatar lg" aria-hidden="true">{(name.trim() || displayName).charAt(0).toUpperCase()}</span>
               <div>
                 <strong>{name.trim() || displayName}</strong>
-                <div className="small muted">Member since {formatDate(user.created_at)}</div>
+                {!Number.isNaN(Date.parse(user.created_at)) && <div className="small muted">Member since {formatDate(user.created_at)}</div>}
               </div>
             </div>
             <form onSubmit={saveName} className="field" style={{ maxWidth: 420 }}>
