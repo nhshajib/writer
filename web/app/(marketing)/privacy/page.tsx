@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { LEGAL_UPDATED, SUPPORT_EMAIL } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Privacy Policy" };
+export const metadata: Metadata = pageMeta("/privacy/", "Privacy Policy", "What TypeWit stores, why, and for how long. We only open documents you use with TypeWit, and never sell data or use your text to train AI.");
 
 export default function PrivacyPage() {
   const email = <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>;
@@ -104,7 +105,7 @@ export default function PrivacyPage() {
 
       <h2>Your choices and rights</h2>
       <ul>
-        <li>Turn email notifications on or off from your <Link href="/account">Account</Link> page.</li>
+        <li>Turn email notifications on or off from <Link href="/app/settings/">Settings</Link>.</li>
         <li>Disconnect TypeWit from Google at any time in your Google Account under Security, Third-party access.</li>
         <li>Ask for a copy of your data, a correction, or deletion by emailing {email}.</li>
       </ul>

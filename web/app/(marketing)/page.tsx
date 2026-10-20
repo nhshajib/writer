@@ -1,19 +1,89 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
+import { pageMeta, SITE_URL } from "@/lib/seo";
 import { PRO_PRICE } from "@/lib/site";
 
-const ticks = (items: string[]) => (
-  <ul className="ticks">
-    {items.map((t) => <li key={t}><Icon.check /><span>{t}</span></li>)}
-  </ul>
-);
+export const metadata: Metadata = {
+  ...pageMeta(
+    "/",
+    "Enter your text into Google Docs and Word without typing",
+    "TypeWit enters text you dictate or paste into Google Docs and Microsoft Word, step by step, at the pace you choose. For people who find typing difficult, slow or painful. Free plan.",
+  ),
+  title: { absolute: "TypeWit · Your words in Google Docs and Word, without typing" },
+};
+
+const WHO = [
+  { icon: Icon.hand, title: "Pain or fatigue", text: "RSI, arthritis or tired hands. Dictate or paste once, and let TypeWit enter it into your document." },
+  { icon: Icon.layers, title: "Dyslexia and dyspraxia", text: "Draft wherever it's easiest, check it at your own speed, then have it placed in the document for you." },
+  { icon: Icon.mic, title: "Voice and dictation users", text: "Turn what you dictated into a Google Doc or Word document without fighting the cursor." },
+  { icon: Icon.check, title: "Limited hand movement", text: "Large controls and full keyboard and screen-reader support. Nothing to do once a session starts." },
+];
+
+const FEATURES = [
+  { icon: Icon.check, title: "You approve every word", text: "TypeWit enters exactly the text you approved, character for character. Change it and you approve it again." },
+  { icon: Icon.clock, title: "Your pace", text: "Sentence or paragraph steps, spread over minutes, hours or up to a week, with optional breaks." },
+  { icon: Icon.pause, title: "Pause, resume or stop", text: "Control any session from any device. Google Docs sessions keep running when you close the tab." },
+  { icon: Icon.list, title: "A clear record", text: "Every step is in the session's activity log, ready to download, next to your document's own version history." },
+  { icon: Icon.hand, title: "Accessible by default", text: "Works with the keyboard alone and with screen readers, in light and dark mode, with large targets." },
+  { icon: Icon.lock, title: "Private by design", text: "TypeWit opens only the documents it creates or you choose. Your text is never used to train AI." },
+];
+
+const FAQ = [
+  {
+    q: "Is using TypeWit cheating?",
+    a: "TypeWit doesn't write anything. It enters text you wrote, dictated or approved, and every session is labelled as automated text entry. It never imitates human typing. If your school or workplace has rules about writing tools, follow them.",
+  },
+  {
+    q: "Does it work with Microsoft Word?",
+    a: "Yes. Add the TypeWit add-in to Word on the web (your organisation can deploy it to Word for Windows and Mac). Word sessions run while the document and the TypeWit panel are open.",
+  },
+  {
+    q: "Can TypeWit see my other Google Drive files?",
+    a: "No. It only has access to the Google Docs it creates for you and the ones you choose in Google's file picker (the drive.file permission).",
+  },
+  {
+    q: "Do I need to keep the page open?",
+    a: "Not for Google Docs: sessions run on TypeWit's servers, so you can close the tab or turn off your computer. For Word, keep the document and the TypeWit panel open.",
+  },
+  {
+    q: "Can I use it with dictation?",
+    a: "Yes. Dictate with your device's voice input (or any dictation app), paste the text into TypeWit, approve it, and choose the pace.",
+  },
+  {
+    q: "Is there a free plan?",
+    a: "Yes. Free includes 250 words a day and sessions up to an hour, with no card needed. Pro removes the daily limit and starts with 7 days free.",
+  },
+];
+
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "TypeWit",
+      url: `${SITE_URL}/`,
+      applicationCategory: "ProductivityApplication",
+      operatingSystem: "Web",
+      description: "Enters text you dictate or paste into Google Docs and Microsoft Word, step by step, for people who find typing difficult.",
+      offers: [
+        { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
+        { "@type": "Offer", name: "Pro", price: PRO_PRICE.month.amount.replace("$", ""), priceCurrency: "USD" },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQ.map((item) => ({ "@type": "Question", name: item.q, acceptedAnswer: { "@type": "Answer", text: item.a } })),
+    },
+  ],
+};
 
 export default function Home() {
   return (
     <>
       <section className="hero" aria-labelledby="hero-title">
         <div className="container">
-          <span className="chip"><span className="dot" aria-hidden="true" /> Assistive writing for Google Docs and Word</span>
+          <span className="chip"><span className="dot" aria-hidden="true" /> For Google Docs and Microsoft Word</span>
           <h1 id="hero-title" className="display">
             Your words in Google Docs and Word, <span className="soft">without typing.</span>
           </h1>
@@ -22,10 +92,10 @@ export default function Home() {
             Built for people who find typing difficult, slow or painful.
           </p>
           <div className="cta-row">
-            <Link href="/signup" className="btn btn-primary btn-lg">Get started free</Link>
-            <Link href="/#how" className="btn btn-secondary btn-lg">See how it works</Link>
+            <Link href="/signup/" className="btn btn-primary btn-lg">Get started free</Link>
+            <a href="#how" className="btn btn-secondary btn-lg">See how it works</a>
           </div>
-          <p className="fine">Free plan · No card required · Sign up with Google</p>
+          <p className="fine">Free plan · No card needed</p>
 
           <div className="product" aria-hidden="true">
             <div className="product-window">
@@ -80,11 +150,21 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="values">
-            <div><Icon.hand /><p><strong>Made for accessibility</strong><span>Keyboard and screen reader friendly, with large controls.</span></p></div>
-            <div><Icon.check /><p><strong>Nothing without approval</strong><span>You review the exact text before a word goes in.</span></p></div>
-            <div><Icon.lock /><p><strong>Private by design</strong><span>TypeWit only opens documents it creates for you.</span></p></div>
+        </div>
+      </section>
+
+      <section id="who" className="section" aria-labelledby="who-title">
+        <div className="container">
+          <div className="section-head">
+            <p className="kicker">Who it&apos;s for</p>
+            <h2 id="who-title">For anyone who finds typing hard.</h2>
+            <p>You bring the words: written slowly, dictated, or drafted elsewhere. TypeWit does the typing part.</p>
           </div>
+          <ul className="who-grid">
+            {WHO.map(({ icon: WhoIcon, title, text }) => (
+              <li key={title}><span className="who-icon" aria-hidden="true"><WhoIcon /></span><h3>{title}</h3><p>{text}</p></li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -92,12 +172,12 @@ export default function Home() {
         <div className="container">
           <div className="section-head">
             <p className="kicker">How it works</p>
-            <h2 id="how-title">Three steps. No typing.</h2>
+            <h2 id="how-title">Three steps, then nothing to do.</h2>
           </div>
           <ol className="steps">
-            <li><h3>Paste or dictate</h3><p>Bring text you wrote or dictated. Edit it as much as you like first.</p></li>
-            <li><h3>Approve it</h3><p>Read the exact text and confirm. If it changes, you approve it again.</p></li>
-            <li><h3>Watch it arrive</h3><p>Sentences or paragraphs appear in your Google Doc or Word document at the pace you set.</p></li>
+            <li><h3>Add your text</h3><p>Paste it, or dictate it with your device&apos;s voice input. Edit it as much as you like first.</p></li>
+            <li><h3>Approve it and pick a pace</h3><p>Read the exact text, then choose sentence or paragraph steps over minutes, hours or days.</p></li>
+            <li><h3>TypeWit enters it</h3><p>Your Google Doc or Word document fills in on schedule. Pause, resume or stop whenever you like.</p></li>
           </ol>
         </div>
       </section>
@@ -105,125 +185,97 @@ export default function Home() {
       <section className="section" aria-labelledby="features-title">
         <div className="container">
           <div className="section-head">
-            <p className="kicker">Designed around you</p>
+            <p className="kicker">What you get</p>
             <h2 id="features-title">Calm, clear and always in your control.</h2>
           </div>
-          <div className="bento">
-            <div className="tile wide">
-              <h3>You approve every word</h3>
-              <p>TypeWit enters exactly what you approved, character for character, and nothing else.</p>
-              <div className="vignette" aria-hidden="true">
-                <p className="muted small" style={{ marginBottom: "0.5rem" }}>Text to enter</p>
-                <p style={{ color: "var(--text-2)" }}>The results show a clear link between sleep and memory&hellip;</p>
-                <div className="row" style={{ marginTop: "0.9rem", gap: "0.5rem" }}>
-                  <span className="badge badge-green"><span className="dot" /> Approved</span>
-                  <span className="muted small">412 words · fingerprint saved</span>
-                </div>
-              </div>
-            </div>
-            <div className="tile narrow">
-              <h3>Pause any time</h3>
-              <p>Pause, resume or stop. Close the tab and it keeps going.</p>
-              <div className="vignette row" aria-hidden="true" style={{ gap: "0.5rem" }}>
-                <span className="btn btn-secondary btn-sm">Pause</span>
-                <span className="btn btn-ghost btn-sm">Stop</span>
-              </div>
-            </div>
-            <div className="tile narrow">
-              <h3>Your pace</h3>
-              <p>Sentence by sentence, paragraph by paragraph, over minutes or days.</p>
-              <div className="vignette" aria-hidden="true">
-                <div className="seg" style={{ "--n": 2, "--i": 0 } as React.CSSProperties}>
-                  <button type="button" tabIndex={-1} aria-pressed="true">Sentence</button>
-                  <button type="button" tabIndex={-1}>Paragraph</button>
-                </div>
-              </div>
-            </div>
-            <div className="tile wide">
-              <h3>A clear record of everything</h3>
-              <p>Every approval and every step is in your activity log, ready to download. Google Docs and Word keep their own version history too.</p>
-              <div className="vignette" aria-hidden="true">
-                <ul className="tw-log">
-                  <li><time>10:24</time><span>Sentence 7 entered</span></li>
-                  <li><time>10:23</time><span>Sentence 6 entered</span></li>
-                  <li><time>10:15</time><span>You approved the text</span></li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          <ul className="feature-grid">
+            {FEATURES.map(({ icon: FeatureIcon, title, text }) => (
+              <li key={title}><FeatureIcon /><div><h3>{title}</h3><p>{text}</p></div></li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      <section id="google-data" className="section" aria-labelledby="data-title">
+      <section id="trust" className="section" aria-labelledby="trust-title">
         <div className="container">
           <div className="section-head">
-            <p className="kicker">Your data</p>
-            <h2 id="data-title">What TypeWit does with your Google account.</h2>
+            <p className="kicker">Honest and private</p>
+            <h2 id="trust-title">Clearly labelled. Only what it needs.</h2>
           </div>
-          <div className="prose" style={{ maxWidth: 760, margin: "0 auto" }}>
-            <p>
-              TypeWit asks Google for two things, and uses them only to enter the text you approve into your documents:
-            </p>
-            <ul>
-              <li>
-                <strong>Your name and email address</strong> (<code>openid</code>, <code>email</code>,{" "}
-                <code>profile</code>), to sign you in with Google and to show which Google account you connected.
-              </li>
-              <li>
-                <strong>Access to the files you use with TypeWit</strong> (<code>drive.file</code>): the Google Docs TypeWit
-                creates for you and the ones you choose with Google&apos;s file picker. TypeWit can&apos;t see or open
-                anything else in your Google Drive. It reads those documents only to check where the next part of your
-                text goes, and writes only the text you approved.
-              </li>
-            </ul>
-            <p>
-              Your Google tokens are stored encrypted, are never sold or shared, and are never used for advertising or to
-              train AI models. You can disconnect Google at any time from Documents, which revokes TypeWit&apos;s access,
-              and delete your account and data from Settings. TypeWit&apos;s use of information received from Google APIs
-              follows the{" "}
-              <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
-                Google API Services User Data Policy
-              </a>
-              , including the Limited Use requirements. Details are in our <Link href="/privacy/">Privacy Policy</Link>.
-            </p>
+          <div className="split-2">
+            <div className="panel">
+              <h3><Icon.shield />Labelled, never disguised</h3>
+              <p>
+                TypeWit enters text you wrote or approved, and nothing else. It never adds typos, fake pauses or made-up
+                corrections to look like a person typing, and every session is shown as automated text entry.
+              </p>
+              <p>
+                Everyone agrees to the <Link href="/responsible-use/">Responsible Use Agreement</Link> before starting. If your
+                school or workplace has rules about writing tools, those rules come first.
+              </p>
+            </div>
+            <div className="panel" id="google-data">
+              <h3><Icon.lock />What TypeWit does with your Google account</h3>
+              <p>TypeWit asks Google for two things, and uses them only to enter the text you approve:</p>
+              <ul>
+                <li>
+                  <strong>Your name and email address</strong> (<code>openid</code>, <code>email</code>, <code>profile</code>),
+                  to sign you in and show which Google account is connected.
+                </li>
+                <li>
+                  <strong>The files you use with TypeWit</strong> (<code>drive.file</code>): Google Docs it creates for you and
+                  ones you pick in Google&apos;s file picker. It can&apos;t see anything else in your Drive.
+                </li>
+              </ul>
+              <p>
+                Tokens are stored encrypted and never sold, shared, used for advertising or used to train AI models.
+                Disconnect any time. TypeWit follows the{" "}
+                <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements. More in the <Link href="/privacy/">Privacy Policy</Link>.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="section" aria-labelledby="plans-title">
         <div className="container">
-          <div className="section-head">
-            <p className="kicker">Pricing</p>
-            <h2 id="plans-title">Start free. Upgrade when it matters.</h2>
+          <div className="price-strip">
+            <div>
+              <p className="kicker">Pricing</p>
+              <h2 id="plans-title">Free to start. Pro when it gets long.</h2>
+            </div>
+            <dl>
+              <div><dt>Free</dt><dd><strong>$0</strong> 250 words a day, sessions up to 1 hour</dd></div>
+              <div><dt>Pro <span className="badge badge-blue">7 days free</span></dt><dd><strong>{PRO_PRICE.year.amount}</strong>/month billed yearly · unlimited words, sessions up to a week, 3 at once</dd></div>
+            </dl>
+            <Link href="/pricing/" className="btn btn-secondary">Compare plans <Icon.arrowRight /></Link>
           </div>
-          <div className="plans">
-            <div className="plan">
-              <h3>Free</h3>
-              <p className="desc">For short pieces and trying TypeWit.</p>
-              <div className="price"><strong>$0</strong><span>forever</span></div>
-              {ticks(["250 words a day", "Sessions up to 1 hour", "One document at a time"])}
-              <Link href="/signup" className="btn btn-secondary btn-block">Get started</Link>
-            </div>
-            <div className="plan featured">
-              <div className="plan-top"><h3>Pro</h3><span className="badge badge-blue">7 days free</span></div>
-              <p className="desc">For essays, reports and anything long.</p>
-              <div className="price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month, billed yearly</span></div>
-              {ticks(["Unlimited words", "Sessions up to 1 week", "3 documents at once", "Priority support"])}
-              <Link href="/pricing" className="btn btn-primary btn-block">Try Pro free</Link>
-            </div>
+        </div>
+      </section>
+
+      <section id="faq" className="section" aria-labelledby="faq-title">
+        <div className="container narrow">
+          <div className="section-head"><p className="kicker">Questions</p><h2 id="faq-title">Good to know</h2></div>
+          <div className="faq">
+            {FAQ.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}
           </div>
         </div>
       </section>
 
       <div className="container">
         <section className="cta" aria-labelledby="cta-title">
-          <h2 id="cta-title">Start writing without typing.</h2>
-          <p>Free forever for short pieces. Everyone agrees to our <Link href="/responsible-use" style={{ color: "inherit", textDecoration: "underline" }}>Responsible Use Agreement</Link>.</p>
+          <h2 id="cta-title">Your next document, without the typing.</h2>
+          <p>Set up in about two minutes. Free plan, no card needed.</p>
           <div className="cta-row">
-            <Link href="/signup" className="btn btn-primary btn-lg">Get started free</Link>
+            <Link href="/signup/" className="btn btn-primary btn-lg">Create your free account</Link>
           </div>
         </section>
       </div>
+
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
     </>
   );
 }

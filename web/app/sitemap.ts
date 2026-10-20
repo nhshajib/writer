@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 
-const PAGES = ["", "pricing", "responsible-use", "support", "privacy", "terms", "signup", "login"];
+const PAGES = ["", "pricing", "signup", "support", "responsible-use", "privacy", "terms"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return PAGES.map((page) => ({

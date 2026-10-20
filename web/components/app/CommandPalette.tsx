@@ -22,7 +22,7 @@ const PAGES: Omit<Item, "group">[] = [
   { key: "documents", label: "Documents", href: "/app/documents", icon: Icon.doc },
   { key: "billing", label: "Plan & usage", href: "/app/billing", icon: Icon.card },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Icon.gear },
-  { key: "help", label: "Help & support", href: "/support", icon: Icon.help },
+  { key: "help", label: "Help & support", href: "/support/", icon: Icon.help },
 ];
 
 /** Search sessions and jump anywhere: the search box in the top bar, or Ctrl+K / ⌘K. */

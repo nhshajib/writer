@@ -117,7 +117,7 @@ function PricingContent() {
               {tick("One document at a time", "c")}
               {tick("Every accessibility feature", "d")}
             </ul>
-            <Link href="/signup" className="btn btn-secondary btn-block">Get started</Link>
+            <Link href="/signup/" className="btn btn-secondary btn-block">Get started</Link>
           </section>
 
           <section className="plan featured" aria-labelledby="pro-title">

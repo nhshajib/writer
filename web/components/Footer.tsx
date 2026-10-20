@@ -8,7 +8,7 @@ export function Footer() {
         <div className="footer-grid">
           <div>
             <Link href="/" className="brand" aria-label="TypeWit home"><Logo /><Wordmark /></Link>
-            <p style={{ maxWidth: 300, marginTop: "0.5rem" }}>
+            <p className="footer-about">
               Assistive writing for people who find typing difficult. Your words, entered into your own Google Docs and Word documents.
             </p>
           </div>
@@ -16,24 +16,25 @@ export function Footer() {
             <h2 id="f-product">Product</h2>
             <ul>
               <li><Link href="/#how">How it works</Link></li>
-              <li><Link href="/pricing">Pricing</Link></li>
-              <li><Link href="/signup">Get started</Link></li>
+              <li><Link href="/#who">Who it&apos;s for</Link></li>
+              <li><Link href="/pricing/">Pricing</Link></li>
+              <li><Link href="/signup/">Get started</Link></li>
             </ul>
           </nav>
           <nav aria-labelledby="f-help">
             <h2 id="f-help">Help</h2>
             <ul>
-              <li><Link href="/support">Support</Link></li>
-              <li><Link href="/pricing#faq">Questions</Link></li>
-              <li><Link href="/login">Sign in</Link></li>
+              <li><Link href="/support/">Support</Link></li>
+              <li><Link href="/#faq">Questions</Link></li>
+              <li><Link href="/login/">Sign in</Link></li>
             </ul>
           </nav>
           <nav aria-labelledby="f-legal">
             <h2 id="f-legal">Legal</h2>
             <ul>
-              <li><Link href="/responsible-use">Responsible use</Link></li>
-              <li><Link href="/privacy">Privacy</Link></li>
-              <li><Link href="/terms">Terms</Link></li>
+              <li><Link href="/responsible-use/">Responsible use</Link></li>
+              <li><Link href="/privacy/">Privacy</Link></li>
+              <li><Link href="/terms/">Terms</Link></li>
             </ul>
           </nav>
         </div>

@@ -31,8 +31,8 @@ export function Header() {
   const links = (
     <>
       <Link href="/#how">How it works</Link>
-      <Link href="/pricing" aria-current={current("/pricing")}>Pricing</Link>
-      <Link href="/support" aria-current={current("/support")}>Support</Link>
+      <Link href="/#who">Who it&apos;s for</Link>
+      <Link href="/pricing/" aria-current={current("/pricing")}>Pricing</Link>
     </>
   );
 
@@ -47,8 +47,8 @@ export function Header() {
               ? <Link href="/app" className="btn btn-primary btn-sm">Open dashboard</Link>
               : (
                 <>
-                  <Link href="/login" aria-current={current("/login")}>Sign in</Link>
-                  <Link href="/signup" className="btn btn-primary btn-sm">Get started</Link>
+                  <Link href="/login/" aria-current={current("/login")}>Sign in</Link>
+                  <Link href="/signup/" className="btn btn-primary btn-sm">Get started</Link>
                 </>
               )}
           </div>
@@ -63,8 +63,8 @@ export function Header() {
             ? <Link href="/app" className="btn btn-primary btn-block">Open dashboard</Link>
             : (
               <>
-                <Link href="/login">Sign in</Link>
-                <Link href="/signup" className="btn btn-primary btn-block">Get started</Link>
+                <Link href="/login/">Sign in</Link>
+                <Link href="/signup/" className="btn btn-primary btn-block">Get started</Link>
               </>
             )}
         </nav>

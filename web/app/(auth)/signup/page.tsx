@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useState } from "react";
-import { Agreement } from "@/components/Agreement";
+import { AgreementDialog } from "@/components/AgreementDialog";
 import { GoogleMark } from "@/components/Icons";
 import { emailProblem } from "@/lib/emailPolicy";
 import { safeNext } from "@/lib/nextPath";
@@ -11,7 +11,7 @@ import { continueWithGoogle } from "@/lib/googleAuth";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
-const AGREE_FIRST = "Please read the Responsible Use Agreement and tick the box to agree first.";
+const AGREE_FIRST = "Please tick the box to agree to the Responsible Use Agreement first.";
 
 function SignupForm() {
   const router = useRouter();
@@ -93,7 +93,7 @@ function SignupForm() {
             <button type="button" className="btn btn-block" onClick={resend}>Send the email again</button>
             <button type="button" className="link-btn" onClick={() => { setSent(false); setResent(null); }}>Use a different email</button>
             {resent && <p className="alert alert-info">{resent}</p>}
-            <p className="small muted center">Already confirmed? <Link href="/login">Sign in</Link></p>
+            <p className="small muted center">Already confirmed? <Link href="/login/">Sign in</Link></p>
           </div>
         </div>
       </div>
@@ -102,17 +102,16 @@ function SignupForm() {
 
   return (
     <div className="auth">
-      <div className="auth-box wide">
+      <div className="auth-box">
         <h1 id="signup-title">Create your account</h1>
-        <p className="sub">Free forever. Upgrade only if you need more.</p>
+        <p className="sub">Free plan, no card needed.</p>
         <form className="auth-form" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
-          <div className="field">
-            <h2 className="label" id="agreement-title">Responsible Use Agreement</h2>
-            <Agreement id="agreement" compact />
+          <div className="agree-row">
             <label className="check" htmlFor="agree">
-              <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} aria-describedby="agreement" />
-              <span>I&apos;ve read the Responsible Use Agreement and agree to follow it.</span>
+              <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+              <span>I agree to the Responsible Use&nbsp;Agreement</span>
             </label>
+            <AgreementDialog onAgree={() => setAgreed(true)} />
           </div>
 
           <button type="button" className="btn btn-google btn-lg btn-block" onClick={google} disabled={busy}>
@@ -122,30 +121,29 @@ function SignupForm() {
 
           <div className="field">
             <label className="label" htmlFor="email">Email</label>
-            <input id="email" type="email" autoComplete="email" required value={email}
+            <input id="email" type="email" autoComplete="email" required value={email} placeholder="Personal email, e.g. you@gmail.com"
               onChange={(e) => setEmail(e.target.value)}
               onBlur={() => email && setEmailError(emailProblem(email))}
               aria-invalid={emailError ? "true" : undefined} aria-describedby="email-hint email-error" />
-            {emailError
-              ? <span id="email-error" className="error-text">{emailError}</span>
-              : <span id="email-hint" className="hint">A personal address from Gmail, Outlook, Yahoo, iCloud or similar.</span>}
+            <span id="email-hint" className="sr-only">Use a personal address, such as Gmail, Outlook, Yahoo or iCloud.</span>
+            {emailError && <span id="email-error" className="error-text">{emailError}</span>}
           </div>
           <div className="field">
             <label className="label" htmlFor="password">Password</label>
             <input id="password" type="password" autoComplete="new-password" required minLength={8} value={password}
-              onChange={(e) => setPassword(e.target.value)} aria-describedby="password-hint" />
-            <span id="password-hint" className="hint">At least 8 characters.</span>
+              onChange={(e) => setPassword(e.target.value)} aria-describedby="password-hint" placeholder="At least 8 characters" />
+            <span id="password-hint" className="sr-only">At least 8 characters.</span>
           </div>
 
           {error && <p className="alert alert-error" role="alert">{error}</p>}
 
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>
-            {busy ? "Creating account…" : "Create account"}
+            {busy ? "Creating account…" : "Create free account"}
           </button>
-          <p className="hint center">
-            By continuing you agree to the <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.
+          <p className="small muted center">
+            Already have an account? <Link href="/login/">Sign in</Link>
+            <span className="hint block">You also accept the <Link href="/terms/">Terms</Link> and <Link href="/privacy/">Privacy Policy</Link>.</span>
           </p>
-          <p className="small muted center">Already have an account? <Link href="/login">Sign in</Link></p>
         </form>
       </div>
     </div>

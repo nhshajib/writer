@@ -45,7 +45,7 @@ export function BarChart({ data, unit, caption }: { data: { label: string; full:
         {data.map((d) => (
           <div key={d.full} className="bar-col" title={`${d.full}: ${d.value.toLocaleString()} ${unit}`}>
             <span className="bar-val">{d.value ? d.value.toLocaleString() : ""}</span>
-            <span className="bar" style={{ height: `${Math.max(d.value ? 4 : 0, (d.value / max) * 100)}%` }} />
+            <span className="bar-fill" style={{ height: `${Math.max(d.value ? 4 : 0, (d.value / max) * 100)}%` }} />
             <span className="bar-label">{d.label}</span>
           </div>
         ))}

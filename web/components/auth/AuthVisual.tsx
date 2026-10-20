@@ -50,7 +50,7 @@ export function AuthVisual() {
       <div className="auth-visual-top">
         <Link href="/" className="auth-visual-brand"><Logo /><span>Type<span>Wit</span></span></Link>
         <nav aria-label="Site" className="auth-visual-nav">
-          <Link href="/pricing">Pricing</Link>
+          <Link href="/pricing/">Pricing</Link>
           <Link href={onSignup ? "/login" : "/signup"} className="pill">{onSignup ? "Sign in" : "Create account"}</Link>
         </nav>
       </div>

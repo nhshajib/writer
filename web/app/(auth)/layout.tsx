@@ -16,10 +16,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
           <main id="main" tabIndex={-1} className="auth-main">{children}</main>
           <nav className="auth-side-foot" aria-label="Legal and help">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/responsible-use">Responsible use</Link>
-            <Link href="/support">Help</Link>
+            <Link href="/privacy/">Privacy</Link>
+            <Link href="/terms/">Terms</Link>
+            <Link href="/responsible-use/">Responsible use</Link>
+            <Link href="/support/">Help</Link>
           </nav>
         </div>
       </div>

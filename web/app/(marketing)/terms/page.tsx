@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { LEGAL_UPDATED, SUPPORT_EMAIL } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Terms of Service" };
+export const metadata: Metadata = pageMeta("/terms/", "Terms of Service", "The terms for using TypeWit, including plans, billing, cancelling and acceptable use.");
 
 export default function TermsPage() {
   const email = <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>;
@@ -14,7 +15,7 @@ export default function TermsPage() {
       <p>
         These terms are an agreement between you and TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;) for your use of
         typewit.com and the TypeWit service. By creating an account or using TypeWit, you agree to these terms, our{" "}
-        <Link href="/privacy">Privacy Policy</Link> and the <Link href="/responsible-use">Responsible Use Agreement</Link>.
+        <Link href="/privacy/">Privacy Policy</Link> and the <Link href="/responsible-use/">Responsible Use Agreement</Link>.
       </p>
 
       <h2>1. What TypeWit does</h2>
@@ -32,7 +33,7 @@ export default function TermsPage() {
 
       <h2>3. Responsible use</h2>
       <p>
-        You agree to follow the <Link href="/responsible-use">Responsible Use Agreement</Link>. In particular, you'll
+        You agree to follow the <Link href="/responsible-use/">Responsible Use Agreement</Link>. In particular, you'll
         only use text you wrote or have the right to use, and you'll follow the rules of your school, employer or any
         other organisation that applies to your work, including any rules about disclosing assistive tools. You must
         not use TypeWit to break the law, infringe others' rights, or misrepresent automated input as manual typing.
@@ -53,7 +54,7 @@ export default function TermsPage() {
 
       <h2>6. Plans, trials and billing</h2>
       <ul>
-        <li><strong>Free</strong> is free with the limits shown on our <Link href="/pricing">pricing page</Link>.</li>
+        <li><strong>Free</strong> is free with the limits shown on our <Link href="/pricing/">pricing page</Link>.</li>
         <li>
           <strong>Pro</strong> is a subscription billed monthly or yearly in advance through Stripe. It renews
           automatically at the end of each period until you cancel.

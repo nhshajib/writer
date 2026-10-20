@@ -109,7 +109,7 @@ export default function LoginPage() {
           )}
           {notice && <p className="alert alert-info" role="status">{notice}</p>}
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-          <p className="small muted center">New to TypeWit? <Link href={next === "/app/" ? "/signup" : `/signup?next=${encodeURIComponent(next)}`}>Create a free account</Link></p>
+          <p className="small muted center">New to TypeWit? <Link href={next === "/app/" ? "/signup/" : `/signup/?next=${encodeURIComponent(next)}`}>Create a free account</Link></p>
         </form>
       </div>
     </div>

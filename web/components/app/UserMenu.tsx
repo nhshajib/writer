@@ -58,7 +58,7 @@ export function UserMenu() {
           </fieldset>
           <ul className="menu-list">
             <li><Link href="/app/settings" onClick={close}><Icon.gear />Settings</Link></li>
-            <li><Link href="/support" onClick={close}><Icon.help />Help &amp; support</Link></li>
+            <li><Link href="/support/" onClick={close}><Icon.help />Help &amp; support</Link></li>
             <li><button type="button" onClick={signOut}><Icon.logout />Sign out</button></li>
           </ul>
         </>
