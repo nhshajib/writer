@@ -107,7 +107,11 @@ export default function Home() {
               <Link href="/signup/" className="btn btn-primary btn-lg">Get started free</Link>
               <a href="#how" className="btn btn-outline btn-lg"><span className="play" aria-hidden="true"><Icon.play /></span>See how it works</a>
             </div>
-            <p className="fine">Free plan · No card needed</p>
+            <ul className="mk-trust">
+              <li><Icon.check />Google Docs and Word</li>
+              <li><Icon.check />Free plan, no card</li>
+              <li><Icon.check />Keyboard and screen-reader friendly</li>
+            </ul>
           </div>
 
           <div className="mk-demo" aria-hidden="true">
@@ -152,6 +156,7 @@ export default function Home() {
 
       <section id="how" className="mk-section" aria-labelledby="how-title">
         <div className="container">
+          <p className="mk-kicker">How it works</p>
           <h2 id="how-title" className="mk-h2">Three steps. You stay in control.</h2>
           <ol className="mk-steps">
             {STEPS.map(({ icon: StepIcon, title, text }, i) => (
@@ -167,6 +172,7 @@ export default function Home() {
 
       <section id="who" className="mk-section" aria-labelledby="who-title">
         <div className="container">
+          <p className="mk-kicker">Who it&apos;s for</p>
           <h2 id="who-title" className="mk-h2">Designed around your needs.</h2>
           <ul className="mk-needs">
             {WHO.map(({ icon: WhoIcon, title, text }) => (
@@ -176,98 +182,70 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section" aria-labelledby="features-title">
+      <section className="mk-section mk-alt" aria-labelledby="features-title">
         <div className="container">
-          <div className="section-head">
-            <p className="kicker">What you get</p>
-            <h2 id="features-title">Calm, clear and always in your control.</h2>
-          </div>
-          <ul className="feature-grid">
+          <p className="mk-kicker">What you get</p>
+          <h2 id="features-title" className="mk-h2">Calm, clear and always in your control.</h2>
+          <ul className="mk-features">
             {FEATURES.map(({ icon: FeatureIcon, title, text }) => (
-              <li key={title}><FeatureIcon /><div><h3>{title}</h3><p>{text}</p></div></li>
+              <li key={title}><span className="mk-need-icon" aria-hidden="true"><FeatureIcon /></span><h3>{title}</h3><p>{text}</p></li>
             ))}
           </ul>
         </div>
       </section>
 
-      <section id="trust" className="section" aria-labelledby="trust-title">
+      <section className="mk-section" aria-labelledby="plans-title">
         <div className="container">
-          <div className="section-head">
-            <p className="kicker">Honest and private</p>
-            <h2 id="trust-title">Clearly labelled. Only what it needs.</h2>
-          </div>
-          <div className="split-2">
-            <div className="panel">
-              <h3><Icon.shield />Labelled, never disguised</h3>
-              <p>
-                TypeWit enters text you wrote or approved, and nothing else. It never adds typos, fake pauses or made-up
-                corrections to look like a person typing, and every session is shown as automated text entry.
-              </p>
-              <p>
-                Everyone agrees to the <Link href="/responsible-use/">Responsible Use Agreement</Link> before starting. If your
-                school or workplace has rules about writing tools, those rules come first.
-              </p>
-            </div>
-            <div className="panel" id="google-data">
-              <h3><Icon.lock />What TypeWit does with your Google account</h3>
-              <p>TypeWit asks Google for two things, and uses them only to enter the text you approve:</p>
-              <ul>
-                <li>
-                  <strong>Your name and email address</strong> (<code>openid</code>, <code>email</code>, <code>profile</code>),
-                  to sign you in and show which Google account is connected.
-                </li>
-                <li>
-                  <strong>The files you use with TypeWit</strong> (<code>drive.file</code>): Google Docs it creates for you and
-                  ones you pick in Google&apos;s file picker. It can&apos;t see anything else in your Drive.
-                </li>
+          <p className="mk-kicker">Pricing</p>
+          <h2 id="plans-title" className="mk-h2">Free to start. Pro when it gets long.</h2>
+          <div className="mk-plans">
+            <div className="mk-plan">
+              <h3>Free</h3>
+              <p className="mk-plan-price"><strong>$0</strong><span>forever</span></p>
+              <ul className="mk-ticks">
+                <li><Icon.check />250 words a day</li>
+                <li><Icon.check />Sessions up to 1 hour</li>
+                <li><Icon.check />Every accessibility feature</li>
               </ul>
-              <p>
-                Tokens are stored encrypted and never sold, shared, used for advertising or used to train AI models.
-                Disconnect any time. TypeWit follows the{" "}
-                <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
-                  Google API Services User Data Policy
-                </a>
-                , including the Limited Use requirements. More in the <Link href="/privacy/">Privacy Policy</Link>.
-              </p>
+              <Link href="/signup/" className="btn btn-secondary btn-lg btn-block">Start free</Link>
+            </div>
+            <div className="mk-plan featured">
+              <h3>Pro <span className="badge badge-blue">7 days free</span></h3>
+              <p className="mk-plan-price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month, billed yearly</span></p>
+              <p className="mk-plan-alt">or {PRO_PRICE.month.amount} billed monthly</p>
+              <ul className="mk-ticks">
+                <li><Icon.check />Unlimited words</li>
+                <li><Icon.check />Sessions up to a week</li>
+                <li><Icon.check />Three documents at once</li>
+              </ul>
+              <Link href="/pricing/" className="btn btn-primary btn-lg btn-block">Compare plans</Link>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="section" aria-labelledby="plans-title">
-        <div className="container">
-          <div className="price-strip">
-            <div>
-              <p className="kicker">Pricing</p>
-              <h2 id="plans-title">Free to start. Pro when it gets long.</h2>
-            </div>
-            <dl>
-              <div><dt>Free</dt><dd><strong>$0</strong> 250 words a day, sessions up to 1 hour</dd></div>
-              <div><dt>Pro <span className="badge badge-blue">7 days free</span></dt><dd><strong>{PRO_PRICE.year.amount}</strong>/month billed yearly · unlimited words, sessions up to a week, 3 at once</dd></div>
-            </dl>
-            <Link href="/pricing/" className="btn btn-secondary">Compare plans <Icon.arrowRight /></Link>
+      <section id="faq" className="mk-section mk-alt" aria-labelledby="faq-title">
+        <div className="container mk-faq">
+          <div className="mk-faq-head">
+            <p className="mk-kicker">Questions</p>
+            <h2 id="faq-title" className="mk-h2">Good to know</h2>
+            <p className="muted">Still have a question? <Link href="/support/">Contact support</Link></p>
           </div>
-        </div>
-      </section>
-
-      <section id="faq" className="section" aria-labelledby="faq-title">
-        <div className="container narrow">
-          <div className="section-head"><p className="kicker">Questions</p><h2 id="faq-title">Good to know</h2></div>
           <div className="faq">
             {FAQ.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}
           </div>
         </div>
       </section>
 
-      <div className="container">
-        <section className="cta" aria-labelledby="cta-title">
-          <h2 id="cta-title">Your next document, without the typing.</h2>
-          <p>Set up in about two minutes. Free plan, no card needed.</p>
-          <div className="cta-row">
-            <Link href="/signup/" className="btn btn-primary btn-lg">Create your free account</Link>
+      <section className="mk-section" aria-labelledby="cta-title">
+        <div className="container">
+          <div className="mk-cta-card">
+            <h2 id="cta-title">Your next document, without the typing.</h2>
+            <p>Set up in about two minutes. Free plan, no card needed.</p>
+            <Link href="/signup/" className="btn btn-lg">Create your free account</Link>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
     </>

@@ -1848,9 +1848,11 @@ a.row-item:active, button.row-item:active { background: var(--surface-2); }
 .mk-band { padding: 2.5rem 0; text-align: center; background: var(--bg); }
 .mk-band h2 { font-size: clamp(1.375rem, 2.4vw, 1.875rem); letter-spacing: -0.025em; line-height: 1.2; text-wrap: balance; }
 .mk-band p { color: var(--text-2); margin: 0.6rem auto 0; max-width: 46rem; font-size: 1.0625rem; text-wrap: pretty; }
-.mk-section { padding: 3.5rem 0; background: var(--app-bg); }
-.mk-section + .mk-section { padding-top: 0; }
-.mk-h2 { font-size: clamp(1.75rem, 3.2vw, 2.5rem); letter-spacing: -0.035em; line-height: 1.1; margin-bottom: 1.75rem; text-wrap: balance; }
+.mk-section { padding: 5rem 0; background: var(--app-bg); }
+.mk-section:not(.mk-alt) + .mk-section:not(.mk-alt) { padding-top: 0; }
+.mk-section.mk-alt { background: var(--bg); border-block: 1px solid var(--border); }
+.mk-h2 { font-size: clamp(1.875rem, 3.4vw, 2.75rem); letter-spacing: -0.04em; line-height: 1.08; margin-bottom: 2rem; text-wrap: balance; font-weight: 750; }
+.mk-kicker { font-size: 0.875rem; font-weight: 650; color: var(--accent); margin-bottom: 0.6rem; }
 .mk-steps, .mk-needs { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
 .mk-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .mk-needs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1938,3 +1940,76 @@ a.row-item:active, button.row-item:active { background: var(--surface-2); }
 .price-move { display: flex; align-items: center; justify-content: space-between; gap: 1rem 1.5rem; flex-wrap: wrap; }
 .price-move h2 { font-size: 1rem; font-weight: 650; margin-bottom: 0.2rem; }
 .price-move > div { flex: 1 1 22rem; }
+
+/* Homepage polish */
+.mk-hero { position: relative; overflow: hidden; isolation: isolate; }
+.mk-hero::before {
+  content: ""; position: absolute; z-index: -1; inset: -20% -10% auto 35%; height: 140%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.mk-doc, .mk-panel { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 24px -12px rgba(15, 23, 42, 0.12), 0 40px 80px -40px rgba(11, 87, 208, 0.28); }
+.mk-panel { margin-top: 2.5rem; }
+.mk-trust { list-style: none; margin: 1.25rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.875rem; color: var(--text-2); }
+.mk-trust li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.mk-trust svg { width: 16px; height: 16px; color: var(--green); stroke-width: 2.4; }
+.mk-band { padding: 3.5rem 0; border-block: 1px solid var(--border); }
+
+.mk-features { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.mk-features li { padding: 1.75rem; border-radius: 18px; background: var(--app-bg); border: 1px solid var(--border); }
+.mk-features h3 { font-size: 1.125rem; letter-spacing: -0.01em; margin: 1.1rem 0 0.35rem; }
+.mk-features p { color: var(--text-2); font-size: 0.9375rem; }
+
+.mk-plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; max-width: 880px; }
+.mk-plan { display: flex; flex-direction: column; padding: 2rem; border-radius: 20px; background: var(--raised); border: 1px solid var(--border); }
+.mk-plan.featured { border: 2px solid var(--accent); box-shadow: 0 30px 60px -30px rgba(11, 87, 208, 0.35); }
+.mk-plan h3 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.25rem; letter-spacing: -0.015em; }
+.mk-plan-price { margin-top: 1rem; display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.mk-plan-price strong { font-size: 3rem; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+.mk-plan-price span { color: var(--text-2); }
+.mk-plan-alt { color: var(--muted); font-size: 0.875rem; margin-top: 0.4rem; }
+.mk-ticks { list-style: none; margin: 1.5rem 0 1.75rem; padding: 0; display: grid; gap: 0.7rem; flex: 1; }
+.mk-ticks li { display: flex; align-items: center; gap: 0.6rem; }
+.mk-ticks svg { width: 18px; height: 18px; color: var(--accent); stroke-width: 2.4; flex: none; }
+.mk-plan .btn-lg { min-height: 52px; border-radius: 12px; }
+
+.mk-faq { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); gap: 3rem; align-items: start; }
+.mk-faq-head { position: sticky; top: 6rem; }
+.mk-faq-head .mk-h2 { margin-bottom: 0.75rem; }
+.mk-faq .faq summary { font-size: 1.0625rem; min-height: 64px; }
+
+.mk-cta-card {
+  padding: clamp(2.5rem, 6vw, 4.5rem) 1.5rem; border-radius: 24px; text-align: center; color: #fff;
+  background: radial-gradient(120% 140% at 0% 0%, #2f7bf0 0%, #0b57d0 45%, #083f99 100%);
+  box-shadow: 0 40px 80px -40px rgba(11, 87, 208, 0.6);
+}
+.mk-cta-card h2 { color: #fff; font-size: clamp(1.875rem, 3.6vw, 2.75rem); letter-spacing: -0.04em; line-height: 1.1; text-wrap: balance; }
+.mk-cta-card p { color: rgba(255, 255, 255, 0.85); margin: 0.75rem 0 2rem; font-size: 1.0625rem; }
+.mk-cta-card .btn { background: #fff; color: #0b57d0; min-height: 56px; padding-inline: 2rem; border-radius: 12px; font-size: 1.0625rem; font-weight: 650; border: 0; }
+.mk-cta-card .btn:hover { background: #eef3fd; text-decoration: none; }
+
+.mk-steps li, .mk-needs li, .mk-features li, .mk-plan { transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1); }
+@media (hover: hover) {
+  .mk-steps li:hover, .mk-needs li:hover, .mk-features li:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -24px rgba(15, 23, 42, 0.25); }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mk-steps li, .mk-needs li, .mk-features li, .mk-plan, .mk-cta-card {
+      animation: mk-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 40%;
+    }
+    @keyframes mk-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  }
+}
+@media (prefers-reduced-motion: reduce) { .mk-steps li, .mk-needs li, .mk-features li, .mk-plan { transition: none; } }
+@media (max-width: 960px) {
+  .mk-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mk-faq { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .mk-faq-head { position: static; }
+}
+@media (max-width: 680px) {
+  .mk-section { padding: 3.5rem 0; }
+  .mk-features, .mk-plans { grid-template-columns: minmax(0, 1fr); }
+  .mk-panel { margin-top: 0; }
+  .mk-features li, .mk-plan { padding: 1.4rem; }
+  .mk-plan-price strong { font-size: 2.5rem; }
+}
