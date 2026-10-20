@@ -5,7 +5,7 @@
  */
 
 import { type DocProvider, ProviderError } from "./providers/types.ts";
-import { endsWithTail } from "./doctext.ts";
+import { bodyContent, endsWithTail } from "./doctext.ts";
 
 export type AccessProblem =
   | "permission_missing"
@@ -34,7 +34,16 @@ export interface AccessReport {
    */
   content_unchanged: boolean | null;
   checked_at: string;
+  /**
+   * When the insertion point check fails: the last characters TypeWit expected
+   * and the last characters the document has, so the person can see what changed.
+   * Only sent to the document's owner; never logged.
+   */
+  location?: { expected_end: string; document_end: string };
 }
+
+/** Characters of each end shown when the insertion point doesn't match. */
+export const LOCATION_PREVIEW_CHARS = 160;
 
 export const ACCESS_MESSAGE: Record<AccessProblem, string> = {
   permission_missing: "Permission missing: TypeWit's access to this Google account isn't working. Reconnect Google.",
@@ -84,6 +93,7 @@ export async function checkAccess(
   const say = (text: string) => (word ? forWord(text) : text);
   const accountLabel = word ? "Word add-in" : "Google account";
   const checks: AccessCheck[] = [];
+  let location: AccessReport["location"];
   const finish = (problem: AccessProblem | null, contentUnchanged: boolean | null = null): AccessReport => ({
     ok: problem === null,
     problem,
@@ -96,6 +106,7 @@ export async function checkAccess(
     checks,
     content_unchanged: contentUnchanged,
     checked_at: now().toISOString(),
+    ...(location ? { location } : {}),
   });
 
   try {
@@ -161,7 +172,13 @@ export async function checkAccess(
       ok,
       detail: ok ? "The document ends with the text TypeWit entered." : ACCESS_MESSAGE.location_uncertain,
     });
-    if (!ok) return finish("location_uncertain", unchanged);
+    if (!ok) {
+      location = {
+        expected_end: expectedTail.slice(-LOCATION_PREVIEW_CHARS),
+        document_end: bodyContent(doc.text).slice(-LOCATION_PREVIEW_CHARS),
+      };
+      return finish("location_uncertain", unchanged);
+    }
   } else {
     checks.push({
       key: "location",

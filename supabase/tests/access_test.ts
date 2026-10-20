@@ -55,3 +55,13 @@ Deno.test("test connection before a new document checks the account only", async
   assertEquals(report.ok, true);
   assertEquals(report.checks.map((c) => c.key), ["account", "document"]);
 });
+
+Deno.test("a mismatched insertion point shows what TypeWit expected and what the document ends with", async () => {
+  const doc = new FakeDoc(new Clock(), "Intro.\n\nHeading\n\nI typed this.");
+  const report = await checkAccess(doc, "doc", "Heading\n\n");
+  assertEquals(report.problem, "location_uncertain");
+  assertEquals(report.location, { expected_end: "Heading\n\n", document_end: "Intro.\n\nHeading\n\nI typed this." });
+
+  const ok = await checkAccess(new FakeDoc(new Clock(), "Heading\n\n"), "doc", "Heading\n\n");
+  assertEquals(ok.location, undefined);
+});

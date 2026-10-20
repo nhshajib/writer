@@ -255,6 +255,13 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .logo { width: 26px; height: 26px; flex: none; }
 .wordmark { font-weight: 700; letter-spacing: -0.025em; }
 .wordmark-wit { color: var(--accent); }
+
+/* Test connection: what TypeWit expected at the end of the document, and what is there. */
+.what-changed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 0.5rem 0; }
+.what-changed figure { margin: 0; }
+.what-changed figcaption { font-size: 0.8125rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem; }
+.what-changed pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 0.8125rem; max-height: 160px; overflow: auto; color: var(--text); }
+@media (max-width: 640px) { .what-changed-grid { grid-template-columns: 1fr; } }
 .nav { display: flex; align-items: center; gap: 0.25rem; }
 .nav-center { justify-self: center; }
 .nav-end { justify-self: end; gap: 0.5rem; }

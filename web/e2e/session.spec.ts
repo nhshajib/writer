@@ -217,6 +217,30 @@ test("a session TypeWit paused itself explains why and offers the right choices"
   expect(drip.status).toBe("scheduled");
 });
 
+test("when the document's end changed, the session shows what changed and how to fix it", async ({ page, request }) => {
+  const id = await startSession(page);
+  await request.post("/__test/advance", { data: { id, written: 2 } });
+  await request.post("/__test/type", { data: { id, text: "\nMy own note. " } });
+
+  // While it runs, Test connection shows the difference and offers to pause.
+  await page.getByRole("button", { name: "Test connection" }).click();
+  await expect(page.getByText("TypeWit expected the document to end with")).toBeVisible();
+  await expect(page.locator(".what-changed pre").nth(1)).toContainText("¶\nMy own note.·");
+  await page.getByRole("button", { name: "Pause to fix it" }).click();
+  await expect(page.locator(".badge").filter({ hasText: "State: Paused" })).toBeVisible();
+
+  // Once TypeWit has paused it for this reason, the panel offers both fixes and "Show what changed".
+  await request.post("/__test/attention", {
+    data: { id, attention: "document_changed", message: "The end of the document no longer matches what TypeWit entered." },
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  const panel = page.getByRole("alert").filter({ hasText: "I've fixed it" });
+  await expect(panel.getByRole("button", { name: "Continue after the document's current end" })).toBeVisible();
+  await panel.getByRole("button", { name: "Show what changed" }).click();
+  await expect(page.getByText("Your document ends with")).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
 test("the session page passes axe in light and dark mode, with reduced motion respected", async ({ page, request }) => {
   const id = await startSession(page);
   await request.post("/__test/advance", { data: { id, written: 4 } });

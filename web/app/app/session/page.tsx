@@ -349,7 +349,18 @@ function SessionView() {
         {activity === "on_break" && progress.current_break && <span className="muted">until {when(progress.current_break.end, true)}</span>}
         {activity === "waiting" && progress.next_chunk_at && <span className="muted">next insertion at {when(progress.next_chunk_at, true)}</span>}
       </p>
-      <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
+      <div aria-live="polite">
+        {report && (
+          <ConnectionReport report={report}>
+            {report.location && active && (
+              <div className="row" style={{ marginTop: "0.5rem" }}>
+                <span className="small">TypeWit pauses on its own before the next part. Pause now to fix it straight away:</span>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}>Pause to fix it</button>
+              </div>
+            )}
+          </ConnectionReport>
+        )}
+      </div>
 
       <div className="automation" role="note" aria-label="Automated text entry">
         <span className="badge badge-blue"><span className="dot" aria-hidden="true" />Automated</span>
@@ -389,7 +400,8 @@ function SessionView() {
           </div>
         )}
         {attention && <AttentionPanel attention={attention} message={drip.last_error} nextPart={progress.next_part ?? null}
-          needsConfirm={needsConfirm || attention === "confirm_last_part"} busy={busy} onResume={(body) => control("resume", body)} />}
+          needsConfirm={needsConfirm || attention === "confirm_last_part"} busy={busy} onResume={(body) => control("resume", body)}
+          onShowChanges={drip.provider === "microsoft" ? undefined : testConnection} checking={checking} />}
         {drip.status === "failed" && drip.last_error && <p className="alert alert-error" role="alert">Writing stopped: {drip.last_error}</p>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         {offline && <p className="alert alert-info" role="status">Can&apos;t reach TypeWit right now. Showing the last known state; this page retries on its own. The session keeps running on the server.</p>}
@@ -517,13 +529,16 @@ function SessionView() {
   );
 }
 
-function AttentionPanel({ attention, message, nextPart, needsConfirm, busy, onResume }: {
+function AttentionPanel({ attention, message, nextPart, needsConfirm, busy, onResume, onShowChanges, checking }: {
   attention: Attention;
   message: string | null;
   nextPart: string | null;
   needsConfirm: boolean;
   busy: boolean;
   onResume: (body: Record<string, unknown>) => void;
+  /** Runs Test connection, which shows how the document's end differs from what TypeWit entered. */
+  onShowChanges?: () => void;
+  checking?: boolean;
 }) {
   return (
     <section className="attention" role="alert" aria-labelledby="attention-title">
@@ -548,6 +563,11 @@ function AttentionPanel({ attention, message, nextPart, needsConfirm, busy, onRe
             <>
               <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onResume({})}>I&apos;ve fixed it: check and resume</button>
               <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onResume({ continue_from_current_end: true })}>Continue after the document&apos;s current end</button>
+              {onShowChanges && (
+                <button type="button" className="btn btn-ghost btn-sm" disabled={checking} onClick={onShowChanges}>
+                  {checking ? "Checking…" : "Show what changed"}
+                </button>
+              )}
             </>
           )
           : attention === "reconnect"

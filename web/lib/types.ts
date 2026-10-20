@@ -118,6 +118,8 @@ export interface AccessReport {
   checks: { key: string; label: string; ok: boolean | null; detail: string }[];
   content_unchanged: boolean | null;
   checked_at: string;
+  /** When the insertion point doesn't match: the end TypeWit expected and the end the document has. */
+  location?: { expected_end: string; document_end: string };
 }
 
 export interface PlanProblem {

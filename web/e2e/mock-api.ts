@@ -298,7 +298,28 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       Object.assign(row, { status: "paused", paused_at: new Date(now).toISOString(), attention: null });
       log(row.id, "paused", { by: "user" });
       return send(res, 200, { drip: view(row, false) });
-    case "check":
+    case "check": {
+      // Like the server: the document must still end with the text TypeWit entered.
+      const expected = row.chunks.slice(0, row.chunks_written).join("");
+      if (!row.doc.endsWith(expected)) {
+        const message = "The end of the document no longer matches what TypeWit entered, so the insertion point is uncertain.";
+        return send(res, 200, {
+          report: {
+            ok: false,
+            problem: "location_uncertain",
+            message,
+            checks: [
+              { key: "account", label: "Google account", ok: true, detail: "Access works." },
+              { key: "document", label: "Document", ok: true, detail: "Opened." },
+              { key: "editable", label: "Editing", ok: true, detail: "Edits are allowed (checked without changing anything)." },
+              { key: "location", label: "Insertion point", ok: false, detail: message },
+            ],
+            content_unchanged: true,
+            checked_at: new Date().toISOString(),
+            location: { expected_end: expected.slice(-160), document_end: row.doc.slice(-160) },
+          },
+        });
+      }
       return send(res, 200, {
         report: {
           ok: true,
@@ -314,6 +335,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
           checked_at: new Date().toISOString(),
         },
       });
+    }
     case "delete":
       if (!["completed", "canceled", "failed"].includes(row.status)) return send(res, 409, { error: "Stop the session before deleting it." });
       drips.delete(row.id);
@@ -415,6 +437,11 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
       row.completed_at = new Date().toISOString();
       log(row.id, "completed", { text_at_end_matches: true, provider_revisions: { count: 4, in_window: 3 } });
     }
+  }
+  // Someone types in the document after TypeWit's text.
+  if (path === "/__test/type") {
+    row.doc += String(body.text ?? "");
+    return send(res, 200, {});
   }
   if (path === "/__test/attention") {
     Object.assign(row, {
