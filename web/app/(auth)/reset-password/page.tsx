@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PasswordField } from "@/components/PasswordField";
 import { type FormEvent, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -85,12 +86,12 @@ export default function ResetPasswordPage() {
           <form className="auth-form" onSubmit={onSubmit} aria-labelledby="reset-title" noValidate>
             <div className="field">
               <label className="label" htmlFor="new-password">New password</label>
-              <input id="new-password" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="new-password-hint" />
+              <PasswordField id="new-password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="new-password-hint" />
               <p className="hint" id="new-password-hint">At least 8 characters.</p>
             </div>
             <div className="field">
               <label className="label" htmlFor="confirm-password">Repeat new password</label>
-              <input id="confirm-password" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <PasswordField id="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             </div>
             {error && <p className="alert alert-error" role="alert">{error}</p>}
             <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? "Saving…" : "Save new password"}</button>

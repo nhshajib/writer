@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PasswordField } from "@/components/PasswordField";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { GoogleMark } from "@/components/Icons";
@@ -101,7 +102,7 @@ export default function LoginPage() {
               <label className="label" htmlFor="password">Password</label>
               <button type="button" className="link-btn" onClick={resetPassword}>Forgot password?</button>
             </div>
-            <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordField id="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error && <p className="alert alert-error" role="alert">{error}</p>}
           {unconfirmed && (

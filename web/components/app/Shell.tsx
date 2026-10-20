@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Skeleton } from "@/components/app/Skeleton";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CommandPalette } from "@/components/app/CommandPalette";
@@ -65,7 +66,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useScrollRestoration(pathname);
 
   if (!session || state.status === "loading") {
-    return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading your dashboard…</div>;
+    return <Skeleton label="Loading your dashboard…" />;
   }
   if (state.status === "error") {
     return (

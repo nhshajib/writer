@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PasswordField } from "@/components/PasswordField";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { AboutYou, type AboutYouValue, aboutYouCheck, EMPTY_ABOUT_YOU } from "@/components/AboutYou";
@@ -180,7 +181,7 @@ function SignupForm() {
               </div>
               <div className="field">
                 <label className="label" htmlFor="password">Password</label>
-                <input id="password" type="password" autoComplete="new-password" required minLength={8} value={password}
+                <PasswordField id="password" autoComplete="new-password" required minLength={8} value={password}
                   onChange={(e) => setPassword(e.target.value)} aria-describedby="password-hint" placeholder="At least 8 characters" />
                 <span id="password-hint" className="sr-only">At least 8 characters.</span>
               </div>

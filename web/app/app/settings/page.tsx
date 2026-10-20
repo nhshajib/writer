@@ -241,12 +241,12 @@ export default function SettingsPage() {
           <div><h2 id="notify-title">Notifications</h2><p>Updates always appear under the bell at the top of every page.</p></div>
           <div className="stack" style={{ gap: 0 }}>
             <label className="check" htmlFor="email-completed">
-              <input id="email-completed" type="checkbox" checked={emailOn.completed} disabled={busy === "email-completed"}
+              <input id="email-completed" type="checkbox" role="switch" checked={emailOn.completed} disabled={busy === "email-completed"}
                 onChange={(e) => toggleEmail("completed", e.target.checked)} />
               <span>Email me when a session finishes.</span>
             </label>
             <label className="check" htmlFor="email-attention">
-              <input id="email-attention" type="checkbox" checked={emailOn.attention} disabled={busy === "email-attention"}
+              <input id="email-attention" type="checkbox" role="switch" checked={emailOn.attention} disabled={busy === "email-attention"}
                 onChange={(e) => toggleEmail("attention", e.target.checked)} />
               <span>Email me when a session pauses and needs me (for example, the document can&apos;t be reached).</span>
             </label>

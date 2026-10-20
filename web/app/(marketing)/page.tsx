@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
-import { Logo } from "@/components/Logo";
+import { LivePreview } from "@/components/marketing/LivePreview";
+import { MoreList } from "@/components/marketing/MoreList";
 import { pageMeta, SITE_URL } from "@/lib/seo";
 import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
 
@@ -114,36 +115,7 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="mk-demo" aria-hidden="true">
-            <div className="mk-doc">
-              <div className="mk-doc-head">
-                <span className="mk-doc-mark"><Icon.doc /></span>
-                <div>
-                  <strong>Research notes</strong>
-                  <span className="mk-menu"><span>File</span><span>Edit</span><span>View</span><span>Insert</span><span>Format</span><span>Tools</span><span>Help</span></span>
-                </div>
-              </div>
-              <div className="mk-toolbar">
-                <span>↶</span><span>↷</span><span className="mk-field">Normal text ▾</span><span className="mk-field">Inter ▾</span><span className="mk-field">11 ▾</span>
-                <b>B</b><i>I</i><u>U</u>
-              </div>
-              <div className="mk-page">
-                <p>
-                  Rural communities face unique challenges in accessing healthcare, including distance, transportation and
-                  limited specialist availability. <span className="arriving">Telehealth can help reduce these barriers and
-                  increase access to care.</span><span className="caret" />
-                </p>
-              </div>
-            </div>
-            <div className="mk-panel">
-              <div className="mk-panel-head"><Logo className="mk-logo" /><strong>TypeWit</strong><span className="mk-dots">···</span></div>
-              <div className="mk-row"><span>Session progress</span><span>248 / 400 words</span></div>
-              <div className="mk-bar"><span style={{ width: "62%" }}>62%</span></div>
-              <div className="mk-status"><span className="mk-running"><i />Running</span><span>Automated text entry into your document.</span></div>
-              <div className="mk-pause"><Icon.pause />Pause</div>
-              <div className="mk-row mk-last"><span>Finish in</span><span className="mk-select">1 hour ▾</span></div>
-            </div>
-          </div>
+          <LivePreview />
         </div>
       </section>
 
@@ -186,11 +158,11 @@ export default function Home() {
         <div className="container">
           <p className="mk-kicker">What you get</p>
           <h2 id="features-title" className="mk-h2">Calm, clear and always in your control.</h2>
-          <ul className="mk-features">
+          <MoreList className="mk-features" shown={3} total={FEATURES.length} label="features">
             {FEATURES.map(({ icon: FeatureIcon, title, text }) => (
               <li key={title}><span className="mk-need-icon" aria-hidden="true"><FeatureIcon /></span><h3>{title}</h3><p>{text}</p></li>
             ))}
-          </ul>
+          </MoreList>
         </div>
       </section>
 
@@ -237,7 +209,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mk-section" aria-labelledby="cta-title">
+      <div className="mk-end-cta mobile-only">
+        <Link href="/signup/" className="btn btn-primary btn-lg btn-block">Get started free</Link>
+        <p>Free plan · No card needed</p>
+      </div>
+
+      <section className="mk-section mk-final" aria-labelledby="cta-title">
         <div className="container">
           <div className="mk-cta-card">
             <h2 id="cta-title">Your next document, without the typing.</h2>

@@ -175,3 +175,46 @@ test("Documents explains where Word sessions run", async ({ page }) => {
   await expect(page.getByText(/Word sessions start inside Word, not from this\s+website or a phone browser/)).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test("the public homepage on a phone: one action up top, a preview you can pause, and more features on request", async ({ page }) => {
+  await page.goto("/");
+  const header = page.locator(".site-header");
+  await expect(header.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(header.getByRole("button", { name: /menu/i })).toBeHidden();
+
+  const preview = page.getByRole("figure", { name: /Preview · an example session/ });
+  await preview.getByRole("button", { name: "Pause the example session" }).click();
+  await expect(preview.getByRole("button", { name: "Resume the example session" })).toHaveAttribute("aria-pressed", "true");
+  await expect(preview).toContainText("Paused");
+
+  const features = page.getByRole("heading", { name: "A clear record" });
+  await expect(features).toBeHidden();
+  await page.getByRole("button", { name: "Show all 6 features" }).click();
+  await expect(features).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
+test("passwords can be shown before signing in", async ({ page }) => {
+  await page.goto("/login/");
+  const password = page.locator("#password");
+  await password.fill("a long passphrase");
+  await expect(password).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Show" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(page.getByRole("button", { name: "Hide" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("Home on a phone leads with the session and a full-width control on the session page", async ({ page }) => {
+  const id = await createSession(page, "Phone notes");
+  await page.goto("/app/");
+  await expect(page.getByRole("region", { name: "Words this week" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "New session" }).first()).toBeVisible();
+  await page.goto(`/app/session/?id=${id}`);
+  const pause = page.locator(".session-primary").getByRole("button", { name: "Pause" });
+  await expect(pause).toBeVisible();
+  const box = await pause.boundingBox();
+  expect(box!.width).toBeGreaterThan(300);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await pause.click();
+  await expect(page.locator(".session-primary").getByRole("button", { name: "Resume" })).toBeVisible();
+});

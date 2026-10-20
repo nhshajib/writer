@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Skeleton } from "@/components/app/Skeleton";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
@@ -227,7 +228,7 @@ function SessionView() {
       </div>
     );
   }
-  if (!drip) return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading session…</div>;
+  if (!drip) return <Skeleton label="Loading session…" />;
 
   const { progress } = drip;
   const activity = progress.activity ?? (ACTIVE.has(drip.status) ? "waiting" : drip.status === "paused" ? "paused" : "done");
@@ -277,8 +278,8 @@ function SessionView() {
               Open in {docName} <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
             </a>
           )}
-          {active && <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
-          {paused && !attention && <button type="button" className="btn btn-primary btn-sm" onClick={() => control("resume")} disabled={busy}><Icon.play /> Resume</button>}
+          {active && <button type="button" className="btn btn-secondary btn-sm desktop-only" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
+          {paused && !attention && <button type="button" className="btn btn-primary btn-sm desktop-only" onClick={() => control("resume")} disabled={busy}><Icon.play /> Resume</button>}
           {finished && drip.provider !== "microsoft" && (
             <Link href={`/app/new?from=${drip.id}`} className="btn btn-primary btn-sm"><Icon.refresh /> Run again…</Link>
           )}
@@ -365,6 +366,13 @@ function SessionView() {
                   aria-valuenow={progress.percent} aria-valuetext={`${progress.percent}%: ${progress.chunks_written} of ${progress.chunks_total} parts, ${progress.words_written} of ${progress.words_total} words`}>
                   <span style={{ width: `${progress.percent}%` }} />
                 </div>
+                {(active || (paused && !attention)) && (
+                  <div className="session-primary mobile-only">
+                    {active
+                      ? <button type="button" className="btn btn-secondary btn-lg btn-block" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>
+                      : <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => control("resume")} disabled={busy}><Icon.play /> Resume</button>}
+                  </div>
+                )}
                 <dl className="hero-facts">
                   <div><dt>Parts entered</dt><dd>{progress.chunks_written} <small>/ {progress.chunks_total} {unit.many}</small></dd></div>
                   <div><dt>Words</dt><dd>{progress.words_written.toLocaleString()} <small>/ {progress.words_total.toLocaleString()}</small></dd></div>

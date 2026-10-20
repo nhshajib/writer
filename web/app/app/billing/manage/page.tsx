@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Skeleton } from "@/components/app/Skeleton";
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
@@ -129,7 +130,7 @@ export default function ManageBillingPage() {
           <span>{loadError}</span> <button type="button" className="link-btn" onClick={load}>Try again</button>
         </div>
       )}
-      {!summary && !loadError && <p className="card billing-loading" role="status">Loading your billing details…</p>}
+      {!summary && !loadError && <Skeleton label="Loading your billing details…" variant="card" />}
 
       {summary && !sub && (
         <section className="card empty" aria-labelledby="free-title">
