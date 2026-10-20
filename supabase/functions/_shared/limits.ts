@@ -8,11 +8,17 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { dailyWords: 250, maxDurationSeconds: 60 * 60, maxActiveDrips: 1 },
+  free: { dailyWords: 150, maxDurationSeconds: 30 * 60, maxActiveDrips: 1 },
   pro: { dailyWords: null, maxDurationSeconds: 7 * 24 * 60 * 60, maxActiveDrips: 3 },
 };
 
 export const MIN_DURATION_SECONDS = 60;
+
+/** What Free can't do, in the words shown to people. Free keeps every accessibility feature and insertion mode. */
+export const PRO_ONLY_MESSAGES = {
+  startLater: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it.",
+  speed: "Typing speed and custom timing are part of Pro. Free sessions use the standard pace for a set time.",
+};
 export const MAX_TEXT_CHARS = 200_000;
 
 export interface CreateDripCheck {

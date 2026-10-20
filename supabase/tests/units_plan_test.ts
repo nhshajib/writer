@@ -5,7 +5,7 @@ import {
   splitIntoUnits,
   splitText,
 } from "../functions/_shared/chunker.ts";
-import { planSession } from "../functions/_shared/plan.ts";
+import { planSession, standardPacing } from "../functions/_shared/plan.ts";
 import { seededRandom } from "../functions/_shared/schedule.ts";
 
 const UNITS: InsertionUnit[] = ["sentence", "paragraph", "word", "character", "chunk"];
@@ -150,7 +150,35 @@ Deno.test("plan: unsupported characters, empty text and plan limits are problems
   assertEquals(codes("a\rb."), ["unsupported_characters"]);
   assertEquals(codes("   "), ["empty"]);
   assertEquals(codes("One. Two.", { plan: "free", durationSeconds: 7200 }), ["duration_over_plan"]);
-  assertEquals(codes("w ".repeat(251), { plan: "free" }), ["words_over_plan"]);
+  assertEquals(codes("w ".repeat(151), { plan: "free", durationSeconds: 1800 }), ["words_over_plan"]);
+});
+
+Deno.test("plan: Free uses the standard pace, and typing speed is Pro", () => {
+  const custom = {
+    timing: "duration" as const,
+    duration_seconds: 1200,
+    variation_pct: 0,
+    breaks: {
+      enabled: false,
+      every_seconds: 60,
+      every_variation_pct: 0,
+      min_seconds: 30,
+      max_seconds: 30,
+      align: "any" as const,
+    },
+  };
+  const free = planSession({ ...base, text: "One. Two. Three.", unit: "sentence", plan: "free", pacing: custom });
+  assertEquals(free.pacing, standardPacing(1200));
+  const pro = planSession({ ...base, text: "One. Two. Three.", unit: "sentence", plan: "pro", pacing: custom });
+  assertEquals(pro.pacing, custom);
+  const speed = planSession({
+    ...base,
+    text: "One. Two. Three.",
+    unit: "sentence",
+    plan: "free",
+    pacing: { ...custom, timing: "speed", duration_seconds: undefined, wpm: 40 },
+  });
+  assertEquals(speed.problems.map((p) => p.code), ["pro_feature"]);
 });
 
 Deno.test("plan: typing-speed mode estimates the total including breaks and explains caps", () => {

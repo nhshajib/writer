@@ -97,7 +97,7 @@ function planFrom(body: Record<string, unknown>, seed: number) {
     pacing: body.pacing as never,
     durationSeconds: Math.round(Number(body.duration_minutes) * 60),
     seed,
-    plan: "pro",
+    plan: profileChanges.plan === "free" ? "free" : "pro",
   });
 }
 
@@ -153,6 +153,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       age_confirmed_at: "2026-10-01T00:00:00Z",
       birth_year: 1990,
       birth_month: 5,
+      pace_presets: [],
       ...profileChanges,
     };
     const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
@@ -172,6 +173,12 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path.startsWith("/rest/v1/notifications")) {
     if (method === "PATCH") for (const n of notifications) n.read_at ??= String(body.read_at ?? new Date().toISOString());
     return send(res, 200, [...notifications].reverse());
+  }
+  // Saved pace presets: Pro only, like set_pace_presets.
+  if (path === "/rest/v1/rpc/set_pace_presets") {
+    if (profileChanges.plan === "free") return send(res, 400, { message: "Saved presets are part of Pro." });
+    profileChanges.pace_presets = body.presets;
+    return send(res, 200, body.presets);
   }
   // The age check, with the same rules as the database's confirm_age.
   if (path === "/rest/v1/rpc/confirm_age") {
@@ -266,6 +273,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       }
     }
     return send(res, 200, { deleted });
+  }
+  if (parts.length === 0 && method === "POST" && profileChanges.plan === "free" && body.start_at) {
+    return send(res, 403, { error: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it." });
   }
   if (parts.length === 0 && method === "POST") {
     const existing = [...drips.values()].find((d) => body.request_id && d.request_id === body.request_id);

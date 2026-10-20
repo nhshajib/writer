@@ -6,6 +6,7 @@ import { PreviewCarousel } from "@/components/marketing/PreviewCarousel";
 import { Logo } from "@/components/Logo";
 import { MoreList } from "@/components/marketing/MoreList";
 import { pageMeta, SITE_URL } from "@/lib/seo";
+import { FREE_FEATURES, PRO_FEATURES } from "@/lib/plans";
 import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -62,7 +63,7 @@ const FAQ = [
   },
   {
     q: "Is there a free plan?",
-    a: "Yes. Free includes 250 words a day and sessions up to an hour, with no card needed. Pro removes the daily limit and starts with 7 days free.",
+    a: "Yes. Free includes 150 words a day and sessions up to 30 minutes, with every insertion mode and accessibility feature, and no card needed. Pro removes the daily limit and adds week-long sessions, custom pacing, saved presets and scheduled starts, with 7 days free.",
   },
 ];
 
@@ -112,7 +113,7 @@ export default function Home() {
               <Link href="/signup/" className="app-id-get" id="hero-cta">Get started</Link>
             </div>
             <dl className="app-facts">
-              <div><dt>Free plan</dt><dd>$0</dd><dd>250 words a day</dd></div>
+              <div><dt>Free plan</dt><dd>$0</dd><dd>150 words a day</dd></div>
               <div><dt>Works with</dt><dd><Icon.doc /></dd><dd>Docs and Word</dd></div>
               <div><dt>Built for</dt><dd><Icon.person /></dd><dd>Accessibility</dd></div>
             </dl>
@@ -184,11 +185,11 @@ export default function Home() {
           <h2 id="plans-title" className="mk-h2">Free to start. Pro when it gets long.</h2>
           <ul className="price-rows">
             <li>
-              <span className="pr-main"><strong>Free</strong><span>250 words a day · sessions up to 1 hour</span></span>
+              <span className="pr-main"><strong>Free</strong><span>150 words a day · sessions up to 30 minutes</span></span>
               <span className="pr-price">$0</span>
             </li>
             <li>
-              <span className="pr-main"><strong>Pro <span className="badge badge-blue">7 days free</span></strong><span>Unlimited words · sessions up to a week</span></span>
+              <span className="pr-main"><strong>Pro <span className="badge badge-blue">7 days free</span></strong><span>Unlimited words · week-long sessions · custom pacing and presets</span></span>
               <span className="pr-price"><span>{PRO_PRICE.year.amount}<small>/mo</small></span><em>billed yearly · or {PRO_PRICE.month.amount} monthly</em></span>
             </li>
             <li><Link href="/pricing/" className="pr-link">Compare plans<Icon.chevronRight /></Link></li>
@@ -198,9 +199,7 @@ export default function Home() {
               <h3>Free</h3>
               <p className="mk-plan-price"><strong>$0</strong><span>forever</span></p>
               <ul className="mk-ticks">
-                <li><Icon.check />250 words a day</li>
-                <li><Icon.check />Sessions up to 1 hour</li>
-                <li><Icon.check />Every accessibility feature</li>
+                {FREE_FEATURES.map((f) => <li key={f}><Icon.check />{f}</li>)}
               </ul>
               <Link href="/signup/" className="btn btn-secondary btn-lg btn-block">Start free</Link>
             </div>
@@ -209,9 +208,7 @@ export default function Home() {
               <p className="mk-plan-price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month, billed yearly</span></p>
               <p className="mk-plan-alt">or {PRO_PRICE.month.amount} billed monthly</p>
               <ul className="mk-ticks">
-                <li><Icon.check />Unlimited words</li>
-                <li><Icon.check />Sessions up to a week</li>
-                <li><Icon.check />Three documents at once</li>
+                {PRO_FEATURES.map((f) => <li key={f}><Icon.check />{f}</li>)}
               </ul>
               <Link href="/pricing/" className="btn btn-primary btn-lg btn-block">Compare plans</Link>
             </div>

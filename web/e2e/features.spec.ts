@@ -182,3 +182,43 @@ test("Manage billing shows the subscription, card and invoices, and each change 
   expect(flows).toEqual(["payment_method_update", "switch_interval", "subscription_cancel"]);
   expect(requests.filter((r: { path: string }) => r.path === "/functions/v1/billing/reprice").length).toBe(1);
 });
+
+test("Free shows what Pro adds without blocking the free flow, and the server refuses a scheduled start", async ({ page, request }) => {
+  await request.post("/__test/profile", { data: { plan: "free", subscription_status: null } });
+  await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Short note");
+  await toStep(page, 2);
+  await page.getByLabel("Text to enter").fill("w ".repeat(151).trim());
+  await expect(page.getByText(/150 words a day on Free/)).toBeVisible();
+  await page.getByLabel("Text to enter").fill(TEXT);
+  await toStep(page, 4);
+  await expect(page.getByRole("radio", { name: /Typing speed/ })).toBeDisabled();
+  await expect(page.getByLabel(/Start later instead of now/)).toBeDisabled();
+  await expect(page.getByText(/Standard pacing\./)).toBeVisible();
+  await expect(page.locator("#duration option", { hasText: "1 hour (Pro)" })).toBeDisabled();
+  await expect(page.getByRole("spinbutton", { name: "Timing variation" })).toHaveCount(0);
+  await expectNoAxeViolations(page);
+
+  const refused = await request.post("/functions/v1/drips", { data: { start_at: new Date(Date.now() + 3_600_000).toISOString(), text: TEXT } });
+  expect(refused.status()).toBe(403);
+  expect((await refused.json()).error).toMatch(/part of Pro/);
+});
+
+test("Pro saves pace presets and applies one in a click", async ({ page }) => {
+  await page.goto("/app/new/");
+  await page.getByLabel("Title").fill("Essay");
+  await toStep(page, 2);
+  await page.getByLabel("Text to enter").fill(TEXT);
+  await toStep(page, 4);
+  await page.getByLabel("Total duration").selectOption("120");
+  await page.getByRole("button", { name: "Save as preset…" }).click();
+  await page.getByLabel("Preset name").fill("Essay, 2 hours");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText('Saved "Essay, 2 hours".')).toBeVisible();
+
+  await page.getByLabel("Total duration").selectOption("30");
+  await page.locator("#preset").selectOption("Essay, 2 hours");
+  await expect(page.getByLabel("Total duration")).toHaveValue("120");
+  await page.getByRole("button", { name: "Delete preset" }).click();
+  await expect(page.getByText('Deleted "Essay, 2 hours".')).toBeVisible();
+});

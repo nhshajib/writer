@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 import { PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
+import { PRO_FEATURES } from "@/lib/plans";
 import { ADULT_AGE, ageFrom } from "@/lib/age";
 import { dailyResetTime, span } from "@/lib/time";
 
@@ -21,7 +22,7 @@ const STATUS_TEXT: Record<string, string> = {
   incomplete: "Payment incomplete",
 };
 
-/** "250 words a day, sessions up to 1 hour, one at a time." from the plan's limits. */
+/** "150 words a day, sessions up to 30 minutes, one at a time." from the plan's limits. */
 function describeLimits(limits: (typeof PLAN_LIMITS)[keyof typeof PLAN_LIMITS]): string {
   const words = limits.dailyWords ? `${limits.dailyWords} words a day` : "Unlimited words";
   const atOnce = limits.activeSessions === 1 ? "one at a time" : `${limits.activeSessions} at once`;
@@ -127,6 +128,16 @@ export default function BillingPage() {
         </section>
       </div>
 
+      {isPro && (
+        <section className="card mb-6 pro-perks" aria-labelledby="perks-title">
+          <h2 id="perks-title" className="card-title">Included in your Pro plan</h2>
+          <ul className="ticks">{PRO_FEATURES.map((f) => tick(f, f))}</ul>
+          <p className="small muted mt-4">
+            Need help? <Link href="/support/?priority=1">Priority support</Link>: Pro emails are answered first.
+          </p>
+        </section>
+      )}
+
       {!isPro && (
         <section className="plan featured mb-6" aria-labelledby="upgrade-title">
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -143,10 +154,7 @@ export default function BillingPage() {
           </div>
           <div className="grid-2" style={{ alignItems: "end", marginTop: "0.5rem" }}>
             <ul className="ticks" style={{ margin: "1rem 0 0" }}>
-              {tick(<><strong>Unlimited</strong> words every day</>, "a")}
-              {tick(<>Sessions up to <strong>{span(PLAN_LIMITS.pro.maxMinutes * 60_000)}</strong></>, "b")}
-              {tick(<><strong>{PLAN_LIMITS.pro.activeSessions} documents</strong> at once</>, "c")}
-              {tick(<><strong>Priority</strong> email support</>, "d")}
+              {PRO_FEATURES.map((f) => tick(f, f))}
             </ul>
             <div>
               <div className="price" style={{ marginTop: "1rem" }}><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></div>

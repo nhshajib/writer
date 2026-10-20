@@ -24,6 +24,16 @@ export interface Profile {
   age_confirmed_at?: string | null;
   birth_year?: number | null;
   birth_month?: number | null;
+  /** Pro: saved pacing settings (see set_pace_presets). */
+  pace_presets?: PacePreset[];
+}
+
+export interface PacePreset {
+  name: string;
+  timing: "duration" | "speed";
+  /** Duration presets: the total time. */
+  minutes?: number;
+  pace: Record<string, unknown>;
 }
 
 export interface AppNotification {
@@ -38,7 +48,7 @@ export interface AppNotification {
 
 /** Plan limits. The server enforces the same values (supabase/functions/_shared/limits.ts). */
 export const PLAN_LIMITS = {
-  free: { dailyWords: 250, maxMinutes: 60, activeSessions: 1 },
+  free: { dailyWords: 150, maxMinutes: 30, activeSessions: 1 },
   pro: { dailyWords: null, maxMinutes: 7 * 24 * 60, activeSessions: 3 },
 } as const;
 
@@ -85,7 +95,7 @@ export function useDashboardLoader() {
       const client = supabase();
       const [{ data: profile, error: profileError }, conns, list, { data: notes }] = await Promise.all([
         client.from("profiles")
-          .select("plan, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date, age_confirmed_at, birth_year, birth_month")
+          .select("plan, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date, age_confirmed_at, birth_year, birth_month, pace_presets")
           .maybeSingle(),
         api<{ connections: Connection[] }>("drips/connections"),
         api<{ drips: Drip[] }>("drips"),

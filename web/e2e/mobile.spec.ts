@@ -52,7 +52,7 @@ test("four tabs move between the main places, and Account lists every setting", 
 
   await tabs.getByRole("link", { name: "Account" }).click();
   await page.waitForURL(/\/app\/account\/?$/);
-  for (const row of ["Plan & usage", "Profile", "Notifications", "Security", "Data & privacy", "Help & support"]) {
+  for (const row of ["Plan & usage", "Profile", "Notifications", "Security", "Data & privacy", "Priority support"]) {
     await expect(page.getByRole("link", { name: new RegExp(`^${row}`) })).toBeVisible();
   }
   await page.getByRole("button", { name: "Privacy Policy" }).click();

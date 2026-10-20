@@ -398,11 +398,16 @@ version history, which Google groups on its own.
 
 | | Free | Pro |
 |---|---|---|
-| Words per day | 250 | unlimited |
-| Longest drip | 1 hour | 1 week |
+| Words per day | 150 | unlimited |
+| Longest drip | 30 minutes | 1 week |
 | Active drips | 1 | 3 |
+| Typing speed and custom timing | standard pace only | yes |
+| Start later (`start_at`) | no | yes |
+| Saved pace presets (`set_pace_presets`) | no | yes |
 
-Plans are set in `profiles.plan`. Billing is not wired up yet.
+Free sessions are planned with the standard pace (`standardPacing` in `_shared/plan.ts`), so the preview and the
+session always match. Plans are set in `profiles.plan` by the Stripe webhook. Keep `web/lib/plans.ts` and
+`PLAN_LIMITS` in `web/lib/dashboard.tsx` in step with these values.
 
 ## Why there is no browser extension
 

@@ -8,9 +8,10 @@ import { Sheet } from "@/components/app/mobile/Sheet";
 import { useIsMobile } from "@/lib/useMediaQuery";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
-import { PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
+import { DEFAULT_PACE, PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
 import { api, ApiError, sha256Hex } from "@/lib/api";
-import { ACTIVE_STATUSES, useDashboard } from "@/lib/dashboard";
+import { ACTIVE_STATUSES, type PacePreset, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
+import { PacePresets } from "@/components/app/PacePresets";
 import { pickGoogleDoc } from "@/lib/googlePicker";
 import { supabase } from "@/lib/supabase";
 import { span, when } from "@/lib/time";
@@ -32,11 +33,6 @@ const STEP_NAMES = ["Document", "Text", "Insertion", "Timing", "Review"];
 const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 4: ["custom-minutes", "duration", "start-at"] };
 type Target = "new" | "existing";
 
-/** Plan limits shown in the form. The server enforces the same values. */
-const LIMITS = {
-  free: { words: 250, minutes: 60 },
-  pro: { words: Infinity, minutes: 7 * 24 * 60 },
-};
 
 const DURATIONS: { minutes: number; label: string }[] = [
   { minutes: 5, label: "5 minutes" },
@@ -231,6 +227,28 @@ export default function NewSessionPage() {
       });
   }, [dashboard.drips, pastDocs, connections, updatePace]);
 
+  useEffect(() => {
+    if (plan !== "pro" && timing === "speed") setTiming("duration");
+    if (plan !== "pro" && startLater) setStartLater(false);
+    // Start on the longest duration the plan allows, never on a Pro-only one.
+    const allowed = PLAN_LIMITS[plan].maxMinutes;
+    if (preset !== "custom" && Number(preset) > allowed) {
+      setPreset(String(DURATIONS.filter((d) => d.minutes <= allowed).at(-1)?.minutes ?? allowed));
+    }
+  }, [plan, timing, startLater, preset]);
+
+  function applyPreset(p: PacePreset) {
+    setTiming(p.timing);
+    if (p.timing === "duration" && p.minutes) {
+      if (DURATIONS.some((d) => d.minutes === p.minutes)) setPreset(String(p.minutes));
+      else {
+        setPreset("custom");
+        setCustomMinutes(String(p.minutes));
+      }
+    }
+    updatePace(p.pace as Partial<typeof pace>);
+  }
+
   // Keep the unsent text in this browser while it's being written.
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -239,7 +257,8 @@ export default function NewSessionPage() {
     return () => clearTimeout(handle);
   }, [text]);
 
-  const limits = LIMITS[plan];
+  const isPro = plan === "pro";
+  const limits = { words: PLAN_LIMITS[plan].dailyWords ?? Infinity, minutes: PLAN_LIMITS[plan].maxMinutes };
   const words = countWords(text);
   const overWords = words > limits.words;
   const minutes = preset === "custom" ? Number(customMinutes) : Number(preset);
@@ -248,7 +267,9 @@ export default function NewSessionPage() {
   const docsForAccount = allDocs.filter((d) => d.connectionId === connectionId);
   const chosenDoc = allDocs.find((d) => d.key === pastDocKey);
 
-  const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, pace);
+  // Free sessions use the standard pace (the server does the same); custom timing is Pro.
+  const effectivePace = isPro ? pace : DEFAULT_PACE;
+  const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const pacingKey = JSON.stringify(pacing);
   const inputKey = JSON.stringify([text, unit, timing, pacingKey, seed ?? null]);
   const current = preview !== null && previewKey === inputKey;
@@ -659,8 +680,8 @@ export default function NewSessionPage() {
               <span><strong>Target duration</strong><small>Fit everything, breaks included, into a set time.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => setTiming("speed")} />
-              <span><strong>Typing speed</strong><small>Set words per minute; see how long it takes.</small></span>
+              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => setTiming("speed")} disabled={!isPro} />
+              <span><strong>Typing speed{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong><small>Set words per minute; see how long it takes.</small></span>
             </label>
             <label className="choice">
               <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => setTiming("asap")} />
@@ -695,7 +716,18 @@ export default function NewSessionPage() {
             </div>
           )}
 
-          {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} collapsed={isMobile} />}
+          {timing !== "asap" && isPro && (
+            <PacePresets timing={timing === "speed" ? "speed" : "duration"} minutes={minutes} pace={pace} onApply={applyPreset} />
+          )}
+          {timing !== "asap" && isPro && <PaceControls timing={timing} pace={pace} onChange={updatePace} collapsed={isMobile} />}
+          {timing !== "asap" && !isPro && (
+            <div className="pro-note">
+              <p>
+                <strong>Standard pacing.</strong> A little natural variation between parts, and short breaks about every 8
+                minutes. <Link href="/app/billing/">Pro</Link> adds typing speed, custom timing and saved presets.
+              </p>
+            </div>
+          )}
 
           <div className="plan-preview">
             <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
@@ -704,9 +736,11 @@ export default function NewSessionPage() {
 
           <div className="field" style={{ marginTop: "1.25rem" }}>
             <label className="check" htmlFor="start-later">
-              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} />
-              <span>Start later instead of now</span>
+              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} disabled={!isPro}
+                aria-describedby={isPro ? undefined : "start-later-pro"} />
+              <span>Start later instead of now{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</span>
             </label>
+            {!isPro && <span id="start-later-pro" className="hint">Scheduling a start time is part of <Link href="/app/billing/">Pro</Link>.</span>}
             {startLater && (
               <div className="field" style={{ maxWidth: 280, marginBottom: 0 }}>
                 <label className="label" htmlFor="start-at">Start at (your time)</label>

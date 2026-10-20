@@ -21,6 +21,15 @@ export default function SupportPage() {
         <p className="hint" style={{ marginTop: "1rem", marginBottom: 0 }}>Please don't send passwords or card numbers. We'll never ask for them.</p>
       </div>
 
+      <div className="card" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+        <h2 style={{ marginTop: 0 }}>Pro members: priority support</h2>
+        <p className="muted">
+          Emails from Pro accounts are answered first. Send it from the address on your account, or start the subject
+          with [Pro].
+        </p>
+        <a className="btn btn-secondary" href={`mailto:${SUPPORT_EMAIL}?subject=%5BPro%5D%20`}>Email priority support</a>
+      </div>
+
       <h2>Quick answers</h2>
       <h3>TypeWit says it can't reach my Google account</h3>
       <p>Go to your <Link href="/app">dashboard</Link> and choose Connect Google again. This happens if access was removed in your Google account settings.</p>

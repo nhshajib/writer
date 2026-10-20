@@ -27,7 +27,7 @@ import { googleAccessToken, loadConnection, providerFor } from "../_shared/conne
 import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { checkAccess } from "../_shared/access.ts";
-import { checkCreateLimits, PLAN_LIMITS, type PlanTier } from "../_shared/limits.ts";
+import { checkCreateLimits, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "../_shared/limits.ts";
 import { type BreakAlignment, type PacingSettings } from "../_shared/pacing.ts";
 import { planSession, type SessionPlan } from "../_shared/plan.ts";
 import { revokeGoogleToken } from "../_shared/providers/google.ts";
@@ -294,6 +294,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   ]);
   if (countError) throw new Error(countError.message);
   if (!agreed) throw new HttpError(403, "Please read and agree to the Responsible Use Agreement before writing.");
+  if (tier === "free" && body.start_at) throw new HttpError(403, PRO_ONLY_MESSAGES.startLater);
 
   // Splits the text and builds the complete schedule before anything starts.
   const plan = planSession({ ...input, plan: tier });

@@ -204,8 +204,8 @@ const ok = { plan: "free" as const, words: 100, textLength: 600, durationSeconds
 
 Deno.test("free plan limits", () => {
   assertEquals(checkCreateLimits(ok), null);
-  assertEquals(checkCreateLimits({ ...ok, words: 251 }), "Your plan allows 250 words per day.");
-  assertEquals(checkCreateLimits({ ...ok, durationSeconds: 3601 }), "Your plan allows sessions up to 1 hour.");
+  assertEquals(checkCreateLimits({ ...ok, words: 151 }), "Your plan allows 150 words per day.");
+  assertEquals(checkCreateLimits({ ...ok, durationSeconds: 1801 }), "Your plan allows sessions up to 30 minutes.");
   assertEquals(checkCreateLimits({ ...ok, activeDrips: 1 }), "Your plan allows 1 active session at a time.");
 });
 

@@ -5,23 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
+import { FREE_FEATURES, PLAN_COMPARISON, PRO_FEATURES } from "@/lib/plans";
 import { PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 
 type Interval = "year" | "month";
 
 
-const COMPARE: { feature: string; free: string; pro: string }[] = [
-  { feature: "Words per day", free: "250", pro: "Unlimited" },
-  { feature: "Longest session", free: "1 hour", pro: "1 week" },
-  { feature: "Documents in progress at once", free: "1", pro: "3" },
-  { feature: "Sentence, paragraph or chunk steps", free: "Yes", pro: "Yes" },
-  { feature: "Pause, resume and stop", free: "Yes", pro: "Yes" },
-  { feature: "Live progress and preview", free: "Yes", pro: "Yes" },
-  { feature: "Activity log with download", free: "Yes", pro: "Yes" },
-  { feature: "Notification when a session finishes", free: "Yes", pro: "Yes" },
-  { feature: "Email support", free: "Yes", pro: "Priority" },
-];
+const COMPARE = PLAN_COMPARISON;
 
 const FAQ: { q: string; a: string }[] = [
   {
@@ -46,7 +37,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Is Free really free?",
-    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 250 words a day, which is roughly one page.",
+    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 150 words a day (about half a page) and sessions up to 30 minutes, with every insertion mode and accessibility feature.",
   },
 ];
 
@@ -114,10 +105,7 @@ function PricingContent() {
             <div className="price"><strong>$0</strong><span>forever</span></div>
             <p className="price-note">No card needed</p>
             <ul className="ticks">
-              {tick("250 words a day", "a")}
-              {tick("Sessions up to 1 hour", "b")}
-              {tick("One document at a time", "c")}
-              {tick("Every accessibility feature", "d")}
+              {FREE_FEATURES.map((f) => tick(f, f))}
             </ul>
             <Link href="/signup/" className="btn btn-secondary btn-block">Get started</Link>
           </section>
@@ -128,10 +116,7 @@ function PricingContent() {
             <div className="price"><strong>{price.amount}</strong><span>{price.note}</span></div>
             <p className="price-note">{price.saving ? <span className="save">{price.saving}</span> : "Billed monthly"}</p>
             <ul className="ticks">
-              {tick(<><strong>Unlimited</strong> words every day</>, "a")}
-              {tick(<>Sessions up to <strong>1 week</strong></>, "b")}
-              {tick(<><strong>3 documents</strong> at once</>, "c")}
-              {tick(<><strong>Priority</strong> email support</>, "d")}
+              {PRO_FEATURES.map((f) => tick(f, f))}
             </ul>
             <button type="button" className="btn btn-primary btn-block" onClick={startPro} disabled={busy}>
               {busy ? "Opening secure checkout…" : "Start 7-day free trial"}

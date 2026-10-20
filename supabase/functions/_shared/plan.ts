@@ -7,7 +7,7 @@ import {
   splitText,
   unitSize,
 } from "./chunker.ts";
-import { MAX_TEXT_CHARS, PLAN_LIMITS, type PlanTier } from "./limits.ts";
+import { MAX_TEXT_CHARS, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "./limits.ts";
 import { buildPacing, CHARS_PER_WORD, type PacingSettings, type PlannedBreak } from "./pacing.ts";
 import {
   formatSeconds,
@@ -40,7 +40,8 @@ export interface PlanProblem {
     | "invalid_settings"
     | "duration_too_short"
     | "duration_over_plan"
-    | "words_over_plan";
+    | "words_over_plan"
+    | "pro_feature";
   message: string;
 }
 
@@ -81,6 +82,23 @@ export interface SessionPlan {
   options: UnitOption[];
 }
 
+/** The standard pace Free sessions use: the same values as the app's defaults. */
+export function standardPacing(durationSeconds: number): PacingSettings {
+  return {
+    timing: "duration",
+    duration_seconds: durationSeconds,
+    variation_pct: 25,
+    breaks: {
+      enabled: true,
+      every_seconds: 8 * 60,
+      every_variation_pct: 30,
+      min_seconds: 20,
+      max_seconds: 120,
+      align: "sentence",
+    },
+  };
+}
+
 /** Pace settings for requests that only give a duration (older clients). */
 export function legacyPacing(durationSeconds: number): PacingSettings {
   return {
@@ -106,10 +124,16 @@ export function legacyPacing(durationSeconds: number): PacingSettings {
 export function planSession(req: PlanRequest): SessionPlan {
   const { text, unit, seed } = req;
   const asap = req.mode === "as_soon_as_possible";
-  const pacing = asap ? null : req.pacing ?? legacyPacing(req.durationSeconds ?? 0);
+  const requested = asap ? null : req.pacing ?? legacyPacing(req.durationSeconds ?? 0);
+  // Free uses the standard pace for a chosen duration; typing speed and custom timing are Pro.
+  const freeSpeed = req.plan === "free" && requested?.timing === "speed";
+  const pacing = req.plan === "free" && requested && req.pacing && !freeSpeed
+    ? standardPacing(requested.duration_seconds ?? 0)
+    : requested;
   const limits = PLAN_LIMITS[req.plan];
   const words = countWords(text);
   const problems: PlanProblem[] = [];
+  if (freeSpeed) problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.speed });
   const warnings: PlanWarning[] = [];
 
   let units = splitText(text, unit);

@@ -133,7 +133,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   aria-valuemin={0} aria-valuemax={limit} aria-valuenow={used}>
                   <span style={{ width: `${Math.round((used / limit) * 100)}%` }} />
                 </span>
-                <span className="cta">Free plan · Upgrade for no daily limit</span>
+                <span className="usage-cta">Free plan · Upgrade for no daily limit</span>
               </Link>
             )}
             <UserMenu />

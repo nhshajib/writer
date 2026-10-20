@@ -70,7 +70,7 @@ export default function AccountPage() {
       <section className="group" aria-labelledby="help-title">
         <h2 className="group-title" id="help-title">Help and policies</h2>
         <ul className="group-list">
-          <Row icon={Icon.help} href="/support/" label="Help & support" />
+          <Row icon={Icon.help} href={isPro ? "/support/?priority=1" : "/support/"} label={isPro ? "Priority support" : "Help & support"} value={isPro ? "Pro" : undefined} />
           <li><LegalDialog doc="agreement" className="row-item"><span className="row-label">Responsible Use Agreement</span><span className="row-chevron" aria-hidden="true"><Icon.chevronRight /></span></LegalDialog></li>
           <li><LegalDialog doc="privacy" className="row-item"><span className="row-label">Privacy Policy</span><span className="row-chevron" aria-hidden="true"><Icon.chevronRight /></span></LegalDialog></li>
           <li><LegalDialog doc="terms" className="row-item"><span className="row-label">Terms of Service</span><span className="row-chevron" aria-hidden="true"><Icon.chevronRight /></span></LegalDialog></li>

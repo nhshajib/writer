@@ -739,7 +739,7 @@ body:has(.app) { background: var(--app-bg); }
 .usage-line:hover { text-decoration: none; border-color: var(--accent-line); color: var(--text-2); }
 .usage-line .top { display: flex; justify-content: space-between; gap: 0.5rem; font-weight: 550; color: var(--text); }
 .usage-line .num { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 500; }
-.usage-line .cta { color: var(--accent); font-weight: 550; font-size: 0.75rem; }
+.usage-line .usage-cta { color: var(--accent); font-weight: 550; font-size: 0.75rem; }
 .user-row {
   display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.45rem 0.5rem; border-radius: var(--r); border: 0;
   background: none; cursor: pointer; text-align: left; color: var(--text);
@@ -2394,3 +2394,14 @@ button.mk-pause:active { transform: scale(0.98); }
   .mk-section, .mk-section:not(.mk-alt) + .mk-section:not(.mk-alt) { padding-top: 2rem; }
   .pr-price > span { white-space: nowrap; }
 }
+
+/* Pro features in New session */
+.pro-badge { margin-left: 0.45rem; font-size: 0.6875rem; padding: 0.1rem 0.45rem; vertical-align: 2px; }
+.pro-note { margin-top: 1rem; padding: 0.85rem 1rem; border-radius: 12px; background: var(--accent-soft); color: var(--text-2); font-size: 0.875rem; }
+.pro-note strong { color: var(--text); }
+.presets { margin-top: 1rem; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); display: grid; gap: 0.6rem; }
+.presets-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.75rem; }
+.presets-row .label { margin: 0; }
+.presets-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.presets-actions input { flex: 1 1 12rem; min-width: 0; }
+.choice:has(input:disabled) .pro-badge { opacity: 1; }
