@@ -34,7 +34,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How do I cancel?",
-    a: "Go to Plan & billing in your dashboard and choose Manage billing. You can cancel there at any time. You keep Pro until the end of the period you've already paid for.",
+    a: "Go to Plan & usage in your dashboard and choose Manage billing. You can cancel there at any time. You keep Pro until the end of the period you've already paid for.",
   },
   {
     q: "Is my payment secure?",
@@ -146,7 +146,7 @@ function PricingContent() {
           <ol className="steps">
             <li><h3>Create your account</h3><p>Continue with Google or a personal email, and accept the Responsible Use Agreement.</p></li>
             <li><h3>Start your free week</h3><p>Pick yearly or monthly above and add a card on Stripe&apos;s secure page.</p></li>
-            <li><h3>Write without limits</h3><p>Pro starts right away. Cancel any time in Plan &amp; billing.</p></li>
+            <li><h3>Write without limits</h3><p>Pro starts right away. Cancel any time in Plan &amp; usage.</p></li>
           </ol>
         </div>
       </section>

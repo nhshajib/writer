@@ -104,11 +104,14 @@ export default function DocumentsPage() {
         {google.length > 0 && <button type="button" className="btn btn-secondary btn-sm" onClick={connect} disabled={busy}>Connect another account</button>}
       </div>
 
-      {notice && <p className="alert alert-success" role="status" style={{ marginBottom: "1.25rem" }}>{notice}</p>}
-      {error && <p className="alert alert-error" role="alert" style={{ marginBottom: "1.25rem" }}>{error}</p>}
+      {notice && <p className="alert alert-success mb-5" role="status">{notice}</p>}
+      {error && <p className="alert alert-error mb-5" role="alert">{error}</p>}
 
-      <section className="card card-flush" aria-labelledby="accounts-title" style={{ marginBottom: "1.5rem" }}>
-        <div className="card-head"><h2 id="accounts-title">Google accounts</h2></div>
+      <div className="connections mb-6">
+      <section className="card card-flush" aria-labelledby="accounts-title">
+        <div className="card-head">
+          <h2 id="accounts-title" className="with-icon"><span className="doc-icon sm gdoc" aria-hidden="true"><Icon.doc /></span>Google Docs</h2>
+        </div>
         {google.length === 0
           ? (
             <div className="empty">
@@ -156,13 +159,15 @@ export default function DocumentsPage() {
           )}
       </section>
 
-      <section className="card" id="word" aria-labelledby="word-title" style={{ marginBottom: "1.5rem" }}>
-        <h2 id="word-title">Microsoft Word</h2>
-        <p className="muted">
+      <section className="card" id="word" aria-labelledby="word-title">
+        <h2 id="word-title" className="with-icon mb-3"><span className="doc-icon sm word" aria-hidden="true"><Icon.doc /></span>Microsoft Word</h2>
+        <p className="small muted">
           In Word, TypeWit runs as an add-in: a panel beside your document that enters your approved text into that
           document, at the pace you set. It can only change the document it is open in, and TypeWit stores no Microsoft
           password or token.
         </p>
+        <details className="more">
+        <summary>How to add TypeWit to Word</summary>
         <ol className="small" style={{ paddingLeft: "1.2rem", lineHeight: 1.7 }}>
           <li>Download the add-in file: <a href="/word/manifest.xml" download="typewit-word-manifest.xml">typewit-word-manifest.xml</a>.</li>
           <li>
@@ -172,14 +177,16 @@ export default function DocumentsPage() {
           </li>
           <li>Open <strong>TypeWit</strong> from Add-ins, sign in with your TypeWit email and password, and start a session.</li>
         </ol>
+        </details>
         <p className="hint">
           Word sessions run only while the document and the TypeWit panel are open. If you close them, nothing is entered
           and the rest of the schedule moves later when you come back. Pause, resume and stop also work from this website.
         </p>
       </section>
+      </div>
 
       <section aria-labelledby="docs-title">
-        <h2 id="docs-title" style={{ fontSize: "0.9375rem", marginBottom: "0.75rem" }}>Documents</h2>
+        <h2 id="docs-title" className="section-title mb-3">Documents</h2>
         {docs.length === 0
           ? (
             <div className="card empty">
@@ -198,8 +205,13 @@ export default function DocumentsPage() {
                   {docs.map((doc) => (
                     <tr key={doc.key}>
                       <td>
-                        <span className="title">{doc.title}</span>
-                        {doc.active && <div className="small" style={{ color: "var(--accent)" }}>In progress</div>}
+                        <div className="doc-cell">
+                          <span className={`doc-icon sm ${doc.provider === "microsoft" ? "word" : "gdoc"}`} aria-hidden="true"><Icon.doc /></span>
+                          <div>
+                            <span className="title">{doc.title}</span>
+                            {doc.active && <div className="small accent">In progress</div>}
+                          </div>
+                        </div>
                       </td>
                       <td className="num hide-sm">{doc.account}</td>
                       <td className="num">{doc.sessions} · {doc.words.toLocaleString()} words</td>

@@ -8,7 +8,10 @@ import { useDashboard } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
+import { ProgressRing } from "@/components/app/Charts";
+import { Popover } from "@/components/app/Popover";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { Tabs } from "@/components/app/Tabs";
 import { Icon } from "@/components/Icons";
 import { clock, span, when } from "@/lib/time";
 import {
@@ -18,84 +21,23 @@ import {
   ATTENTION_TITLE,
   type Drip,
   type DripEvent,
-  EVENT_LABEL,
   STATE_LABEL,
   stateOf,
   UNIT_LABEL,
 } from "@/lib/types";
 import { useRequireSession } from "@/lib/useRequireSession";
+import { describe, type Detail, num, str } from "@/lib/sessionLog";
 
 const ACTIVE = new Set(["scheduled", "running"]);
 const MILESTONE = 10;
 const ANNOUNCE_KEY = "typewit.announceProgress";
-
-type Detail = Record<string, unknown>;
-const str = (v: unknown) => (typeof v === "string" ? v : null);
-const num = (v: unknown) => (typeof v === "number" ? v : null);
-
-/** One line of the session log, in plain words. */
-function describe(event: DripEvent): { text: string; sub?: string; late?: boolean } {
-  const d = event.detail as Detail;
-  const label = EVENT_LABEL[event.kind] ?? event.kind;
-  switch (event.kind) {
-    case "chunk_written": {
-      const part = `Part ${num(d.written)} of ${num(d.total)} entered (${num(d.chars)} characters)`;
-      if (d.recovered) return { text: `${part}, confirmed from the document after an interruption`, sub: `Planned ${when(str(d.planned_at)!, true)}` };
-      const late = num(d.late_seconds) ?? 0;
-      return {
-        text: part,
-        sub: `Planned ${when(str(d.planned_at)!, true)} · entered ${when(str(d.actual_at)!, true)}${late >= 1 ? ` · ${late} s late` : ""}`,
-        late: late >= 15,
-      };
-    }
-    case "schedule_shifted":
-      return { text: label, sub: `Moved ${span((num(d.by_seconds) ?? 0) * 1000)} later · now finishing ${when(str(d.finish_at)!)}`, late: true };
-    case "paused":
-      return { text: d.by === "system" ? "Paused by TypeWit" : "Paused by you" };
-    case "resumed": {
-      const finish = str(d.finish_at);
-      return {
-        text: label,
-        sub: `After ${span((num(d.paused_seconds) ?? 0) * 1000)} paused, the rest moved later${finish ? ` · now finishing ${when(finish)}` : ""}` +
-          (d.continued_from_current_end ? " · continuing after the document's current end" : ""),
-      };
-    }
-    case "attention":
-      return { text: label, sub: str(d.message) ?? undefined, late: true };
-    case "retry_scheduled":
-      return { text: label, sub: `Attempt ${num(d.attempts)}, retrying in ${span((num(d.delay_seconds) ?? 0) * 1000)}: ${str(d.error) ?? ""}`, late: true };
-    case "connection_checked":
-      return d.ok
-        ? { text: label, sub: "The document opened and is editable. Nothing was changed." }
-        : { text: "Connection check failed before the first insertion", sub: str(d.problem) ?? undefined, late: true };
-    case "insertion_uncertain":
-      return {
-        text: `Part ${(num(d.index) ?? 0) + 1}: ${label.toLowerCase()}`,
-        sub: "TypeWit checks the document before continuing, so the part is neither repeated nor skipped.",
-        late: true,
-      };
-    case "created":
-      return { text: label, sub: str(d.finish_at) ? `Planned to finish ${when(str(d.finish_at)!)}` : undefined };
-    case "completed":
-      return {
-        text: label,
-        sub: d.text_at_end_matches === true
-          ? "Checked: the document ends with exactly the approved text."
-          : d.text_at_end_matches === false
-          ? "Warning: the end of the document doesn't match the approved text."
-          : undefined,
-      };
-    default:
-      return { text: label };
-  }
-}
 
 function SessionView() {
   const id = useSearchParams().get("id") ?? "";
   const session = useRequireSession();
   const dashboard = useDashboard();
   const progressHeading = useRef<HTMLHeadingElement>(null);
-  const stopButton = useRef<HTMLButtonElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const [drip, setDrip] = useState<Drip | null>(null);
   const [events, setEvents] = useState<DripEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +181,8 @@ function SessionView() {
 
   function closeStop() {
     setConfirmStop(false);
-    requestAnimationFrame(() => stopButton.current?.focus());
+    // Stop lives in the "More actions" menu; return focus to that button.
+    requestAnimationFrame(() => actionsRef.current?.querySelector<HTMLElement>("[aria-label='More actions']")?.focus());
   }
 
   function onConfirmKey(event: KeyboardEvent) {
@@ -300,6 +243,12 @@ function SessionView() {
     | { count?: number; in_window?: number; unavailable?: string }
     | undefined;
 
+  const etaLabel = drip.status === "completed" ? "Finished" : paused ? "Finish if resumed now" : "Expected completion";
+  const eta = drip.status === "completed" && progress.finish_at ? when(progress.finish_at)
+    : paused && progress.finish_if_resumed_now ? when(progress.finish_if_resumed_now)
+    : progress.finish_at && !finished ? when(progress.finish_at) : "—";
+  const docName = drip.provider === "microsoft" ? "Word" : "Google Docs";
+
   return (
     <>
       <nav aria-label="Breadcrumb" className="crumbs">
@@ -308,7 +257,7 @@ function SessionView() {
       <div className="page-head">
         <div>
           <h1>{title}</h1>
-          <div className="row" style={{ marginTop: "0.5rem", gap: "0.6rem" }}>
+          <div className="row mt-2" style={{ gap: "0.6rem" }}>
             <StatusBadge state={stateOf(drip)} />
             <span className="small muted">
               {drip.mode === "as_soon_as_possible"
@@ -321,74 +270,45 @@ function SessionView() {
             </span>
           </div>
         </div>
-        <div className="row">
+        <div className="row" ref={actionsRef}>
           {drip.document_url && (
             <a href={drip.document_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-              Open in {drip.provider === "microsoft" ? "Word" : "Google Docs"} <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
+              Open in {docName} <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
             </a>
           )}
           {active && <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
-          {paused && !attention && <button type="button" className="btn btn-primary btn-sm" onClick={() => control("resume")} disabled={busy}>Resume</button>}
-          {(active || paused) && !confirmStop && (
-            <button type="button" ref={stopButton} className="btn btn-danger btn-sm" onClick={() => setConfirmStop(true)} disabled={busy}>Stop</button>
-          )}
-          {drip.provider !== "microsoft" && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking}>
-              {checking ? "Testing…" : "Test connection"}
-            </button>
-          )}
+          {paused && !attention && <button type="button" className="btn btn-primary btn-sm" onClick={() => control("resume")} disabled={busy}><Icon.play /> Resume</button>}
           {finished && drip.provider !== "microsoft" && (
-            <Link href={`/app/new?from=${drip.id}`} className="btn btn-secondary btn-sm">Run again…</Link>
+            <Link href={`/app/new?from=${drip.id}`} className="btn btn-primary btn-sm"><Icon.refresh /> Run again…</Link>
           )}
-        </div>
-      </div>
-
-      <p className="activity">
-        <span className="sr-only">Current activity: </span>
-        <strong>{ACTIVITY_LABEL[activity]}</strong>
-        {activity === "on_break" && progress.current_break && <span className="muted">until {when(progress.current_break.end, true)}</span>}
-        {activity === "waiting" && progress.next_chunk_at && <span className="muted">next insertion at {when(progress.next_chunk_at, true)}</span>}
-      </p>
-      <div aria-live="polite">
-        {report && (
-          <ConnectionReport report={report}>
-            {report.location && active && (
-              <div className="row" style={{ marginTop: "0.5rem" }}>
-                <span className="small">TypeWit pauses on its own before the next part. Pause now to fix it straight away:</span>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}>Pause to fix it</button>
-              </div>
-            )}
-          </ConnectionReport>
-        )}
-      </div>
-
-      <div className="automation" role="note" aria-label="Automated text entry">
-        <span className="badge badge-blue"><span className="dot" aria-hidden="true" />Automated</span>
-        <div>
-          <strong>
-            {active ? "Automated text entry in progress" : paused ? "Automated text entry paused" : "Automated text entry session"}
-          </strong>
-          {drip.provider === "microsoft"
-            ? (
-              <>
-                TypeWit enters your approved text into this Word document at scheduled times, through the TypeWit add-in in
-                Word. It runs only while the document and the TypeWit panel are open in Word; while they&apos;re closed,
-                nothing is entered and the rest of the schedule moves later.
-              </>
-            )
-            : (
-              <>
-                TypeWit enters your approved text into this Google Doc at scheduled times, through the Google Docs API, using
-                your Google account. It runs on TypeWit&apos;s servers: you can close this page or let your computer sleep.
-              </>
-            )}
+          {(drip.provider !== "microsoft" || active || paused) && (
+            <Popover label="More actions" buttonClass="btn btn-secondary btn-sm btn-icon" button={<Icon.more />}>
+              {(close) => (
+                <ul className="menu-list">
+                  {drip.provider !== "microsoft" && (
+                    <li>
+                      <button type="button" disabled={checking} onClick={() => { close(); testConnection(); }}>
+                        <Icon.refresh />{checking ? "Testing…" : "Test connection"}
+                      </button>
+                    </li>
+                  )}
+                  {(active || paused) && (
+                    <>
+                      <li><hr /></li>
+                      <li><button type="button" className="danger" disabled={busy} onClick={() => { close(); setConfirmStop(true); }}><Icon.stop />Stop</button></li>
+                    </>
+                  )}
+                </ul>
+              )}
+            </Popover>
+          )}
         </div>
       </div>
 
       {/* Polite live region: status changes and progress milestones only. */}
       <p id="session-announcer" className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
 
-      <div className="stack" style={{ marginBottom: confirmStop || error || offline || attention || drip.status === "failed" ? "1.25rem" : 0 }}>
+      <div className="stack-4 mb-6" hidden={!(confirmStop || error || offline || attention || drip.status === "failed" || report)}>
         {confirmStop && (
           <div className="confirm" role="alertdialog" aria-modal="false" aria-labelledby="stop-title" aria-describedby="stop-desc" onKeyDown={onConfirmKey} style={{ marginTop: 0 }}>
             <p id="stop-title">Stop this session?</p>
@@ -402,129 +322,192 @@ function SessionView() {
         {attention && <AttentionPanel attention={attention} message={drip.last_error} nextPart={progress.next_part ?? null}
           needsConfirm={needsConfirm || attention === "confirm_last_part"} busy={busy} onResume={(body) => control("resume", body)}
           onShowChanges={drip.provider === "microsoft" ? undefined : testConnection} checking={checking} />}
+        <div aria-live="polite">
+          {report && (
+            <ConnectionReport report={report}>
+              {report.location && active && (
+                <div className="row mt-2">
+                  <span className="small">TypeWit pauses on its own before the next part. Pause now to fix it straight away:</span>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => control("pause")} disabled={busy}>Pause to fix it</button>
+                </div>
+              )}
+            </ConnectionReport>
+          )}
+        </div>
         {drip.status === "failed" && drip.last_error && <p className="alert alert-error" role="alert">Writing stopped: {drip.last_error}</p>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         {offline && <p className="alert alert-info" role="status">Can&apos;t reach TypeWit right now. Showing the last known state; this page retries on its own. The session keeps running on the server.</p>}
       </div>
 
-      <section aria-labelledby="progress-title" style={{ marginBottom: "1.5rem" }}>
-        <h2 id="progress-title" ref={progressHeading} tabIndex={-1} className="sr-only">Progress</h2>
-        <dl className="stats">
-          <div>
-            <dt>Confirmed in the document</dt>
-            <dd>
-              {progress.percent}%
-              <div className="progress" role="progressbar" aria-label="Text confirmed in the document" aria-valuemin={0} aria-valuemax={100}
-                aria-valuenow={progress.percent} aria-valuetext={`${progress.percent}%: ${progress.chunks_written} of ${progress.chunks_total} parts, ${progress.words_written} of ${progress.words_total} words`}>
-                <span style={{ width: `${progress.percent}%` }} />
+      <div className="session-grid">
+        <div className="stack-6">
+          <section className="card session-hero" aria-labelledby="progress-title">
+            <h2 id="progress-title" ref={progressHeading} tabIndex={-1} className="sr-only">Progress</h2>
+            <div className="hero-top">
+              <div className="ring-wrap">
+                <ProgressRing value={progress.percent} size={112} stroke={10} tone={drip.status === "completed" ? "good" : "accent"} />
+                <span className="ring-num lg">{progress.percent}%</span>
               </div>
-            </dd>
-          </div>
-          <div><dt>Parts entered</dt><dd>{progress.chunks_written} <small>/ {progress.chunks_total} {unit.many}</small></dd></div>
-          <div>
-            <dt>Next scheduled action</dt>
-            {progress.next_chunk_at
-              ? (
-                <>
-                  <dd style={{ fontSize: "1.0625rem", marginTop: "0.6rem" }}>
-                    {activity === "on_break" ? "Back from break " : "Insert part " + (progress.chunks_written + 1) + " at "}
-                    {when(progress.next_chunk_at, true)}
-                  </dd>
-                  <dd className="muted" aria-hidden="true" style={{ marginTop: 0, fontSize: "0.875rem", fontWeight: 450 }}>{countdown === 0 ? "any moment" : `in ${clock(countdown!)}`}</dd>
-                </>
-              )
-              : <dd>—</dd>}
-          </div>
-          <div>
-            <dt>{drip.status === "completed" ? "Finished" : paused ? "Finish if resumed now" : "Expected completion"}</dt>
-            <dd style={{ fontSize: "1.0625rem", marginTop: "0.6rem" }}>
-              {drip.status === "completed" && progress.finish_at ? when(progress.finish_at) : paused && progress.finish_if_resumed_now
-                ? when(progress.finish_if_resumed_now)
-                : progress.finish_at
-                ? when(progress.finish_at)
-                : "—"}
-            </dd>
-          </div>
-        </dl>
-        {drip.schedule && drip.schedule.length > 1 && (
-          <ScheduleStrip offsets={drip.schedule} breaks={drip.breaks} startMs={startMs} done={progress.chunks_written} nowMs={active ? now : undefined}
-            label={`Schedule: ${progress.chunks_total} insertions and ${drip.breaks?.length ?? 0} breaks; ${progress.chunks_written} entered.`} />
-        )}
-        {progress.next_break && (
-          <p className="hint">Next break: after part {progress.next_break.after_part}, about {when(progress.next_break.start)} to {when(progress.next_break.end)}.</p>
-        )}
-        <p className="hint">The finish time is a target. Google Docs outages or delays can push it later; TypeWit moves the rest of the schedule rather than rushing.</p>
-        <label className="check small" style={{ marginTop: "0.5rem" }}>
-          <input type="checkbox" checked={announceProgress} onChange={(e) => setAnnounce(e.target.checked)} />
-          <span>Announce progress every {MILESTONE}% to screen readers (status changes are always announced)</span>
-        </label>
-      </section>
-
-      <div className="grid-2" style={{ marginBottom: "1.5rem" }}>
-        <section className="card" aria-labelledby="entered-title">
-          <div className="card-head"><h2 id="entered-title">Text entered so far</h2></div>
-          <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
-            {progress.written_text ? progress.written_text : <span className="pending">Nothing has been entered yet.</span>}
-          </div>
-        </section>
-        <section className="card" aria-labelledby="remaining-title">
-          <div className="card-head"><h2 id="remaining-title">Still to come</h2></div>
-          <div className="preview" tabIndex={0} role="region" aria-label="Remaining text">
-            {progress.remaining_text ? progress.remaining_text : <span className="pending">Nothing left to enter.</span>}
-          </div>
-        </section>
-      </div>
-
-      <section className="card" aria-labelledby="log-title">
-        <div className="card-head">
-          <h2 id="log-title">Session log</h2>
-          <button type="button" className="link-btn" onClick={downloadLog}>Download CSV</button>
-        </div>
-        <p className="small muted" style={{ marginBottom: "0.75rem" }}>
-          TypeWit&apos;s own record of this session: when each part was planned and actually entered, pauses, retries and
-          problems. It is separate from Google Docs version history (File → Version history), which Google groups and may
-          merge, so it won&apos;t match these entries one to one.
-        </p>
-        {completed && revisions && (
-          <p className="alert alert-info small" style={{ marginBottom: "0.75rem" }}>
-            {revisions.unavailable
-              ? `TypeWit couldn't read Google's revision list for comparison (${revisions.unavailable}).`
-              : `For comparison: Google Drive listed ${revisions.in_window} revision${revisions.in_window === 1 ? "" : "s"} during this session for ${progress.chunks_total} insertions.`}
-          </p>
-        )}
-        <ol className="log" aria-label="Session log, newest first" tabIndex={0}>
-          {events.map((event, i) => {
-            const { text, sub, late } = describe(event);
-            return (
-              <li key={`${event.created_at}-${i}`} className={late ? "late" : undefined}>
-                <time dateTime={event.created_at}>{when(event.created_at, true)}</time>
-                <span>{text}{sub && <span className="sub">{sub}</span>}</span>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      {finished && (
-        <section className="card" aria-labelledby="data-title" style={{ marginTop: "1.5rem" }}>
-          <div className="card-head"><h2 id="data-title">Saved data for this session</h2></div>
-          <p className="small muted">
-            TypeWit keeps this session&apos;s text, schedule and log so you can review them. Deleting removes them from
-            TypeWit. Your Google Doc is not changed.
-          </p>
-          {!confirmDelete
-            ? <button type="button" className="btn btn-danger btn-sm" style={{ marginTop: "0.75rem" }} onClick={() => setConfirmDelete(true)} disabled={busy}>Delete this session</button>
-            : (
-              <div className="confirm" role="alertdialog" aria-labelledby="delete-title" onKeyDown={(e) => e.key === "Escape" && setConfirmDelete(false)}>
-                <p id="delete-title">Delete this session&apos;s saved text and log?</p>
-                <div className="row">
-                  <button type="button" className="btn btn-danger-solid btn-sm" onClick={deleteSession} autoFocus disabled={busy}>Delete</button>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Keep</button>
+              <div className="hero-main">
+                <p className="activity">
+                  <span className="sr-only">Current activity: </span>
+                  <strong>{ACTIVITY_LABEL[activity]}</strong>
+                  {activity === "on_break" && progress.current_break && <span className="muted">until {when(progress.current_break.end, true)}</span>}
+                  {activity === "waiting" && progress.next_chunk_at && <span className="muted">next insertion at {when(progress.next_chunk_at, true)}</span>}
+                </p>
+                {progress.next_chunk_at && countdown !== null && (
+                  <p className="countdown" aria-hidden="true">
+                    {activity === "on_break" ? "Back from break" : `Part ${progress.chunks_written + 1}`} {countdown === 0 ? "any moment" : <>in <strong>{clock(countdown)}</strong></>}
+                  </p>
+                )}
+                <div className="progress lg" role="progressbar" aria-label="Text confirmed in the document" aria-valuemin={0} aria-valuemax={100}
+                  aria-valuenow={progress.percent} aria-valuetext={`${progress.percent}%: ${progress.chunks_written} of ${progress.chunks_total} parts, ${progress.words_written} of ${progress.words_total} words`}>
+                  <span style={{ width: `${progress.percent}%` }} />
                 </div>
+                <dl className="hero-facts">
+                  <div><dt>Parts entered</dt><dd>{progress.chunks_written} <small>/ {progress.chunks_total} {unit.many}</small></dd></div>
+                  <div><dt>Words</dt><dd>{progress.words_written.toLocaleString()} <small>/ {progress.words_total.toLocaleString()}</small></dd></div>
+                  <div><dt>{etaLabel}</dt><dd>{eta}</dd></div>
+                </dl>
               </div>
+            </div>
+            {drip.schedule && drip.schedule.length > 1 && (
+              <ScheduleStrip offsets={drip.schedule} breaks={drip.breaks} startMs={startMs} done={progress.chunks_written} nowMs={active ? now : undefined}
+                label={`Schedule: ${progress.chunks_total} insertions and ${drip.breaks?.length ?? 0} breaks; ${progress.chunks_written} entered.`} />
             )}
-        </section>
-      )}
+            {progress.next_break && (
+              <p className="hint">Next break: after part {progress.next_break.after_part}, about {when(progress.next_break.start)} to {when(progress.next_break.end)}.</p>
+            )}
+            {!finished && <p className="hint">The finish time is a target. If {docName} is slow or unavailable, TypeWit moves the rest of the schedule later rather than rushing.</p>}
+          </section>
+
+          <section className="card" aria-label="Session details">
+            <Tabs label="Session details" tabs={[
+              {
+                title: <><Icon.list />Activity</>,
+                content: (
+                  <>
+                    <div className="tab-head">
+                      <p className="small muted">
+                        TypeWit&apos;s own record: when each part was planned and entered, pauses, retries and problems. It&apos;s separate
+                        from {docName} version history, which groups edits, so the two won&apos;t match one to one.
+                      </p>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={downloadLog}><Icon.download />Download CSV</button>
+                    </div>
+                    {completed && revisions && (
+                      <p className="alert alert-info small mb-3">
+                        {revisions.unavailable
+                          ? `TypeWit couldn't read Google's revision list for comparison (${revisions.unavailable}).`
+                          : `For comparison: Google Drive listed ${revisions.in_window} revision${revisions.in_window === 1 ? "" : "s"} during this session for ${progress.chunks_total} insertions.`}
+                      </p>
+                    )}
+                    <ol className="log" aria-label="Session log, newest first" tabIndex={0}>
+                      {events.map((event, i) => {
+                        const { text, sub, late } = describe(event);
+                        return (
+                          <li key={`${event.created_at}-${i}`} className={late ? "late" : undefined}>
+                            <time dateTime={event.created_at}>{when(event.created_at, true)}</time>
+                            <span>{text}{sub && <span className="sub">{sub}</span>}</span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </>
+                ),
+              },
+              {
+                title: <><Icon.doc />Text</>,
+                content: (
+                  <div className="grid-2">
+                    <div>
+                      <h3 className="drawer-sub">Entered so far</h3>
+                      <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
+                        {progress.written_text ? progress.written_text : <span className="pending">Nothing has been entered yet.</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="drawer-sub">Still to come</h3>
+                      <div className="preview" tabIndex={0} role="region" aria-label="Remaining text">
+                        {progress.remaining_text ? progress.remaining_text : <span className="pending">Nothing left to enter.</span>}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                title: <><Icon.gear />Settings &amp; data</>,
+                content: (
+                  <div className="stack-6">
+                    <label className="check small">
+                      <input type="checkbox" checked={announceProgress} onChange={(e) => setAnnounce(e.target.checked)} />
+                      <span>Announce progress every {MILESTONE}% to screen readers (status changes are always announced)</span>
+                    </label>
+                    {finished
+                      ? (
+                        <div>
+                          <h3 className="drawer-sub">Saved data for this session</h3>
+                          <p className="small muted">
+                            TypeWit keeps this session&apos;s text, schedule and log so you can review them. Deleting removes them from
+                            TypeWit. Your document is not changed.
+                          </p>
+                          {!confirmDelete
+                            ? <button type="button" className="btn btn-danger btn-sm mt-3" onClick={() => setConfirmDelete(true)} disabled={busy}><Icon.trash />Delete this session</button>
+                            : (
+                              <div className="confirm" role="alertdialog" aria-labelledby="delete-title" onKeyDown={(e) => e.key === "Escape" && setConfirmDelete(false)}>
+                                <p id="delete-title">Delete this session&apos;s saved text and log?</p>
+                                <div className="row">
+                                  <button type="button" className="btn btn-danger-solid btn-sm" onClick={deleteSession} autoFocus disabled={busy}>Delete</button>
+                                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Keep</button>
+                                </div>
+                              </div>
+                            )}
+                        </div>
+                      )
+                      : <p className="small muted">Once the session has finished or been stopped, you can delete its saved text and log here.</p>}
+                  </div>
+                ),
+              },
+            ]} />
+          </section>
+        </div>
+
+        <aside className="stack-6" aria-label="About this session">
+          <div className="automation" role="note" aria-label="Automated text entry">
+            <span className="badge badge-blue"><span className="dot" aria-hidden="true" />Automated</span>
+            <div>
+              <strong>
+                {active ? "Automated text entry in progress" : paused ? "Automated text entry paused" : "Automated text entry session"}
+              </strong>
+              {drip.provider === "microsoft"
+                ? (
+                  <>
+                    TypeWit enters your approved text into this Word document at scheduled times, through the TypeWit add-in in
+                    Word. It runs only while the document and the TypeWit panel are open in Word; while they&apos;re closed,
+                    nothing is entered and the rest of the schedule moves later.
+                  </>
+                )
+                : (
+                  <>
+                    TypeWit enters your approved text into this Google Doc at scheduled times, through the Google Docs API, using
+                    your Google account. It runs on TypeWit&apos;s servers: you can close this page or let your computer sleep.
+                  </>
+                )}
+            </div>
+          </div>
+
+          <section className="card" aria-labelledby="about-title">
+            <h2 id="about-title" className="card-title">About this session</h2>
+            <dl className="facts one">
+              <div><dt>Document</dt><dd>{drip.document_url ? <a href={drip.document_url} target="_blank" rel="noopener noreferrer">{title}<span className="sr-only"> (opens in a new tab)</span></a> : title} <span className="muted">· {docName}</span></dd></div>
+              <div><dt>Steps</dt><dd>{drip.mode === "as_soon_as_possible" ? "All at once" : `${unit.title} (${progress.chunks_total})`}</dd></div>
+              <div><dt>Timing</dt><dd>{drip.timing_mode === "speed" ? `Typing speed, ${drip.pacing?.wpm ?? "?"} WPM` : drip.mode === "as_soon_as_possible" ? "As soon as possible" : `Over ${span(drip.duration_seconds * 1000)}`}</dd></div>
+              <div><dt>Breaks</dt><dd>{drip.breaks?.length ? `${drip.breaks.length} planned` : "None"}</dd></div>
+              {drip.approved_at && <div><dt>Text approved</dt><dd>{when(drip.approved_at)}</dd></div>}
+              <div><dt>Created</dt><dd>{when(drip.created_at)}</dd></div>
+            </dl>
+          </section>
+        </aside>
+      </div>
     </>
   );
 }

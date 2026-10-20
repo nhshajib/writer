@@ -143,8 +143,11 @@ test("pause, resume and stop work from the keyboard and are announced", async ({
   await expect(live).toHaveText("Session resumed.");
   await expect(page.getByText("After 0 seconds paused, the rest moved later").or(page.getByText(/seconds? paused, the rest moved later/))).toBeVisible();
 
-  // Stop asks first; Escape backs out and returns focus to Stop.
+  // Stop is in the "More actions" menu and asks first; Escape backs out and returns focus to the menu button.
+  const more = page.getByRole("button", { name: "More actions" });
   const stop = page.getByRole("button", { name: "Stop", exact: true });
+  await tabTo(page, more);
+  await page.keyboard.press("Enter");
   await tabTo(page, stop);
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("alertdialog", { name: "Stop this session?" });
@@ -152,8 +155,10 @@ test("pause, resume and stop work from the keyboard and are announced", async ({
   await expect(page.getByRole("button", { name: "Stop session" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(stop).toBeFocused();
+  await expect(more).toBeFocused();
 
+  await page.keyboard.press("Enter");
+  await tabTo(page, stop);
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter"); // "Stop session" has focus
   await expect(live).toHaveText("Session stopped.");
@@ -182,8 +187,10 @@ test("screen readers hear progress milestones, not every insertion", async ({ pa
   const second = await live.textContent();
   expect(second === first || /^\d0% entered: 4 of 10 parts\.$/.test(second ?? "")).toBe(true);
 
-  // Turning milestones off keeps status changes.
+  // Turning milestones off keeps status changes. The option is on the "Settings & data" tab.
+  await page.getByRole("tab", { name: "Settings & data" }).click();
   await page.getByLabel(/Announce progress every 10%/).uncheck();
+  await page.getByRole("tab", { name: "Activity" }).click();
   await request.post("/__test/advance", { data: { id, written: 7 } });
   await reload();
   await expect(page.getByText("Part 7 of 10 entered", { exact: false })).toBeVisible();
@@ -222,7 +229,8 @@ test("when the document's end changed, the session shows what changed and how to
   await request.post("/__test/advance", { data: { id, written: 2 } });
   await request.post("/__test/type", { data: { id, text: "\nMy own note. " } });
 
-  // While it runs, Test connection shows the difference and offers to pause.
+  // While it runs, Test connection (in the "More actions" menu) shows the difference and offers to pause.
+  await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("button", { name: "Test connection" }).click();
   await expect(page.getByText("TypeWit expected the document to end with")).toBeVisible();
   await expect(page.locator(".what-changed pre").nth(1)).toContainText("¶\nMy own note.·");
@@ -352,12 +360,14 @@ test("the session page shows state, activity, breaks and test connection; finish
   await expect(page.getByText("State:", { exact: false }).first()).toBeAttached();
   await expect(page.locator(".activity")).toContainText(/Waiting for the next insertion|Entering text/);
   await expect(page.getByText(/Next break: after part/)).toBeVisible();
+  await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("button", { name: "Test connection" }).click();
   await expect(page.getByText(/Insertion point:.*OK/)).toBeVisible();
 
   await request.post("/__test/advance", { data: { id, written: 10 } });
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(page.locator(".badge").filter({ hasText: "State: Completed" })).toBeVisible();
+  await page.getByRole("tab", { name: "Settings & data" }).click();
   await page.getByRole("button", { name: "Delete this session" }).click();
   await expect(page.getByRole("alertdialog", { name: /Delete this session/ })).toBeVisible();
   await page.keyboard.press("Enter");

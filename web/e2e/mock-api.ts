@@ -101,6 +101,7 @@ function planFrom(body: Record<string, unknown>, seed: number) {
 }
 
 let profileChanges: Record<string, unknown> = {};
+const notifications: { id: string; drip_id: string; kind: string; title: string; body: string; read_at: string | null; created_at: string }[] = [];
 
 const MOCK_USER = {
   id: "u1",
@@ -161,6 +162,11 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       : null;
     const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
     return send(res, 200, single ? data : data ? [data] : []);
+  }
+  // Updates under the bell: one per finished session, newest first.
+  if (path.startsWith("/rest/v1/notifications")) {
+    if (method === "PATCH") for (const n of notifications) n.read_at ??= String(body.read_at ?? new Date().toISOString());
+    return send(res, 200, [...notifications].reverse());
   }
   if (path.startsWith("/rest/v1/")) return send(res, 200, []);
   // Enough of Supabase Auth for password sign-in and the password-reset link.
@@ -414,6 +420,7 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     events.clear();
     requests.length = 0;
     profileChanges = {};
+    notifications.length = 0;
     return send(res, 200, {});
   }
   const row = drips.get(String(body.id));
@@ -436,6 +443,10 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     if (row.status === "completed") {
       row.completed_at = new Date().toISOString();
       log(row.id, "completed", { text_at_end_matches: true, provider_revisions: { count: 4, in_window: 3 } });
+      notifications.push({
+        id: `n${notifications.length + 1}`, drip_id: row.id, kind: "drip_completed", title: `"${row.document_title}" is finished`,
+        body: `All ${row.word_count} words are in the document.`, read_at: null, created_at: new Date().toISOString(),
+      });
     }
   }
   // Someone types in the document after TypeWit's text.

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ProgressRing } from "@/components/app/Charts";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 import { PRO_PRICE } from "@/lib/site";
-import { dailyResetTime } from "@/lib/time";
+import { dailyResetTime, span } from "@/lib/time";
 
 type Interval = "year" | "month";
 
@@ -18,6 +19,13 @@ const STATUS_TEXT: Record<string, string> = {
   unpaid: "Unpaid",
   incomplete: "Payment incomplete",
 };
+
+/** "250 words a day, sessions up to 1 hour, one at a time." from the plan's limits. */
+function describeLimits(limits: (typeof PLAN_LIMITS)[keyof typeof PLAN_LIMITS]): string {
+  const words = limits.dailyWords ? `${limits.dailyWords} words a day` : "Unlimited words";
+  const atOnce = limits.activeSessions === 1 ? "one at a time" : `${limits.activeSessions} at once`;
+  return `${words}, sessions up to ${span(limits.maxMinutes * 60_000)}, ${atOnce}.`;
+}
 
 export default function BillingPage() {
   const { profile, drips, wordsToday, refresh } = useDashboard();
@@ -71,12 +79,17 @@ export default function BillingPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Plan &amp; billing</h1>
-          <p>Your plan, today&apos;s usage and payments.</p>
+          <h1>Plan &amp; usage</h1>
+          <p>Your plan, what you&apos;ve used today, and payments.</p>
         </div>
+        {(isPro || profile.subscription_status === "canceled") && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={openPortal} disabled={busy}>
+            <Icon.card />{busy ? "Opening…" : isPro ? "Manage billing" : "Billing history"}
+          </button>
+        )}
       </div>
 
-      <div className="stack" style={{ marginBottom: "1.25rem" }}>
+      <div className="stack-4 mb-5" hidden={!(checkout || profile.subscription_status === "past_due" || error)}>
         {checkout === "success" && (
           <p className="alert alert-success" role="status">
             <span>Thank you! {isPro ? "You're on Pro." : "Your plan is updating; this can take a few seconds."}{" "}
@@ -90,49 +103,41 @@ export default function BillingPage() {
         {error && <p className="alert alert-error" role="alert">{error}</p>}
       </div>
 
-      <div className="grid-2" style={{ marginBottom: "1.5rem" }}>
-        <section className="card" aria-labelledby="plan-title">
-          <div className="card-head">
-            <h2 id="plan-title">Current plan</h2>
-            {profile.subscription_status && <span className="badge">{STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status}</span>}
+      <div className="kpis three mb-6">
+        <section className="kpi" aria-labelledby="plan-title">
+          <div className="kpi-text">
+            <h2 id="plan-title" className="kpi-label">Current plan</h2>
+            <p className="kpi-value">{isPro ? "Pro" : "Free"}</p>
+            <p className="kpi-note">
+              {profile.subscription_status ? `${STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status} · ` : ""}{describeLimits(limits)}
+            </p>
           </div>
-          <p style={{ fontSize: "1.75rem", fontWeight: 650, letterSpacing: "-0.03em" }}>{isPro ? "Pro" : "Free"}</p>
-          <p className="small muted" style={{ marginTop: "0.25rem" }}>
-            {isPro ? "Unlimited words, sessions up to a week, 3 at once." : "250 words a day, sessions up to 1 hour, one at a time."}
-          </p>
-          {(isPro || profile.subscription_status === "canceled") && (
-            <div className="row" style={{ marginTop: "1.25rem" }}>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={openPortal} disabled={busy}>
-                {busy ? "Opening…" : isPro ? "Manage billing" : "Billing history"}
-              </button>
-              {isPro && <span className="small muted">Card, invoices and cancellation</span>}
-            </div>
+          <span className="kpi-icon" aria-hidden="true"><Icon.card /></span>
+        </section>
+        <section className="kpi" aria-labelledby="usage-title">
+          <div className="kpi-text">
+            <h2 id="usage-title" className="kpi-label">Words today</h2>
+            <p className="kpi-value">{wordsToday.toLocaleString()}<small>{limits.dailyWords ? ` / ${limits.dailyWords}` : ""}</small></p>
+            <p className="kpi-note">{limits.dailyWords ? `Resets at ${dailyResetTime()} (midnight UTC)` : "No daily limit"}</p>
+          </div>
+          {limits.dailyWords && (
+            <span role="meter" aria-label="Words used today" aria-valuemin={0} aria-valuemax={limits.dailyWords} aria-valuenow={Math.min(wordsToday, limits.dailyWords)}>
+              <ProgressRing value={usagePercent} tone={usagePercent >= 90 ? "warn" : "accent"} />
+            </span>
           )}
         </section>
-
-        <section className="card" aria-labelledby="usage-title">
-          <div className="card-head">
-            <h2 id="usage-title">Usage today</h2>
-            <span className="small muted">Resets at {dailyResetTime()} (midnight UTC)</span>
+        <section className="kpi" aria-labelledby="active-title">
+          <div className="kpi-text">
+            <h2 id="active-title" className="kpi-label">Active sessions</h2>
+            <p className="kpi-value">{active}<small> / {limits.activeSessions}</small></p>
+            <p className="kpi-note">Each can run up to {span(limits.maxMinutes * 60_000)}</p>
           </div>
-          <p style={{ fontSize: "1.75rem", fontWeight: 650, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>
-            {wordsToday.toLocaleString()} <span className="small muted" style={{ fontWeight: 450, letterSpacing: 0 }}>{limits.dailyWords ? `of ${limits.dailyWords} words` : "words · unlimited"}</span>
-          </p>
-          {limits.dailyWords && (
-            <div className={`progress lg${usagePercent >= 90 ? " warn" : ""}`} role="meter" aria-label="Words used today"
-              aria-valuemin={0} aria-valuemax={limits.dailyWords} aria-valuenow={wordsToday} style={{ marginTop: "0.9rem" }}>
-              <span style={{ width: `${usagePercent}%` }} />
-            </div>
-          )}
-          <dl className="kv" style={{ marginTop: "1.25rem" }}>
-            <dt>Active sessions</dt><dd>{active} of {limits.activeSessions}</dd>
-            <dt>Longest session</dt><dd>{isPro ? "1 week" : "1 hour"}</dd>
-          </dl>
+          <span className="kpi-icon" aria-hidden="true"><Icon.activity /></span>
         </section>
       </div>
 
       {!isPro && (
-        <section className="plan featured" aria-labelledby="upgrade-title" style={{ marginBottom: "1.5rem" }}>
+        <section className="plan featured mb-6" aria-labelledby="upgrade-title">
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <div className="plan-top" style={{ justifyContent: "flex-start", gap: "0.6rem" }}>
@@ -148,8 +153,8 @@ export default function BillingPage() {
           <div className="grid-2" style={{ alignItems: "end", marginTop: "0.5rem" }}>
             <ul className="ticks" style={{ margin: "1rem 0 0" }}>
               {tick(<><strong>Unlimited</strong> words every day</>, "a")}
-              {tick(<>Sessions up to <strong>1 week</strong></>, "b")}
-              {tick(<><strong>3 documents</strong> at once</>, "c")}
+              {tick(<>Sessions up to <strong>{span(PLAN_LIMITS.pro.maxMinutes * 60_000)}</strong></>, "b")}
+              {tick(<><strong>{PLAN_LIMITS.pro.activeSessions} documents</strong> at once</>, "c")}
               {tick(<><strong>Priority</strong> email support</>, "d")}
             </ul>
             <div>

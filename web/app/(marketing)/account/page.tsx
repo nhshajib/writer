@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-/** Old address (still used by Stripe's return links): forwards to Plan & billing. */
+/** Old address (still used by Stripe's return links): forwards to Plan & usage. */
 export default function AccountRedirect() {
   useEffect(() => {
     // Password-reset links sent before /reset-password existed still land here.
@@ -12,5 +12,5 @@ export default function AccountRedirect() {
     }
     window.location.replace(`/app/billing/${window.location.search}`);
   }, []);
-  return <p role="status">Opening Plan & billing…</p>;
+  return <p role="status">Opening Plan & usage…</p>;
 }

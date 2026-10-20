@@ -26,7 +26,7 @@ export default function SupportPage() {
       <h3>My session stopped with an error</h3>
       <p>Open the session to see the reason in the activity log. Most problems are fixed by reconnecting Google and starting a new session with the remaining text.</p>
       <h3>How do I cancel Pro?</h3>
-      <p>Go to <Link href="/app/billing/">Plan &amp; billing</Link> and choose Manage billing. You keep Pro until the end of the period you've paid for.</p>
+      <p>Go to <Link href="/app/billing/">Plan &amp; usage</Link> and choose Manage billing. You keep Pro until the end of the period you've paid for.</p>
       <h3>How do I delete my account?</h3>
       <p>Go to <Link href="/app/settings/">Settings</Link> and choose Delete my account. It takes effect straight away. Cancel any Pro subscription first. You can also email <a href={`mailto:${SUPPORT_EMAIL}?subject=Delete%20my%20account`}>{SUPPORT_EMAIL}</a> from the address you signed up with.</p>
       <h3>Something else?</h3>

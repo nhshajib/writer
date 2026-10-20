@@ -64,7 +64,7 @@ export default function TermsPage() {
           refuse a trial where we reasonably believe it isn't a person's first.
         </li>
         <li>
-          <strong>Cancelling:</strong> cancel any time from Plan &amp; billing in your dashboard, then Manage billing. You keep Pro until the end of
+          <strong>Cancelling:</strong> cancel any time from Plan &amp; usage in your dashboard, then Manage billing. You keep Pro until the end of
           the period you've paid for, and you won't be charged again.
         </li>
         <li>

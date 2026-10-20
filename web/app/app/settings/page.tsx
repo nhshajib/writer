@@ -3,12 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Icon } from "@/components/Icons";
 import { useToast } from "@/components/Toast";
 import { api } from "@/lib/api";
 import { formatDate, useDashboard } from "@/lib/dashboard";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
+
+const SECTIONS = [
+  ["profile", "Profile", Icon.user],
+  ["notifications", "Notifications", Icon.bell],
+  ["security", "Security", Icon.lock],
+  ["privacy", "Data & privacy", Icon.shield],
+  ["danger", "Delete account", Icon.trash],
+] as const;
 
 export default function SettingsPage() {
   const { session, profile, connections, drips, notifications, displayName, setProfile, refresh } = useDashboard();
@@ -193,14 +202,18 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {error && (
-        <div style={{ marginBottom: "1.25rem" }}>
-          <p className="alert alert-error" role="alert">{error}</p>
-        </div>
-      )}
+      {error && <p className="alert alert-error mb-5" role="alert">{error}</p>}
 
+      <div className="settings-layout">
+      <nav className="settings-nav" aria-label="Settings sections">
+        <ul>
+          {SECTIONS.map(([id, label, SectionIcon]) => (
+            <li key={id}><a href={`#${id}`}><SectionIcon />{label}</a></li>
+          ))}
+        </ul>
+      </nav>
       <div className="settings">
-        <section className="setting" aria-labelledby="profile-title">
+        <section className="setting" id="profile" aria-labelledby="profile-title">
           <div><h2 id="profile-title">Profile</h2><p>How TypeWit greets you.</p></div>
           <div className="stack">
             <div className="row">
@@ -224,8 +237,8 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="setting" aria-labelledby="notify-title">
-          <div><h2 id="notify-title">Notifications</h2><p>Updates always appear on your Overview.</p></div>
+        <section className="setting" id="notifications" aria-labelledby="notify-title">
+          <div><h2 id="notify-title">Notifications</h2><p>Updates always appear under the bell at the top of every page.</p></div>
           <div className="stack" style={{ gap: 0 }}>
             <label className="check" htmlFor="email-completed">
               <input id="email-completed" type="checkbox" checked={emailOn.completed} disabled={busy === "email-completed"}
@@ -240,7 +253,7 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="setting" aria-labelledby="security-title">
+        <section className="setting" id="security" aria-labelledby="security-title">
           <div><h2 id="security-title">Security</h2><p>Keep your account safe.</p></div>
           {hasPassword
             ? (
@@ -287,7 +300,7 @@ export default function SettingsPage() {
             )}
         </section>
 
-        <section className="setting" aria-labelledby="agreement-title">
+        <section className="setting" id="privacy" aria-labelledby="agreement-title">
           <div><h2 id="agreement-title">Responsible use</h2><p>The agreement everyone accepts.</p></div>
           <p className="small" style={{ color: "var(--text-2)" }}>
             {profile.agreed_terms_version === CURRENT_TERMS_VERSION ? <>You accepted version {CURRENT_TERMS_VERSION}. </> : <>You haven&apos;t accepted the current version. </>}
@@ -325,13 +338,13 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="setting" aria-labelledby="danger-title">
+        <section className="setting danger-zone" id="danger" aria-labelledby="danger-title">
           <div><h2 id="danger-title">Delete account</h2><p>Permanent and can&apos;t be undone.</p></div>
           <div className="stack" style={{ gap: "0.75rem", justifyItems: "start" }}>
             <p className="small muted">
               Deletes your account, every session&apos;s saved text, schedule and activity log, your notifications and
               your Google connection, straight away. Unfinished sessions stop. Your documents are not touched.
-              {profile.plan === "pro" && <> Cancel Pro in <Link href="/app/billing">Plan &amp; billing</Link> first.</>}
+              {profile.plan === "pro" && <> Cancel Pro in <Link href="/app/billing">Plan &amp; usage</Link> first.</>}
             </p>
             {!deleteOpen
               ? <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteOpen(true)}>Delete my account…</button>
@@ -355,6 +368,7 @@ export default function SettingsPage() {
             <p className="hint">Questions first? Email <a href={deleteHref}>{SUPPORT_EMAIL}</a>.</p>
           </div>
         </section>
+      </div>
       </div>
     </>
   );

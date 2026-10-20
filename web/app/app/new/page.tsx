@@ -416,12 +416,13 @@ export default function NewSessionPage() {
           <p>Choose a document, add your text and set the pace. TypeWit enters it for you, step by step, as automated text entry.</p>
         </div>
       </div>
-      {fromNote && <p className="alert alert-info" role="status" style={{ marginBottom: "1rem", maxWidth: 860 }}>{fromNote}</p>}
+      {fromNote && <p className="alert alert-info mb-4" role="status">{fromNote}</p>}
 
-      <form className="card card-flush" onSubmit={onSubmit} noValidate aria-labelledby="new-title" style={{ maxWidth: 860 }}>
+      <form className="new-grid" onSubmit={onSubmit} noValidate aria-labelledby="new-title">
+        <div className="card card-flush new-main">
         <fieldset className="form-section">
           <legend className="sr-only">Document</legend>
-          <h2 aria-hidden="true">Document</h2>
+          <h2 aria-hidden="true"><span className="step-n">1</span>Document</h2>
           <p className="muted">
             Where the text should go. TypeWit always adds it at the end of the document. Writing in Microsoft Word? Start
             from the <Link href="/app/documents#word">TypeWit add-in in Word</Link>.
@@ -484,7 +485,7 @@ export default function NewSessionPage() {
         </fieldset>
 
         <div className="form-section">
-          <h2>Text</h2>
+          <h2><span className="step-n" aria-hidden="true">2</span>Text</h2>
           <p className="muted">Paste or dictate it here. It is entered exactly as written, in order, including line breaks.</p>
           <div className="field">
             {draft && !text && (
@@ -508,7 +509,7 @@ export default function NewSessionPage() {
 
         <fieldset className="form-section">
           <legend className="sr-only">Insertion mode</legend>
-          <h2 aria-hidden="true">Insertion mode</h2>
+          <h2 aria-hidden="true"><span className="step-n">3</span>Insertion mode</h2>
           <p className="muted">What each insertion adds to the document.</p>
           <div className="choices" role="radiogroup" aria-label="Insert one">
             {UNITS.map((u) => {
@@ -530,7 +531,7 @@ export default function NewSessionPage() {
 
         <fieldset className="form-section">
           <legend className="sr-only">Timing</legend>
-          <h2 aria-hidden="true">Timing</h2>
+          <h2 aria-hidden="true"><span className="step-n">4</span>Timing</h2>
           <p className="muted">Pick a total time, or a typing speed. Breaks and variation apply to both.</p>
           <div className="choices" role="radiogroup" aria-label="Timing mode">
             <label className="choice">
@@ -592,35 +593,10 @@ export default function NewSessionPage() {
             )}
           </div>
 
-          <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
-            onReshuffle={() => setSeed(undefined)} />
         </fieldset>
 
         <div className="form-section">
-          <h2>Before you start</h2>
-          <dl className="summary-list" aria-label="Session summary">
-            <dt>Document</dt><dd>{docLabel}</dd>
-            <dt>Insertion location</dt><dd>At the end of the document</dd>
-            <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
-            <dt>Text length</dt><dd>{words.toLocaleString()} words, {text.length.toLocaleString()} characters</dd>
-            <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
-            <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
-            <dt>Planned duration</dt>
-            <dd>
-              {current && preview.ok
-                ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
-                : "—"}
-            </dd>
-          </dl>
-          <p className="hint" style={{ marginTop: "0.75rem" }}>
-            Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
-            account. Google Docs decides how edits are grouped in its version history. TypeWit never adds typos, false
-            starts or fake corrections, and it runs on TypeWit&apos;s servers, so you can close this page.
-          </p>
-        </div>
-
-        <div className="form-section">
-          <h2>Review and approve</h2>
+          <h2><span className="step-n" aria-hidden="true">5</span>Review and approve</h2>
           <p className="muted">TypeWit enters exactly this text. Editing it clears your approval.</p>
           <div className="preview" tabIndex={0} role="region" aria-label="Text to approve">
             {text || <span className="pending">Your text will appear here.</span>}
@@ -634,18 +610,43 @@ export default function NewSessionPage() {
             Your text and its schedule are stored with TypeWit until you delete the session (Settings → Your data). The
             activity log records times and counts, not your text.
           </p>
-          {error && (
-            <div className="alert alert-error" role="alert" tabIndex={-1} ref={errorRef} style={{ marginTop: "0.75rem", display: "block" }}>
-              <p>{error}</p>
-              {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
-            </div>
-          )}
+        </div>
         </div>
 
-        <div className="form-actions">
-          <Link href="/app" className="btn btn-ghost">Cancel</Link>
-          <button type="submit" className="btn btn-primary" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>
-        </div>
+        <aside className="new-rail" aria-labelledby="summary-title">
+          <div className="card rail-card">
+            <h2 id="summary-title" className="card-title">Before you start</h2>
+            <dl className="summary-list" aria-label="Session summary">
+              <dt>Document</dt><dd>{docLabel}</dd>
+              <dt>Insertion location</dt><dd>At the end of the document</dd>
+              <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
+              <dt>Text length</dt><dd>{words.toLocaleString()} words, {text.length.toLocaleString()} characters</dd>
+              <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
+              <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
+              <dt>Planned duration</dt>
+              <dd>
+                {current && preview.ok
+                  ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
+                  : "—"}
+              </dd>
+            </dl>
+            <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
+              onReshuffle={() => setSeed(undefined)} />
+            {error && (
+              <div className="alert alert-error" role="alert" tabIndex={-1} ref={errorRef} style={{ marginTop: "1rem", display: "block" }}>
+                <p>{error}</p>
+                {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
+              </div>
+            )}
+            <button type="submit" className="btn btn-primary btn-lg btn-block mt-4" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>
+            <Link href="/app" className="btn btn-ghost btn-block btn-sm mt-2">Cancel</Link>
+            <p className="hint mt-4">
+              Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
+              account. TypeWit never adds typos, false starts or fake corrections, and it runs on TypeWit&apos;s servers,
+              so you can close this page.
+            </p>
+          </div>
+        </aside>
       </form>
     </>
   );

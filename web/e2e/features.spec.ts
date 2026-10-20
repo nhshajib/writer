@@ -80,6 +80,8 @@ test("unsent text is kept in this browser and can be restored or discarded", asy
 
 test("settings: email choices save with a confirmation, and deleting the account needs the email typed", async ({ page, request }) => {
   await page.goto("/app/settings/");
+  await expect(page.getByLabel("Email me when a session finishes.")).toBeChecked();
+  await expect(page.getByLabel("Email me when a session finishes.")).toBeEnabled();
   await page.getByLabel("Email me when a session finishes.").click();
   await expect(page.getByLabel("Email me when a session finishes.")).not.toBeChecked();
   await expect(page.locator(".toast")).toHaveText(/Saved\. We won't email you about that\./);

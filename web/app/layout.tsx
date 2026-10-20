@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
+import { THEME_SCRIPT } from "@/lib/themeScript";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://typewit.com"),
@@ -34,7 +35,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply a Light or Dark choice before the first paint, so the page doesn't flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <a href="#main" className="skip-link">Skip to main content</a>
         <RecoveryRedirect />
