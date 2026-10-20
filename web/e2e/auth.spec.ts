@@ -68,3 +68,84 @@ test("reset links that land on the home page are forwarded", async ({ page }) =>
   await page.goto("/#access_token=t&expires_in=3600&refresh_token=r&token_type=bearer&type=recovery");
   await page.waitForURL(/\/reset-password\//);
 });
+
+test("sign in comes first, and Join is one click away", async ({ page }) => {
+  await page.goto("/login/");
+  const tabs = page.getByRole("navigation", { name: "Sign in or join" });
+  await expect(tabs.getByRole("link", { name: "Sign in" })).toHaveAttribute("aria-current", "page");
+  await tabs.getByRole("link", { name: "Join" }).click();
+  await page.waitForURL(/\/signup\/?$/);
+  await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+});
+
+test("Terms, Privacy and the agreement open in place and close with Escape", async ({ page }) => {
+  await page.goto("/login/");
+  await page.getByLabel("Email").fill("me@gmail.com");
+  for (const [button, title] of [["Terms", "Terms of Service"], ["Privacy", "Privacy Policy"], ["Responsible use", "Responsible Use Agreement"]]) {
+    await page.getByRole("navigation", { name: "Policies and help" }).getByRole("button", { name: button }).click();
+    const dialog = page.getByRole("dialog", { name: title });
+    await expect(dialog).toBeVisible();
+    await expectNoAxeViolations(page);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  }
+  // Nothing typed was lost.
+  await expect(page.getByLabel("Email")).toHaveValue("me@gmail.com");
+});
+
+const year = new Date().getFullYear();
+
+async function aboutYou(page: Page, country: string, age: number) {
+  await page.getByLabel("Country you live in").selectOption(country);
+  await page.getByLabel("Month you were born").selectOption("1");
+  await page.getByLabel("Year you were born").selectOption(String(year - age));
+}
+
+test("joining under 18 needs a parent or guardian, and the answers go with the sign-up", async ({ page, request }) => {
+  await page.goto("/signup/");
+  await aboutYou(page, "US", 15);
+  const guardian = page.getByLabel(/A parent or guardian knows I'm using TypeWit/);
+  await expect(guardian).toBeVisible();
+  await page.getByLabel("I agree to the Responsible Use Agreement").check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.locator(".alert-error")).toHaveText(/parent or guardian agrees/);
+  await guardian.check();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  await expect(page.getByText("Step 2 of 2")).toBeVisible();
+  await page.getByLabel("Email").fill("teen@gmail.com");
+  await page.getByLabel("Password").fill("a good password");
+  await page.getByRole("button", { name: "Create free account" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+
+  const { requests } = await (await request.get("/__test/requests")).json();
+  const signup = requests.find((r: { path: string }) => r.path === "/auth/v1/signup");
+  expect(signup.body.data).toMatchObject({ country: "US", birth_year: year - 15, birth_month: 1, guardian_agreed: true });
+  expect(signup.body.data).not.toHaveProperty("birth_day");
+});
+
+test("someone below the minimum age is turned away, and a quick retry stays closed", async ({ page }) => {
+  await page.goto("/signup/");
+  await aboutYou(page, "GB", 12);
+  await expect(page.getByLabel(/A parent or guardian/)).toHaveCount(0);
+  await page.getByLabel("I agree to the Responsible Use Agreement").check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
+});
+
+test("an account without age answers is asked once before the dashboard", async ({ page, request }) => {
+  await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null } });
+  await page.addInitScript((session) => localStorage.setItem("sb-localhost-auth-token", JSON.stringify(session)), {
+    access_token: "e2e-token", refresh_token: "r", token_type: "bearer", expires_in: 86400,
+    expires_at: Math.floor(Date.now() / 1000) + 86400,
+    user: { id: "u1", aud: "authenticated", role: "authenticated", email: "me@gmail.com", user_metadata: {}, app_metadata: {} },
+  });
+  await page.goto("/app/");
+  await expect(page.getByRole("heading", { name: "One last step" })).toBeVisible();
+  await expectNoAxeViolations(page);
+  await aboutYou(page, "DE", 30);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Good (morning|afternoon|evening)/);
+});

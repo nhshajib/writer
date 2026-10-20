@@ -12,6 +12,12 @@ import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { StripeError, stripeRequest } from "../_shared/stripe.ts";
 
 const TRIAL_DAYS = "7";
+const ADULT_AGE = 18;
+
+/** Whole years from a month and year of birth; a birthday this month counts as not reached (as in public.age_from). */
+function ageFrom(year: number, month: number, now = new Date()): number {
+  return now.getUTCFullYear() - year - (now.getUTCMonth() + 1 <= month ? 1 : 0);
+}
 
 serve(async (req) => {
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed.");
@@ -53,10 +59,20 @@ async function checkout(
   const db = adminClient();
   const { data: profile, error } = await db
     .from("profiles")
-    .select("stripe_customer_id, subscription_status")
+    .select("stripe_customer_id, subscription_status, age_confirmed_at, birth_year, birth_month")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw new Error(error.message);
+  // Paying needs an adult. Under-18s' accounts can't start a subscription themselves.
+  if (!profile?.age_confirmed_at || profile.birth_year == null || profile.birth_month == null) {
+    throw new HttpError(403, "Open your dashboard and finish setting up your account first.");
+  }
+  if (ageFrom(profile.birth_year, profile.birth_month) < ADULT_AGE) {
+    throw new HttpError(
+      403,
+      "Pro has to be bought by an adult. Ask a parent or guardian to contact us from the help page.",
+    );
+  }
   if (profile?.subscription_status === "active" || profile?.subscription_status === "trialing") {
     throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
   }

@@ -51,7 +51,7 @@ export function AuthVisual() {
         <Link href="/" className="auth-visual-brand"><Logo /><span>Type<span>Wit</span></span></Link>
         <nav aria-label="Site" className="auth-visual-nav">
           <Link href="/pricing/">Pricing</Link>
-          <Link href={onSignup ? "/login" : "/signup"} className="pill">{onSignup ? "Sign in" : "Create account"}</Link>
+          <Link href={onSignup ? "/login/" : "/signup/"} className="pill">{onSignup ? "Sign in" : "Join"}</Link>
         </nav>
       </div>
 

@@ -3,7 +3,8 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
-import { recordPendingAgreement } from "./googleAuth";
+import { rememberAgeBlock } from "./age";
+import { recordPendingAge, recordPendingAgreement } from "./googleAuth";
 import { supabase } from "./supabase";
 import { CURRENT_TERMS_VERSION } from "./terms";
 import type { Connection, Drip } from "./types";
@@ -19,6 +20,10 @@ export interface Profile {
   agreed_terms_version: string | null;
   words_used_today: number;
   usage_date: string;
+  /** Set once the country and month and year of birth passed the age check. */
+  age_confirmed_at?: string | null;
+  birth_year?: number | null;
+  birth_month?: number | null;
 }
 
 export interface AppNotification {
@@ -80,7 +85,7 @@ export function useDashboardLoader() {
       const client = supabase();
       const [{ data: profile, error: profileError }, conns, list, { data: notes }] = await Promise.all([
         client.from("profiles")
-          .select("plan, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date")
+          .select("plan, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date, age_confirmed_at, birth_year, birth_month")
           .maybeSingle(),
         api<{ connections: Connection[] }>("drips/connections"),
         api<{ drips: Drip[] }>("drips"),
@@ -95,6 +100,17 @@ export function useDashboardLoader() {
       // Someone who ticked the agreement before choosing Google has it recorded now.
       if (current.agreed_terms_version !== CURRENT_TERMS_VERSION && await recordPendingAgreement()) {
         current = { ...current, agreed_terms_version: CURRENT_TERMS_VERSION };
+      }
+      // Age answers given on the Join form before using Google.
+      if (!current.age_confirmed_at) {
+        const age = await recordPendingAge();
+        if (age === "too_young") {
+          rememberAgeBlock();
+          await client.auth.signOut();
+          window.location.assign("/signup/");
+          return;
+        }
+        if (age === "ok") current = { ...current, age_confirmed_at: new Date().toISOString() };
       }
       setState({
         status: "ready",

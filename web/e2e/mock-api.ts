@@ -8,6 +8,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
+import { checkAge } from "../lib/age.ts";
 import { planSession } from "../../supabase/functions/_shared/plan.ts";
 import { computeProgress } from "../../supabase/functions/_shared/progress.ts";
 import { planResume } from "../../supabase/functions/_shared/session.ts";
@@ -148,6 +149,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       agreed_terms_version: TERMS,
       words_used_today: 0,
       usage_date: "",
+      age_confirmed_at: "2026-10-01T00:00:00Z",
+      birth_year: 1990,
+      birth_month: 5,
       ...profileChanges,
     };
     const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
@@ -167,6 +171,14 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path.startsWith("/rest/v1/notifications")) {
     if (method === "PATCH") for (const n of notifications) n.read_at ??= String(body.read_at ?? new Date().toISOString());
     return send(res, 200, [...notifications].reverse());
+  }
+  // The age check, with the same rules as the database's confirm_age.
+  if (path === "/rest/v1/rpc/confirm_age") {
+    const check = checkAge(String(body.country), Number(body.birth_year), Number(body.birth_month));
+    if (check === "too_young") return send(res, 200, "too_young");
+    if (check === "guardian" && !body.guardian) return send(res, 200, "guardian_needed");
+    Object.assign(profileChanges, { age_confirmed_at: new Date().toISOString(), birth_year: body.birth_year, birth_month: body.birth_month });
+    return send(res, 200, "ok");
   }
   if (path.startsWith("/rest/v1/")) return send(res, 200, []);
   // Enough of Supabase Auth for password sign-in and the password-reset link.
@@ -421,6 +433,11 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     requests.length = 0;
     profileChanges = {};
     notifications.length = 0;
+    return send(res, 200, {});
+  }
+  // Start from a profile that hasn't answered the age questions (e.g. after Google sign-in).
+  if (path === "/__test/profile") {
+    Object.assign(profileChanges, body);
     return send(res, 200, {});
   }
   const row = drips.get(String(body.id));

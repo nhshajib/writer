@@ -80,8 +80,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     );
   }
   if (!value) return null;
-  if (value.profile.agreed_terms_version !== CURRENT_TERMS_VERSION) {
-    return <AgreementGate onAgreed={() => value.setProfile({ agreed_terms_version: CURRENT_TERMS_VERSION })} />;
+  const needsAgreement = value.profile.agreed_terms_version !== CURRENT_TERMS_VERSION;
+  const needsAge = !value.profile.age_confirmed_at;
+  if (needsAgreement || needsAge) {
+    return <AgreementGate needsAgreement={needsAgreement} needsAge={needsAge} onDone={(update) => value.setProfile(update)} />;
   }
 
   const isCurrent = (href: string) =>

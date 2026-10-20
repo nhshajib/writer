@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 import { PRO_PRICE } from "@/lib/site";
+import { ADULT_AGE, ageFrom } from "@/lib/age";
 import { dailyResetTime, span } from "@/lib/time";
 
 type Interval = "year" | "month";
@@ -47,6 +48,8 @@ export default function BillingPage() {
   const isPro = profile.plan === "pro";
   const limits = PLAN_LIMITS[profile.plan];
   const active = drips.filter((d) => ACTIVE_STATUSES.has(d.status)).length;
+  // Pro has to be bought by an adult (the server refuses under-18s too).
+  const minor = profile.birth_year != null && profile.birth_month != null && ageFrom(profile.birth_year, profile.birth_month) < ADULT_AGE;
   const usagePercent = limits.dailyWords ? Math.min(100, Math.round((wordsToday / limits.dailyWords) * 100)) : 0;
 
   async function startTrial() {
@@ -160,10 +163,20 @@ export default function BillingPage() {
             <div>
               <div className="price" style={{ marginTop: "1rem" }}><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></div>
               <p className="price-note" style={{ marginBottom: "1rem" }}>{PRO_PRICE[interval].saving ? <span className="save">{PRO_PRICE[interval].saving}</span> : "Billed monthly"}</p>
-              <button type="button" className="btn btn-primary btn-block" onClick={startTrial} disabled={busy}>
-                {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
-              </button>
-              <p className="price-note center" style={{ marginTop: "0.6rem" }}>Nothing to pay today.</p>
+              {minor
+                ? (
+                  <p className="alert alert-info">
+                    <span>Pro has to be bought by an adult. A parent or guardian can contact us from the <Link href="/support/">help page</Link> to set it up for you.</span>
+                  </p>
+                )
+                : (
+                  <>
+                    <button type="button" className="btn btn-primary btn-block" onClick={startTrial} disabled={busy}>
+                      {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
+                    </button>
+                    <p className="price-note center" style={{ marginTop: "0.6rem" }}>Nothing to pay today.</p>
+                  </>
+                )}
             </div>
           </div>
         </section>
