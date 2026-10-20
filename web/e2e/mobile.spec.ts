@@ -176,21 +176,40 @@ test("Documents explains where Word sessions run", async ({ page }) => {
   await expectNoAxeViolations(page);
 });
 
-test("the public homepage on a phone: one action up top, a preview you can pause, and more features on request", async ({ page }) => {
+test("the public homepage on a phone works like an app screen", async ({ page }) => {
   await page.goto("/");
   const header = page.locator(".site-header");
   await expect(header.getByRole("link", { name: "Sign in" })).toBeVisible();
   await expect(header.getByRole("button", { name: /menu/i })).toBeHidden();
+  // The large title collapses into the bar once it scrolls away.
+  await expect(header).not.toHaveAttribute("data-title", "true");
+  await page.mouse.wheel(0, 500);
+  await expect(header).toHaveAttribute("data-title", "true");
 
+  // The bottom bar takes over the main action once the top button has gone.
+  const bar = page.locator(".get-bar");
+  await expect(bar).toHaveAttribute("data-shown", "true");
+  await expect(bar.getByRole("link", { name: "Get started free" })).toHaveAttribute("href", "/signup/");
+
+  // Previews: the first can be paused; the dots move between them.
   const preview = page.getByRole("figure", { name: /Preview · an example session/ });
   await preview.getByRole("button", { name: "Pause the example session" }).click();
-  await expect(preview.getByRole("button", { name: "Resume the example session" })).toHaveAttribute("aria-pressed", "true");
   await expect(preview).toContainText("Paused");
+  await page.getByRole("button", { name: "Show preview 3 of 3" }).click();
+  await expect(page.getByRole("button", { name: "Show preview 3 of 3" })).toHaveAttribute("aria-current", "true");
+
+  // Pricing as rows, with the real prices.
+  const prices = page.locator(".price-rows");
+  await expect(prices).toContainText("$0");
+  await expect(prices).toContainText("$5/mo");
+  await expect(prices).toContainText("$6.99 monthly");
 
   const features = page.getByRole("heading", { name: "A clear record" });
   await expect(features).toBeHidden();
   await page.getByRole("button", { name: "Show all 6 features" }).click();
   await expect(features).toBeVisible();
+  await expectNoAxeViolations(page);
+  await page.emulateMedia({ colorScheme: "dark" });
   await expectNoAxeViolations(page);
 });
 

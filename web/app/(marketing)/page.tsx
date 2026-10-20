@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
-import { LivePreview } from "@/components/marketing/LivePreview";
+import { GetStartedBar } from "@/components/marketing/GetStartedBar";
+import { PreviewCarousel } from "@/components/marketing/PreviewCarousel";
+import { Logo } from "@/components/Logo";
 import { MoreList } from "@/components/marketing/MoreList";
 import { pageMeta, SITE_URL } from "@/lib/seo";
 import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
@@ -104,6 +106,16 @@ export default function Home() {
             <p className="mk-lead">
               Paste or dictate your text, approve it, and let TypeWit enter it into your document at the pace you choose.
             </p>
+            <div className="app-id">
+              <span className="app-id-icon" aria-hidden="true"><Logo className="app-id-logo" /></span>
+              <span className="app-id-text"><strong>TypeWit</strong><span>Free · Google Docs and Word</span></span>
+              <Link href="/signup/" className="app-id-get" id="hero-cta">Get started</Link>
+            </div>
+            <dl className="app-facts">
+              <div><dt>Free plan</dt><dd>$0</dd><dd>250 words a day</dd></div>
+              <div><dt>Works with</dt><dd><Icon.doc /></dd><dd>Docs and Word</dd></div>
+              <div><dt>Built for</dt><dd><Icon.person /></dd><dd>Accessibility</dd></div>
+            </dl>
             <div className="mk-cta">
               <Link href="/signup/" className="btn btn-primary btn-lg">Get started free</Link>
               <a href="#how" className="btn btn-outline btn-lg"><span className="play" aria-hidden="true"><Icon.play /></span>See how it works</a>
@@ -115,7 +127,7 @@ export default function Home() {
             </ul>
           </div>
 
-          <LivePreview />
+          <PreviewCarousel />
         </div>
       </section>
 
@@ -170,6 +182,17 @@ export default function Home() {
         <div className="container">
           <p className="mk-kicker">Pricing</p>
           <h2 id="plans-title" className="mk-h2">Free to start. Pro when it gets long.</h2>
+          <ul className="price-rows">
+            <li>
+              <span className="pr-main"><strong>Free</strong><span>250 words a day · sessions up to 1 hour</span></span>
+              <span className="pr-price">$0</span>
+            </li>
+            <li>
+              <span className="pr-main"><strong>Pro <span className="badge badge-blue">7 days free</span></strong><span>Unlimited words · sessions up to a week</span></span>
+              <span className="pr-price"><span>{PRO_PRICE.year.amount}<small>/mo</small></span><em>billed yearly · or {PRO_PRICE.month.amount} monthly</em></span>
+            </li>
+            <li><Link href="/pricing/" className="pr-link">Compare plans<Icon.chevronRight /></Link></li>
+          </ul>
           <div className="mk-plans">
             <div className="mk-plan">
               <h3>Free</h3>
@@ -209,11 +232,6 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="mk-end-cta mobile-only">
-        <Link href="/signup/" className="btn btn-primary btn-lg btn-block">Get started free</Link>
-        <p>Free plan · No card needed</p>
-      </div>
-
       <section className="mk-section mk-final" aria-labelledby="cta-title">
         <div className="container">
           <div className="mk-cta-card">
@@ -224,6 +242,7 @@ export default function Home() {
         </div>
       </section>
 
+      <GetStartedBar />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
     </>
   );

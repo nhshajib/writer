@@ -22,6 +22,18 @@ export function Header() {
   useEffect(() => setOpen(false), [pathname]);
   // A hairline under the bar only once the page has scrolled, as on iOS.
   const [scrolled, setScrolled] = useState(false);
+  // On phones the page's large title collapses into a small one in the bar, as in iOS apps.
+  const [titleShown, setTitleShown] = useState(false);
+  useEffect(() => {
+    const big = document.getElementById("hero-title");
+    if (!big) {
+      setTitleShown(true);
+      return;
+    }
+    const o = new IntersectionObserver(([e]) => setTitleShown(!e.isIntersecting && e.boundingClientRect.top < 60), { rootMargin: "-52px 0px 0px 0px" });
+    o.observe(big);
+    return () => o.disconnect();
+  }, [pathname]);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
     onScroll();
@@ -45,10 +57,11 @@ export function Header() {
   );
 
   return (
-    <header className="site-header" data-scrolled={scrolled || undefined}>
+    <header className="site-header" data-scrolled={scrolled || undefined} data-title={titleShown || undefined}>
       <div className="container">
         <div className="bar">
           <Link href="/" className="brand" aria-label="TypeWit home"><Logo /><Wordmark /></Link>
+          <span className="nav-title" aria-hidden="true">TypeWit</span>
           <nav className="nav nav-center" aria-label="Main">{links}</nav>
           <div className="nav nav-end">
             {signedIn
