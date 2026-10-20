@@ -159,6 +159,8 @@ export interface EngineDeps {
   sleep(ms: number): Promise<void>;
   /** Epoch ms after which this run must not start waiting for another insertion. */
   deadline: number;
+  /** Pro: create permanent milestone revisions in the document's version history. */
+  createMilestones?: boolean;
 }
 
 export type Outcome = "waiting" | "retrying" | "paused" | "completed" | "lost";
@@ -275,6 +277,12 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
     }
     row.preflight_at = iso(deps.now());
     if (!(await store.update(row.id, lease, { preflight_at: row.preflight_at }))) return "lost";
+
+    // Pro: mark the document's current state as a permanent milestone before
+    // the first insertion, so File > Version history has a "before" checkpoint.
+    if (deps.createMilestones && provider.createMilestone) {
+      await provider.createMilestone(row.document_id).catch(() => {});
+    }
   }
 
   while (true) {
@@ -483,6 +491,12 @@ async function complete(row: SessionRow, lease: string, deps: EngineDeps): Promi
     } catch (error) {
       detail.provider_revisions = { unavailable: error instanceof Error ? error.message : String(error) };
     }
+  }
+
+  // Pro: mark the final revision as a permanent milestone so it is never
+  // auto-compressed — the "after" checkpoint in File > Version history.
+  if (deps.createMilestones && deps.provider.createMilestone) {
+    await deps.provider.createMilestone(row.document_id).catch(() => {});
   }
 
   const ok = await deps.store.update(row.id, lease, {

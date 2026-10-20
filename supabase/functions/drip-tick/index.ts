@@ -72,12 +72,19 @@ async function processDrip(drip: ClaimedDrip, connection: ConnectionRow | undefi
   const store = dbStore();
   try {
     if (!connection) throw new Error("The document account was disconnected.");
+    const { data: profile } = await adminClient()
+      .from("profiles")
+      .select("plan")
+      .eq("user_id", drip.user_id)
+      .maybeSingle();
+    const isPro = profile?.plan === "pro";
     outcome = await runSession(normalize(drip), drip.lease_id, {
       provider: providerFor(connection),
       store,
       now: () => Date.now(),
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       deadline,
+      createMilestones: isPro,
     });
   } catch (error) {
     // Setup failed (account gone, unsupported provider) or the database did:

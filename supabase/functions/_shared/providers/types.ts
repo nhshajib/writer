@@ -48,6 +48,11 @@ export interface DocProvider {
   probeEdit(documentId: string, revisionId: string): Promise<{ revisionId: string | null }>;
   /** Optional: what the provider's own version history reports, for the session log. */
   summarizeRevisions?(documentId: string, from: string, to: string): Promise<RevisionSummary>;
+  /**
+   * Optional (Pro): marks the document's latest revision as permanent so it is
+   * never auto-compressed in the provider's own version history.
+   */
+  createMilestone?(documentId: string): Promise<void>;
 }
 
 /**

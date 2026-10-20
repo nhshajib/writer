@@ -1252,6 +1252,19 @@ details.more > summary { cursor: pointer; min-height: 44px; display: flex; align
 .log li.late time, .log .late { color: var(--amber); }
 .log .sub { display: block; color: var(--muted); font-size: 0.8125rem; }
 
+/* Session timeline (Pro version history view) */
+.timeline-wrap { font-size: 0.875rem; }
+.session-timeline { list-style: none; position: relative; padding-left: 1.5rem; }
+.session-timeline::before { content: ""; position: absolute; left: 0.4375rem; top: 0.5rem; bottom: 0.5rem; width: 2px; background: var(--border); }
+.session-timeline li { position: relative; display: flex; gap: 0.875rem; padding: 0.55rem 0; }
+.session-timeline li:first-child { padding-top: 0; }
+.session-timeline li:last-child { padding-bottom: 0; }
+.session-timeline .dot { position: absolute; left: -1.5rem; top: 0.35rem; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--border); border: 2px solid var(--surface); flex-shrink: 0; }
+.session-timeline .dot-complete { background: var(--green, #22c55e); }
+.session-timeline .dot-pause { background: var(--amber, #f59e0b); }
+.session-timeline li > div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.session-timeline p { margin: 0; }
+
 /* Pace settings */
 .settings-group { border: 1px solid var(--border); border-radius: var(--r); padding: 1rem; margin-top: 1rem; }
 .settings-group > legend { padding: 0 0.35rem; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }

@@ -17,6 +17,7 @@ export const PRO_FEATURES = [
   "Typing speed and custom timing",
   "Saved pace presets",
   "Start sessions later",
+  "Permanent milestones in Google Docs version history",
   "Priority email support",
 ];
 
@@ -32,6 +33,7 @@ export const PLAN_COMPARISON: { feature: string; free: string; pro: string }[] =
   { feature: "Start a session later", free: "No", pro: "Yes" },
   { feature: "Pause, resume and stop", free: "Yes", pro: "Yes" },
   { feature: "Activity log with download", free: "Yes", pro: "Yes" },
+  { feature: "Permanent milestones in Google Docs version history", free: "No", pro: "Yes" },
   { feature: "Google Docs and Microsoft Word", free: "Yes", pro: "Yes" },
   { feature: "Every accessibility feature", free: "Yes", pro: "Yes" },
   { feature: "Email support", free: "Yes", pro: "Priority" },

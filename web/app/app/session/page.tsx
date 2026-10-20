@@ -245,6 +245,7 @@ function SessionView() {
     | { count?: number; in_window?: number; unavailable?: string }
     | undefined;
 
+  const isPro = dashboard.profile?.plan === "pro";
   const etaLabel = drip.status === "completed" ? "Finished" : paused ? "Finish if resumed now" : "Expected completion";
   const eta = drip.status === "completed" && progress.finish_at ? when(progress.finish_at)
     : paused && progress.finish_if_resumed_now ? when(progress.finish_if_resumed_now)
@@ -398,8 +399,10 @@ function SessionView() {
                   <>
                     <div className="tab-head">
                       <p className="small muted">
-                        TypeWit&apos;s own record: when each part was planned and entered, pauses, retries and problems. It&apos;s separate
-                        from {docName} version history, which groups edits, so the two won&apos;t match one to one.
+                        TypeWit&apos;s own record: when each part was planned and entered, pauses, retries and problems.
+                        {isPro && drip.provider === "google" && completed
+                          ? " Permanent milestones were saved in Google Docs version history at the start and end of this session."
+                          : ` It's separate from ${docName} version history, which groups edits, so the two won't match one to one.`}
                       </p>
                       <button type="button" className="btn btn-ghost btn-sm" onClick={downloadLog}><Icon.download />Download CSV</button>
                     </div>
@@ -442,6 +445,75 @@ function SessionView() {
                     </div>
                   </div>
                 ),
+              },
+              {
+                title: <><Icon.activity />Timeline</>,
+                content: (() => {
+                  const insertions = [...events].reverse().filter((e) => e.kind === "chunk_written");
+                  const createdEv = [...events].reverse().find((e) => e.kind === "created");
+                  const pauseEvents = [...events].reverse().filter((e) => e.kind === "paused" || e.kind === "resumed");
+                  const allTimed = [...(createdEv ? [createdEv] : []), ...insertions,
+                    ...pauseEvents, ...(completed ? [completed] : [])].sort(
+                    (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
+                  );
+                  return (
+                    <div className="timeline-wrap">
+                      {!isPro && drip.provider === "google" && (
+                        <p className="alert alert-info small mb-3">
+                          <strong>Pro:</strong> Permanent milestones are preserved in Google Docs version history at the start and end of each session.{" "}
+                          <Link href="/app/billing">Upgrade to Pro</Link>
+                        </p>
+                      )}
+                      {isPro && drip.provider === "google" && completed && (
+                        <p className="alert alert-info small mb-3">
+                          Permanent milestones were saved in Google Docs version history. Open{" "}
+                          File &gt; Version history in your document to see them.
+                        </p>
+                      )}
+                      {allTimed.length === 0 && (
+                        <p className="small muted">No activity recorded yet.</p>
+                      )}
+                      <ol className="session-timeline" aria-label="Session timeline">
+                        {allTimed.map((e, i) => {
+                          const d = e.detail as Detail;
+                          let label = "";
+                          let sub = "";
+                          let dot = "dot";
+                          if (e.kind === "created") {
+                            label = "Session created";
+                            sub = str(d.starts_at) ? `Scheduled to start ${when(str(d.starts_at)!)}` : "Starts immediately";
+                          } else if (e.kind === "chunk_written") {
+                            const written = num(d.written) ?? 0;
+                            const total2 = num(d.total) ?? progress.chunks_total;
+                            const chars = num(d.chars) ?? 0;
+                            const pct = total2 > 0 ? Math.round(written / total2 * 100) : 0;
+                            label = `Part ${written} of ${total2} entered`;
+                            sub = `${chars} characters · ${pct}%`;
+                            dot = written === total2 ? "dot dot-complete" : "dot";
+                          } else if (e.kind === "paused") {
+                            label = d.by === "system" ? "Paused by TypeWit" : "Paused by you";
+                            dot = "dot dot-pause";
+                          } else if (e.kind === "resumed") {
+                            label = "Resumed";
+                          } else if (e.kind === "completed") {
+                            label = "Session completed";
+                            dot = "dot dot-complete";
+                          }
+                          return (
+                            <li key={`tl-${i}`}>
+                              <span className={dot} aria-hidden="true" />
+                              <div>
+                                <time dateTime={e.created_at} className="small muted">{when(e.created_at, true)}</time>
+                                <p>{label}</p>
+                                {sub && <p className="small muted">{sub}</p>}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  );
+                })(),
               },
               {
                 title: <><Icon.gear />Settings &amp; data</>,

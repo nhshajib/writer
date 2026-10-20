@@ -195,6 +195,34 @@ export class GoogleDocsProvider implements DocProvider {
   }
 
   /**
+   * Marks the latest Drive revision as keepRevisionForever so it is never
+   * auto-compressed in Google Docs version history (Pro milestone feature).
+   * Best-effort: silently ignores errors so it never breaks a session.
+   */
+  async createMilestone(documentId: string): Promise<void> {
+    // Revisions are returned in chronological order; last page holds the latest.
+    let latestId: string | undefined;
+    let pageToken = "";
+    for (let page = 0; page < 10; page++) {
+      const query = new URLSearchParams({ fields: "nextPageToken,revisions(id)", pageSize: "200" });
+      if (pageToken) query.set("pageToken", pageToken);
+      const body = await this.request<{ nextPageToken?: string; revisions?: { id?: string }[] }>(
+        `${DRIVE_API}/${encodeURIComponent(documentId)}/revisions?${query}`,
+        { method: "GET" },
+      );
+      const ids = (body.revisions ?? []).map((r) => r.id).filter(Boolean) as string[];
+      if (ids.length > 0) latestId = ids[ids.length - 1];
+      if (!body.nextPageToken) break;
+      pageToken = body.nextPageToken;
+    }
+    if (!latestId) return;
+    await this.request(
+      `${DRIVE_API}/${encodeURIComponent(documentId)}/revisions/${encodeURIComponent(latestId)}`,
+      { method: "PATCH", body: JSON.stringify({ keepRevisionForever: true }) },
+    );
+  }
+
+  /**
    * Lists the file's revisions through the Drive API (allowed by drive.file for
    * files TypeWit created or the user picked). Needs the Drive API enabled in
    * the Google Cloud project; otherwise this throws and the log says so.
