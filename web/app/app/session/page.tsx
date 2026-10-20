@@ -10,6 +10,7 @@ import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { ProgressRing } from "@/components/app/Charts";
 import { Popover } from "@/components/app/Popover";
+import { Problem } from "@/components/app/Problem";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Tabs } from "@/components/app/Tabs";
 import { Icon } from "@/components/Icons";
@@ -334,7 +335,7 @@ function SessionView() {
             </ConnectionReport>
           )}
         </div>
-        {drip.status === "failed" && drip.last_error && <p className="alert alert-error" role="alert">Writing stopped: {drip.last_error}</p>}
+        {drip.status === "failed" && drip.last_error && <div className="alert alert-error" role="alert"><span>Writing stopped. <Problem message={drip.last_error} /></span></div>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         {offline && <p className="alert alert-info" role="status">Can&apos;t reach TypeWit right now. Showing the last known state; this page retries on its own. The session keeps running on the server.</p>}
       </div>
@@ -357,7 +358,7 @@ function SessionView() {
                 </p>
                 {progress.next_chunk_at && countdown !== null && (
                   <p className="countdown" aria-hidden="true">
-                    {activity === "on_break" ? "Back from break" : `Part ${progress.chunks_written + 1}`} {countdown === 0 ? "any moment" : <>in <strong>{clock(countdown)}</strong></>}
+                    {activity === "on_break" ? "Back from break" : `Part ${progress.chunks_written + 1} planned`} {countdown === 0 ? "any moment" : <>in <strong>{clock(countdown)}</strong></>}
                   </p>
                 )}
                 <div className="progress lg" role="progressbar" aria-label="Text confirmed in the document" aria-valuemin={0} aria-valuemax={100}
@@ -407,7 +408,7 @@ function SessionView() {
                         return (
                           <li key={`${event.created_at}-${i}`} className={late ? "late" : undefined}>
                             <time dateTime={event.created_at}>{when(event.created_at, true)}</time>
-                            <span>{text}{sub && <span className="sub">{sub}</span>}</span>
+                            <span>{text}{sub && <span className="sub"><Problem message={sub} /></span>}</span>
                           </li>
                         );
                       })}
@@ -526,7 +527,7 @@ function AttentionPanel({ attention, message, nextPart, needsConfirm, busy, onRe
   return (
     <section className="attention" role="alert" aria-labelledby="attention-title">
       <h2 id="attention-title">{ATTENTION_TITLE[attention]}</h2>
-      <p className="small">{message}</p>
+      <p className="small"><Problem message={message} /></p>
       {needsConfirm && nextPart && (
         <>
           <p className="small" style={{ marginTop: "0.5rem" }}>Look at the end of the document for this part:</p>

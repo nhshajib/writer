@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CommandPalette } from "@/components/app/CommandPalette";
+import { TabBar } from "@/components/app/mobile/TabBar";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { UserMenu } from "@/components/app/UserMenu";
 import { AgreementGate } from "@/components/dashboard/AgreementGate";
@@ -61,6 +62,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  useScrollRestoration(pathname);
+
   if (!session || state.status === "loading") {
     return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />Loading your dashboard…</div>;
   }
@@ -94,6 +97,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const limit = PLAN_LIMITS.free.dailyWords;
   const used = Math.min(value.wordsToday, limit);
   const needsYou = value.drips.filter((d) => d.status === "paused" && d.attention).length;
+  // Creating a session is a focused flow: no tab bar, its own Back and Continue.
+  const focused = pathname === "/app/new";
 
   const navItem = ({ href, label, icon: NavIcon }: (typeof MAIN_NAV)[number]) => (
     <li key={href}>
@@ -148,12 +153,44 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           </header>
-          <main id="main" className="app-main" tabIndex={-1}>
+          <main id="main" className="app-main" tabIndex={-1} data-tabs={!focused}>
             <div className="app-inner">{children}</div>
           </main>
+          {!focused && <TabBar needsYou={needsYou} />}
         </div>
       </div>
       </ToastProvider>
     </DashboardProvider>
   );
+}
+
+/**
+ * Returns to the same place in a list after going Back from a detail page.
+ * Positions are kept per address for this tab only.
+ */
+function useScrollRestoration(pathname: string) {
+  const back = useRef(false);
+  useEffect(() => {
+    const onPop = () => { back.current = true; };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    const key = `typewit:scroll:${pathname}${window.location.search}`;
+    if (back.current) {
+      back.current = false;
+      const y = Number(sessionStorage.getItem(key) ?? 0);
+      // Wait for the list to render before scrolling.
+      if (y) requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+    }
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        try { sessionStorage.setItem(key, String(Math.round(window.scrollY))); } catch { /* storage blocked */ }
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pathname]);
 }

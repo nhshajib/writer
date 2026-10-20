@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icons";
+import { Sheet } from "@/components/app/mobile/Sheet";
+import { useIsMobile } from "@/lib/useMediaQuery";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
@@ -23,6 +25,11 @@ import {
 } from "@/lib/types";
 
 type Timing = TimingMode | "asap";
+
+/** On phones the form is shown as five steps; the fields and checks are the same as on desktop. */
+const STEP_NAMES = ["Document", "Text", "Insertion", "Timing", "Review and start"];
+/** The field to focus when a step has a problem. */
+const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 4: ["custom-minutes", "duration", "start-at"] };
 type Target = "new" | "existing";
 
 /** Plan limits shown in the form. The server enforces the same values. */
@@ -138,6 +145,11 @@ export default function NewSessionPage() {
   const [startLater, setStartLater] = useState(false);
   const [startAt, setStartAt] = useState(() => localInputValue(new Date(Date.now() + 60 * 60 * 1000)));
   const errorRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const [step, setStep] = useState(1);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const stepHeading = useRef<HTMLParagraphElement>(null);
   // One id per Start press, so a repeated request can't start a second session.
   const requestId = useRef<string>(crypto.randomUUID());
   // Set synchronously, so two clicks in the same moment can't both submit.
@@ -333,6 +345,46 @@ export default function NewSessionPage() {
     }
   }
 
+  /** What's missing in one step, checked only when moving on from it (phones). */
+  function stepProblem(n: number): string | null {
+    if (n === 1) {
+      if (!connectionId) return "Connect your Google account first.";
+      if (target === "new" && !title.trim()) return "Give the new document a title.";
+      if (target === "existing" && !chosenDoc) return "Choose a document.";
+      if (target === "existing" && chosenDoc?.busy) return "That document already has an unfinished session.";
+    }
+    if (n === 2) {
+      if (words === 0) return "Add the text you want entered.";
+      if (overWords) return `Your plan allows ${limits.words} words a day. Shorten the text or upgrade to Pro.`;
+    }
+    if (n === 4) {
+      if (timing === "duration" && !minutesValid) return "Choose a duration between 1 minute and 1 week.";
+      const startTime = startLater ? new Date(startAt) : null;
+      if (startTime && !(startTime.getTime() > Date.now())) return "Choose a start time in the future.";
+      if (startTime && startTime.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) return "Sessions can be scheduled up to 7 days ahead.";
+      if (current && !preview.ok) return preview.problems.map((p) => p.message).join(" ");
+    }
+    return null;
+  }
+
+  function goToStep(next: number) {
+    setStep(next);
+    setStepError(null);
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => stepHeading.current?.focus());
+  }
+
+  function continueStep() {
+    const problem = stepProblem(step);
+    if (problem) {
+      setStepError(problem);
+      const field = (STEP_FIELDS[step] ?? []).map((id) => document.getElementById(id)).find((el) => el && el.offsetParent !== null);
+      field?.focus();
+      return;
+    }
+    goToStep(step + 1);
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (starting.current) return;
@@ -413,14 +465,16 @@ export default function NewSessionPage() {
       <div className="page-head">
         <div>
           <h1 id="new-title">New session</h1>
-          <p>Choose a document, add your text and set the pace. TypeWit enters it for you, step by step, as automated text entry.</p>
+          {isMobile
+            ? <p className="step-indicator" ref={stepHeading} tabIndex={-1} aria-live="polite">Step {step} of 5 · {STEP_NAMES[step - 1]}</p>
+            : <p>Choose a document, add your text and set the pace. TypeWit enters it for you, step by step, as automated text entry.</p>}
         </div>
       </div>
       {fromNote && <p className="alert alert-info mb-4" role="status">{fromNote}</p>}
 
-      <form className="new-grid" onSubmit={onSubmit} noValidate aria-labelledby="new-title">
+      <form className="new-grid" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-mobile-step={isMobile ? step : undefined}>
         <div className="card card-flush new-main">
-        <fieldset className="form-section">
+        <fieldset className="form-section" data-step-section="1">
           <legend className="sr-only">Document</legend>
           <h2 aria-hidden="true"><span className="step-n">1</span>Document</h2>
           <p className="muted">
@@ -484,7 +538,7 @@ export default function NewSessionPage() {
           <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
         </fieldset>
 
-        <div className="form-section">
+        <div className="form-section" data-step-section="2">
           <h2><span className="step-n" aria-hidden="true">2</span>Text</h2>
           <p className="muted">Paste or dictate it here. It is entered exactly as written, in order, including line breaks.</p>
           <div className="field">
@@ -507,7 +561,7 @@ export default function NewSessionPage() {
           </div>
         </div>
 
-        <fieldset className="form-section">
+        <fieldset className="form-section" data-step-section="3">
           <legend className="sr-only">Insertion mode</legend>
           <h2 aria-hidden="true"><span className="step-n">3</span>Insertion mode</h2>
           <p className="muted">What each insertion adds to the document.</p>
@@ -529,7 +583,7 @@ export default function NewSessionPage() {
           </div>
         </fieldset>
 
-        <fieldset className="form-section">
+        <fieldset className="form-section" data-step-section="4">
           <legend className="sr-only">Timing</legend>
           <h2 aria-hidden="true"><span className="step-n">4</span>Timing</h2>
           <p className="muted">Pick a total time, or a typing speed. Breaks and variation apply to both.</p>
@@ -575,7 +629,7 @@ export default function NewSessionPage() {
             </div>
           )}
 
-          {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} />}
+          {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} collapsed={isMobile} />}
 
           <div className="field" style={{ marginTop: "1.25rem" }}>
             <label className="check" htmlFor="start-later">
@@ -588,14 +642,16 @@ export default function NewSessionPage() {
                 <input id="start-at" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)}
                   min={localInputValue(new Date())} max={localInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))}
                   aria-describedby="start-at-hint" />
-                <span id="start-at-hint" className="hint">Up to 7 days ahead. The schedule below counts from this time.</span>
+                <span id="start-at-hint" className="hint">
+                  Your time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Up to 7 days ahead. The schedule counts from this time.
+                </span>
               </div>
             )}
           </div>
 
         </fieldset>
 
-        <div className="form-section">
+        <div className="form-section" data-step-section="5">
           <h2><span className="step-n" aria-hidden="true">5</span>Review and approve</h2>
           <p className="muted">TypeWit enters exactly this text. Editing it clears your approval.</p>
           <div className="preview" tabIndex={0} role="region" aria-label="Text to approve">
@@ -613,7 +669,7 @@ export default function NewSessionPage() {
         </div>
         </div>
 
-        <aside className="new-rail" aria-labelledby="summary-title">
+        <aside className="new-rail" aria-labelledby="summary-title" data-step-section="5">
           <div className="card rail-card">
             <h2 id="summary-title" className="card-title">Before you start</h2>
             <dl className="summary-list" aria-label="Session summary">
@@ -638,8 +694,12 @@ export default function NewSessionPage() {
                 {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
               </div>
             )}
-            <button type="submit" className="btn btn-primary btn-lg btn-block mt-4" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>
-            <Link href="/app" className="btn btn-ghost btn-block btn-sm mt-2">Cancel</Link>
+            {!isMobile && (
+              <>
+                <button type="submit" className="btn btn-primary btn-lg btn-block mt-4" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>
+                <Link href="/app" className="btn btn-ghost btn-block btn-sm mt-2">Cancel</Link>
+              </>
+            )}
             <p className="hint mt-4">
               Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
               account. TypeWit never adds typos, false starts or fake corrections, and it runs on TypeWit&apos;s servers,
@@ -647,7 +707,33 @@ export default function NewSessionPage() {
             </p>
           </div>
         </aside>
+        {isMobile && (
+          <div className="step-bar">
+            {stepError && <p className="alert alert-error" role="alert">{stepError}</p>}
+            <div className="step-bar-row">
+              <button type="button" className="btn btn-secondary btn-lg" onClick={() => (step > 1 ? goToStep(step - 1) : setLeaving(true))}>
+                {step > 1 ? "Back" : "Exit"}
+              </button>
+              {step < 5
+                // Different keys: the tap on Continue must not land on a submit button swapped into its place.
+                ? <button key="continue" type="button" className="btn btn-primary btn-lg" onClick={continueStep}>Continue</button>
+                : <button key="start" type="submit" className="btn btn-primary btn-lg" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>}
+            </div>
+          </div>
+        )}
       </form>
+
+      <Sheet open={leaving} onClose={() => setLeaving(false)} title="Leave without starting?" dismissible={false}>
+        <p className="sheet-text">
+          {text.trim()
+            ? "Your text stays saved as a draft in this browser, so you can pick up where you left off. Your approval and settings aren't kept."
+            : "Nothing has been started."}
+        </p>
+        <div className="stack-4">
+          <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => setLeaving(false)}>Keep editing</button>
+          <button type="button" className="btn btn-secondary btn-lg btn-block" onClick={() => router.push("/app/")}>Leave</button>
+        </div>
+      </Sheet>
     </>
   );
 }

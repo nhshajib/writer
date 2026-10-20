@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { Problem } from "@/components/app/Problem";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { friendlyError } from "@/lib/errors";
 import { Icon } from "@/components/Icons";
 import { useSessionControl } from "@/lib/sessionActions";
 import { clock, when } from "@/lib/time";
@@ -16,14 +18,14 @@ export function statusLine(drip: Drip, now: number): string {
   }
   if (drip.status === "completed") return p.finish_at ? `Finished ${when(p.finish_at)}` : "Finished";
   if (drip.status === "canceled") return "Stopped";
-  if (drip.status === "failed") return drip.last_error ? `Stopped: ${drip.last_error}` : "Stopped by an error";
+  if (drip.status === "failed") return drip.last_error ? `Stopped: ${friendlyError(drip.last_error)?.title ?? drip.last_error}` : "Stopped by an error";
   if (drip.session_started_at && Date.parse(drip.session_started_at) > now && p.chunks_written === 0) {
     return `Starts ${when(drip.session_started_at)}`;
   }
   if (p.activity === "on_break" && p.current_break) return `On a planned break until ${when(p.current_break.end)}`;
   if (p.next_chunk_at) {
     const s = Math.max(0, Math.ceil((Date.parse(p.next_chunk_at) - now) / 1000));
-    return s === 0 ? "Next part any moment" : `Next part in ${clock(s)}`;
+    return s === 0 ? "Next part due any moment" : `Next part planned in ${clock(s)}`;
   }
   return p.activity ? ACTIVITY_LABEL[p.activity] : "Waiting";
 }
@@ -102,7 +104,7 @@ export function AttentionCard({ drip, control }: { drip: Drip; control: ReturnTy
           <Link href={`/app/session?id=${drip.id}`}>{title}</Link>
           <span>{failed ? "Stopped by an error" : drip.attention ? ATTENTION_TITLE[drip.attention] : "Paused"}</span>
         </p>
-        {drip.last_error && <p className="small muted">{drip.last_error}</p>}
+        {drip.last_error && <p className="small muted"><Problem message={drip.last_error} /></p>}
         {error && <p className="error-text" role="alert">{error}</p>}
       </div>
       <div className="attention-actions">

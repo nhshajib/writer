@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
 import { pageMeta, SITE_URL } from "@/lib/seo";
-import { PRO_PRICE } from "@/lib/site";
+import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   ...pageMeta(
@@ -59,8 +59,11 @@ const FAQ = [
 const STRUCTURED_DATA = {
   "@context": "https://schema.org",
   "@graph": [
+    { "@type": "Organization", "@id": `${SITE_URL}/#organization`, name: "TypeWit", url: `${SITE_URL}/`, logo: `${SITE_URL}/brand/mark-512.png`, email: SUPPORT_EMAIL },
+    { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: "TypeWit", url: `${SITE_URL}/`, publisher: { "@id": `${SITE_URL}/#organization` } },
     {
       "@type": "SoftwareApplication",
+      publisher: { "@id": `${SITE_URL}/#organization` },
       name: "TypeWit",
       url: `${SITE_URL}/`,
       applicationCategory: "ProductivityApplication",

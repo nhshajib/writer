@@ -114,11 +114,12 @@ export default function HomePage() {
         </div>
       </div>
 
+      <div className="home">
       {googleStatus === "connected" && <p className="alert alert-success mb-5" role="status">Your Google account is connected.</p>}
       {googleStatus === "error" && <p className="alert alert-error mb-5" role="alert">We couldn&apos;t connect your Google account. Please try again.</p>}
 
       {isNew && (
-        <section className="card mb-6" aria-labelledby="setup-title">
+        <section className="card mb-6 home-setup" aria-labelledby="setup-title">
           <div className="card-head">
             <h2 id="setup-title">Get started</h2>
             <span className="small muted">Takes about two minutes</span>
@@ -148,14 +149,15 @@ export default function HomePage() {
       )}
 
       {needsYou.length > 0 && (
-        <section className="needs-you mb-6" aria-labelledby="needs-title">
+        <section className="needs-you mb-6 home-needs" aria-labelledby="needs-title">
           <h2 id="needs-title" className="section-title"><Icon.alert />Needs your attention</h2>
           <ul>{needsYou.map((d) => <AttentionCard key={d.id} drip={d} control={control} />)}</ul>
         </section>
       )}
 
       {drips.length > 0 && (
-        <section aria-label="At a glance" className="kpis mb-6">
+        <section aria-label="At a glance" className="kpis mb-6 home-kpis">
+          <div className="kpi-pair">
           <div className="kpi">
             <div className="kpi-text">
               <p className="kpi-label">Words today</p>
@@ -178,6 +180,8 @@ export default function HomePage() {
             </div>
             <span className="kpi-icon" aria-hidden="true"><Icon.activity /></span>
           </div>
+          </div>
+          <div className="kpi-pair">
           <div className="kpi">
             <div className="kpi-text">
               <p className="kpi-label">Words this week</p>
@@ -194,13 +198,14 @@ export default function HomePage() {
             </div>
             <span className="kpi-icon good" aria-hidden="true"><Icon.check /></span>
           </div>
+          </div>
         </section>
       )}
 
       {drips.length > 0 && (
         <div className="home-grid">
           <div className="stack-6">
-            <section aria-labelledby="live-title">
+            <section aria-labelledby="live-title" className="home-live">
               <div className="block-head">
                 <h2 id="live-title" className="section-title">Live now{live.length > 0 && <span className="count-pill">{live.length}</span>}</h2>
                 <Link href="/app/sessions" className="small">All sessions</Link>
@@ -217,7 +222,9 @@ export default function HomePage() {
                 : <div className="live-grid">{live.map((d) => <LiveSessionCard key={d.id} drip={d} now={now} control={control} />)}</div>}
             </section>
 
-            <section className="card" aria-labelledby="week-title">
+            {live.length > 0 && <Link href="/app/new/" className="btn btn-primary btn-lg btn-block mobile-only home-new"><Icon.plus /> New session</Link>}
+
+            <section className="card home-week" aria-labelledby="week-title">
               <div className="card-head">
                 <div>
                   <h2 id="week-title">Words entered, last 7 days</h2>
@@ -229,8 +236,8 @@ export default function HomePage() {
             </section>
           </div>
 
-          <aside className="rail stack-6" aria-label="Today and recent">
-            <section className="card" aria-labelledby="today-title">
+          <div className="rail stack-6">
+            <section className="card home-today" aria-labelledby="today-title">
               <div className="card-head">
                 <h2 id="today-title">Today</h2>
                 <span className="small muted">{new Date(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}</span>
@@ -252,7 +259,7 @@ export default function HomePage() {
                 )}
             </section>
 
-            <section className="card card-flush" aria-labelledby="recent-title">
+            <section className="card card-flush home-recent" aria-labelledby="recent-title">
               <div className="card-head">
                 <h2 id="recent-title">Recent</h2>
                 <Link href="/app/sessions" className="small">View all</Link>
@@ -276,9 +283,10 @@ export default function HomePage() {
                 )}
             </section>
 
-          </aside>
+          </div>
         </div>
       )}
+      </div>
     </>
   );
 }

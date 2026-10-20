@@ -13,6 +13,7 @@ export function NotificationBell() {
   return (
     <Popover
       label={unread ? `Updates, ${unread} unread` : "Updates"}
+      title="Updates"
       buttonClass="icon-btn bell"
       panelClass="updates-panel"
       button={<><Icon.bell />{unread > 0 && <span className="bell-count" aria-hidden="true">{unread > 9 ? "9+" : unread}</span>}</>}

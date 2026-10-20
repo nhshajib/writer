@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ProgressRing } from "@/components/app/Charts";
 import { statusLine, titleOf } from "@/components/app/SessionCards";
+import { Problem } from "@/components/app/Problem";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
@@ -107,7 +108,7 @@ export function SessionPreview({ drip, onClose, control }: {
                     return (
                       <li key={`${event.created_at}-${i}`} className={late ? "late" : undefined}>
                         <time dateTime={event.created_at}>{when(event.created_at, true)}</time>
-                        <span>{text}{sub && <span className="sub">{sub}</span>}</span>
+                        <span>{text}{sub && <span className="sub"><Problem message={sub} compact /></span>}</span>
                       </li>
                     );
                   })}

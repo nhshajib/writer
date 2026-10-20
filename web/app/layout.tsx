@@ -2,10 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
+import { INDEXABLE, SITE_URL } from "@/lib/seo";
 import { THEME_SCRIPT } from "@/lib/themeScript";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://typewit.com"),
+  metadataBase: new URL(SITE_URL),
+  ...(INDEXABLE ? {} : { robots: { index: false, follow: false } }),
+  appleWebApp: { capable: true, title: "TypeWit", statusBarStyle: "default" },
   title: {
     default: "TypeWit · Your words in Google Docs and Word, without typing",
     template: "%s · TypeWit",
@@ -20,13 +23,17 @@ export const metadata: Metadata = {
   openGraph: {
     title: "TypeWit",
     description: "Your words in Google Docs and Word, without typing.",
-    url: "https://typewit.com",
+    url: SITE_URL,
     siteName: "TypeWit",
     type: "website",
   },
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Lets the layout reach the screen edges on iPhone; safe-area padding keeps content clear.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0b0b0c" },

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "@/components/app/Popover";
 import { titleOf } from "@/components/app/SessionCards";
 import { SessionPreview } from "@/components/app/SessionPreview";
@@ -23,6 +24,8 @@ const FILTERS: { key: Filter; label: string; match: (d: Drip) => boolean }[] = [
 ];
 
 
+const SORTS: [Sort, string][] = [["newest", "Newest first"], ["oldest", "Oldest first"], ["title", "Document A–Z"]];
+
 const csvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
 export default function SessionsPage() {
@@ -30,6 +33,28 @@ export default function SessionsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("newest");
   const [query, setQuery] = useState("");
+  const router = useRouter();
+  const restored = useRef(false);
+
+  // The filter, search and order live in the address, so Back from a session returns to the same list.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const f = params.get("filter");
+    const o = params.get("sort");
+    if (FILTERS.some((x) => x.key === f)) setFilter(f as Filter);
+    if (o === "oldest" || o === "title") setSort(o);
+    setQuery(params.get("q") ?? "");
+    restored.current = true;
+  }, []);
+  useEffect(() => {
+    if (!restored.current) return;
+    const params = new URLSearchParams();
+    if (filter !== "all") params.set("filter", filter);
+    if (query.trim()) params.set("q", query.trim());
+    if (sort !== "newest") params.set("sort", sort);
+    const next = params.size ? `?${params}` : window.location.pathname;
+    if (`${window.location.search}` !== (params.size ? `?${params}` : "")) router.replace(next, { scroll: false });
+  }, [filter, query, sort, router]);
   // The dashboard holds the newest 100 sessions; older ones load on request.
   const [older, setOlder] = useState<Drip[]>([]);
   const [hasMore, setHasMore] = useState(dashboard.drips.length >= 100);
@@ -101,9 +126,10 @@ export default function SessionsPage() {
           <h1>Sessions</h1>
           <p>{drips.length ? `${drips.length} session${drips.length === 1 ? "" : "s"}${active ? ` · ${active} active` : ""}. Click one for a quick look.` : "Everything you've asked TypeWit to enter."}</p>
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={visible.length === 0}>
+        <button type="button" className="btn btn-secondary btn-sm desktop-only" onClick={exportCsv} disabled={visible.length === 0}>
           <Icon.download />Export CSV{visible.length !== drips.length ? ` (${visible.length} shown)` : ""}
         </button>
+        <Link href="/app/new/" className="btn btn-primary mobile-only"><Icon.plus /> New session</Link>
       </div>
 
       {drips.length === 0
@@ -131,11 +157,35 @@ export default function SessionsPage() {
                   <input id="search" type="search" placeholder="Search documents" value={query} onChange={(e) => setQuery(e.target.value)} />
                 </span>
                 <label htmlFor="sort" className="sr-only">Sort sessions</label>
-                <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} style={{ width: "auto" }}>
+                <select id="sort" className="desktop-only" value={sort} onChange={(e) => setSort(e.target.value as Sort)} style={{ width: "auto" }}>
                   <option value="newest">Newest first</option>
                   <option value="oldest">Oldest first</option>
                   <option value="title">Document A–Z</option>
                 </select>
+                <span className="mobile-only">
+                  <Popover label="Sort and export" title="Sort and export" buttonClass="btn btn-secondary btn-icon" button={<Icon.more />}>
+                    {(close) => (
+                      <>
+                        <fieldset className="sheet-choices">
+                          <legend>Sort by</legend>
+                          {SORTS.map(([key, label]) => (
+                            <label key={key} className="row-item">
+                              <input type="radio" name="sort-sheet" checked={sort === key} onChange={() => { setSort(key); close(); }} />
+                              <span className="row-label">{label}</span>
+                            </label>
+                          ))}
+                        </fieldset>
+                        <ul className="menu-list">
+                          <li>
+                            <button type="button" onClick={() => { exportCsv(); close(); }} disabled={visible.length === 0}>
+                              <Icon.download />Export CSV ({visible.length} shown)
+                            </button>
+                          </li>
+                        </ul>
+                      </>
+                    )}
+                  </Popover>
+                </span>
               </div>
             </div>
             <p className="sr-only" role="status">{visible.length} sessions shown</p>

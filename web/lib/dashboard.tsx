@@ -138,6 +138,25 @@ export function useDashboardLoader() {
     };
   }, [session, refresh]);
 
+  // Coming back to the app (another tab, the phone waking up, back online): show the server's current state.
+  useEffect(() => {
+    if (!session) return;
+    let last = Date.now();
+    const revisit = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 5_000) return;
+      last = Date.now();
+      refresh();
+    };
+    document.addEventListener("visibilitychange", revisit);
+    window.addEventListener("online", revisit);
+    window.addEventListener("focus", revisit);
+    return () => {
+      document.removeEventListener("visibilitychange", revisit);
+      window.removeEventListener("online", revisit);
+      window.removeEventListener("focus", revisit);
+    };
+  }, [session, refresh]);
+
   const hasActive = state.status === "ready" && state.drips.some((d) => ACTIVE_STATUSES.has(d.status));
   useEffect(() => {
     if (!hasActive) return;
