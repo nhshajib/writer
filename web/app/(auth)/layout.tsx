@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { AuthFooter, AuthTabs } from "@/components/auth/AuthChrome";
 import { AuthVisual } from "@/components/auth/AuthVisual";
 import { Icon } from "@/components/Icons";
@@ -18,7 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
           <main id="main" tabIndex={-1} className="auth-main">
             <div className="auth-main-inner">
-              <Suspense><AuthTabs /></Suspense>
+              <AuthTabs />
               {children}
             </div>
           </main>

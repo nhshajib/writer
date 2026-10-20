@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { PRO_PRICE } from "@/lib/site";
@@ -52,7 +52,8 @@ const FAQ: { q: string; a: string }[] = [
 
 function PricingContent() {
   const router = useRouter();
-  const params = useSearchParams();
+  // Read after load (not useSearchParams), so the whole page is in the pre-rendered HTML for search engines.
+  const [canceled, setCanceled] = useState(false);
   const [interval, setInterval] = useState<Interval>("year");
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -60,6 +61,7 @@ function PricingContent() {
 
   useEffect(() => {
     supabase().auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    setCanceled(new URLSearchParams(window.location.search).get("checkout") === "canceled");
   }, []);
 
   async function startPro() {
@@ -90,7 +92,7 @@ function PricingContent() {
             Simple pricing. <span className="soft">Start free.</span>
           </h1>
           <p className="lead">Try every Pro feature free for 7 days. Cancel any time.</p>
-          {params.get("checkout") === "canceled" && (
+          {canceled && (
             <p className="alert alert-info" role="status" style={{ maxWidth: 460, margin: "1.5rem auto 0" }}>
               Checkout was canceled. You haven't been charged.
             </p>
@@ -182,9 +184,5 @@ function PricingContent() {
 }
 
 export default function PricingPage() {
-  return (
-    <Suspense>
-      <PricingContent />
-    </Suspense>
-  );
+  return <PricingContent />;
 }

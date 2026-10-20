@@ -199,7 +199,7 @@ export default function SessionsPage() {
                     <thead>
                       <tr>
                         <th scope="col">Document</th><th scope="col">Status</th><th scope="col">Progress</th>
-                        <th scope="col">Words</th><th scope="col">Started</th><th scope="col"><span className="sr-only">Actions</span></th>
+                        <th scope="col">Words</th><th scope="col" className="hide-md">Started</th><th scope="col"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -226,7 +226,7 @@ export default function SessionsPage() {
                               </div>
                             </td>
                             <td className="num">{d.progress.words_written} / {d.progress.words_total}</td>
-                            <td className="num">{formatRelative(d.created_at)}</td>
+                            <td className="num hide-md">{formatRelative(d.created_at)}</td>
                             <td className="row-actions">
                               {running && (
                                 <button type="button" className="icon-btn" title="Pause" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "pause")}>
