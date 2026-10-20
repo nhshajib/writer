@@ -1935,3 +1935,6 @@ a.row-item:active, button.row-item:active { background: var(--surface-2); }
   .invoice-table td[data-label="Invoice"] { grid-column: 1 / -1; grid-row: 3; }
   .billing-invoices .card-head { padding: 1rem 1rem 0.5rem; }
 }
+.price-move { display: flex; align-items: center; justify-content: space-between; gap: 1rem 1.5rem; flex-wrap: wrap; }
+.price-move h2 { font-size: 1rem; font-weight: 650; margin-bottom: 0.2rem; }
+.price-move > div { flex: 1 1 22rem; }

@@ -2,7 +2,8 @@
 //
 //   POST /billing/checkout   { interval: "month" | "year" }  ->  { url }
 //   POST /billing/portal     { flow?: PortalFlow }           ->  { url }
-//   POST /billing/summary                                    ->  { subscription, card, invoices, email }
+//   POST /billing/summary                                    ->  { subscription, card, invoices, email, current_price, outdated_price }
+//   POST /billing/reprice    moves a subscription on an older, higher price to today's price
 //
 // Checkout starts a Pro subscription. The 7-day trial (card required) is only
 // offered if this person's normalized email has never claimed one.
@@ -33,6 +34,7 @@ serve(async (req) => {
     if (action === "checkout") return await checkout(user, secretKey, appUrl, req);
     if (action === "portal") return await portal(user.id, secretKey, appUrl, req);
     if (action === "summary") return await summary(user.id, secretKey);
+    if (action === "reprice") return await reprice(user.id, secretKey);
   } catch (error) {
     if (error instanceof StripeError) {
       console.error("Stripe error", error.status, error.message);
@@ -115,7 +117,12 @@ async function createCustomer(user: { id: string; email: string | null }, secret
   return customer.id;
 }
 
-const PORTAL_FLOWS = ["payment_method_update", "subscription_cancel", "subscription_update"] as const;
+const PORTAL_FLOWS = [
+  "payment_method_update",
+  "subscription_cancel",
+  "subscription_update",
+  "switch_interval",
+] as const;
 type PortalFlow = typeof PORTAL_FLOWS[number];
 
 async function customerFor(userId: string): Promise<string | null> {
@@ -138,11 +145,29 @@ interface StripeSubscription {
   default_payment_method: StripePaymentMethod | null;
   items: {
     data: {
+      id: string;
       current_period_start?: number;
       current_period_end?: number;
-      price: { unit_amount: number | null; currency: string; recurring: { interval: string } | null };
+      price: { id: string; unit_amount: number | null; currency: string; recurring: { interval: string } | null };
     }[];
   };
+}
+
+interface StripePrice {
+  id: string;
+  unit_amount: number | null;
+  currency: string;
+  recurring: { interval: string } | null;
+}
+
+/** Today's Pro price for an interval, from the same settings checkout uses. */
+async function currentPrice(interval: string | null | undefined, secretKey: string): Promise<StripePrice | null> {
+  const id = interval === "year"
+    ? Deno.env.get("STRIPE_PRICE_YEARLY")
+    : interval === "month"
+    ? Deno.env.get("STRIPE_PRICE_MONTHLY")
+    : undefined;
+  return id ? await stripeGet<StripePrice>(secretKey, `prices/${id}`) : null;
 }
 
 interface StripePaymentMethod {
@@ -171,14 +196,24 @@ async function portal(userId: string, secretKey: string, appUrl: string, req: Re
 
   const params: Record<string, string> = { customer, return_url: returnUrl };
   if (flow) {
-    params["flow_data[type]"] = flow;
+    params["flow_data[type]"] = flow === "switch_interval" ? "subscription_update_confirm" : flow;
     if (flow !== "payment_method_update") {
-      // The subscription is looked up here, never taken from the request.
+      // The subscription and the prices are looked up here, never taken from the request.
       const subscription = await latestSubscription(customer, secretKey);
       if (!subscription || subscription.status === "canceled") {
         throw new HttpError(409, "There's no subscription to change.");
       }
-      params[`flow_data[${flow}][subscription]`] = subscription.id;
+      if (flow === "switch_interval") {
+        // Straight to Stripe's confirmation page for today's price on the other interval.
+        const item = subscription.items.data[0];
+        const other = await currentPrice(item?.price.recurring?.interval === "year" ? "month" : "year", secretKey);
+        if (!item || !other) throw new HttpError(409, "There's no other plan to switch to.");
+        params["flow_data[subscription_update_confirm][subscription]"] = subscription.id;
+        params["flow_data[subscription_update_confirm][items][0][id]"] = item.id;
+        params["flow_data[subscription_update_confirm][items][0][price]"] = other.id;
+      } else {
+        params[`flow_data[${flow}][subscription]`] = subscription.id;
+      }
     }
     params["flow_data[after_completion][type]"] = "redirect";
     params["flow_data[after_completion][redirect][return_url]"] = returnUrl;
@@ -228,6 +263,9 @@ async function summary(userId: string, secretKey: string): Promise<Response> {
   ]);
 
   const item = subscription?.items.data[0];
+  const today = subscription && subscription.status !== "canceled"
+    ? await currentPrice(item?.price.recurring?.interval, secretKey)
+    : null;
   const method = subscription?.default_payment_method ?? customerRecord.invoice_settings?.default_payment_method ??
     null;
   return noStore({
@@ -242,6 +280,13 @@ async function summary(userId: string, secretKey: string): Promise<Response> {
       cancel_at_period_end: subscription.cancel_at_period_end,
       trial_end: subscription.trial_end,
     },
+    current_price: today
+      ? { amount: today.unit_amount, currency: today.currency, interval: today.recurring?.interval ?? null }
+      : null,
+    // On an older price that is higher than today's: offer the move.
+    outdated_price: Boolean(
+      today && item && item.price.id !== today.id && (today.unit_amount ?? 0) <= (item.price.unit_amount ?? 0),
+    ),
     card: method?.card
       ? {
         brand: method.card.brand,
@@ -264,6 +309,31 @@ async function summary(userId: string, secretKey: string): Promise<Response> {
         pdf: i.invoice_pdf,
       })),
   });
+}
+
+/**
+ * Moves the subscription to today's price for its interval. Only ever lowers the price; the
+ * change applies from the next renewal (or the end of the trial) and nothing is charged now.
+ */
+async function reprice(userId: string, secretKey: string): Promise<Response> {
+  const customer = await customerFor(userId);
+  if (!customer) throw new HttpError(404, "You don't have a billing account yet.");
+  const subscription = await latestSubscription(customer, secretKey);
+  const item = subscription?.items.data[0];
+  if (!subscription || !item || subscription.status === "canceled") {
+    throw new HttpError(409, "There's no subscription to change.");
+  }
+  const today = await currentPrice(item.price.recurring?.interval, secretKey);
+  if (!today || today.id === item.price.id) throw new HttpError(409, "You're already on today's price.");
+  if ((today.unit_amount ?? 0) > (item.price.unit_amount ?? 0)) {
+    throw new HttpError(409, "Your current price is already lower than today's, so it stays.");
+  }
+  await stripeRequest(secretKey, `subscriptions/${subscription.id}`, {
+    "items[0][id]": item.id,
+    "items[0][price]": today.id,
+    proration_behavior: "none",
+  });
+  return await summary(userId, secretKey);
 }
 
 function noStore(body: unknown): Response {

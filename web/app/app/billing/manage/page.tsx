@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard";
 
-type Flow = "payment_method_update" | "subscription_cancel" | "subscription_update";
+type Flow = "payment_method_update" | "subscription_cancel" | "subscription_update" | "switch_interval";
 
 interface Summary {
   email: string | null;
@@ -21,6 +21,9 @@ interface Summary {
     trial_end: number | null;
   } | null;
   card: { brand: string; last4: string; exp_month: number; exp_year: number } | null;
+  /** Today's Pro price for the subscription's interval, and whether the subscription is on an older, higher one. */
+  current_price?: { amount: number | null; currency: string; interval: string | null } | null;
+  outdated_price?: boolean;
   invoices: {
     id: string;
     number: string | null;
@@ -58,6 +61,8 @@ export default function ManageBillingPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [repricing, setRepricing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -82,6 +87,19 @@ export default function ManageBillingPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't open billing.");
       setOpening(null);
+    }
+  }
+
+  async function moveToTodaysPrice() {
+    setRepricing(true);
+    setError(null);
+    try {
+      setSummary(await api<Summary>("billing/reprice", { method: "POST", body: {} }));
+      setNotice("Done. Your subscription is on today's price from your next payment.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't change the price.");
+    } finally {
+      setRepricing(false);
     }
   }
 
@@ -122,8 +140,25 @@ export default function ManageBillingPage() {
         </section>
       )}
 
+      {notice && <p className="alert alert-success mb-5" role="status">{notice}</p>}
+
       {summary && sub && (
         <>
+          {summary.outdated_price && summary.current_price?.amount != null && sub.amount != null && (
+            <section className="alert alert-info mb-5 price-move" aria-labelledby="move-title">
+              <div>
+                <h2 id="move-title">Pro costs less now</h2>
+                <p>
+                  You&apos;re on an earlier price of {moneyExact(sub.amount, sub.currency)} a {sub.interval ?? "period"}. Pro is now{" "}
+                  {moneyExact(summary.current_price.amount, summary.current_price.currency)} a {summary.current_price.interval ?? sub.interval}.
+                  Moving applies from {sub.status === "trialing" && sub.trial_end ? `the end of your trial on ${date(sub.trial_end)}` : sub.period_end ? `your next payment on ${date(sub.period_end)}` : "your next payment"}, and nothing is charged now.
+                </p>
+              </div>
+              <button type="button" className="btn btn-primary" onClick={moveToTodaysPrice} disabled={repricing || opening !== null}>
+                {repricing ? "Moving…" : "Move to the new price"}
+              </button>
+            </section>
+          )}
           <div className="billing-grid">
             <section className="card billing-sub" aria-labelledby="sub-title">
               <div className="card-head">
@@ -169,7 +204,7 @@ export default function ManageBillingPage() {
                   <button type="button" className="btn btn-primary" onClick={() => openPortal("change", "subscription_update")} disabled={opening !== null}>
                     {opening === "change" ? "Opening…" : "Change plan"}
                   </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => openPortal("switch", "subscription_update")} disabled={opening !== null}>
+                  <button type="button" className="btn btn-secondary" onClick={() => openPortal("switch", "switch_interval")} disabled={opening !== null}>
                     {opening === "switch" ? "Opening…" : yearly ? "Switch to monthly" : "Switch to yearly"}
                   </button>
                 </div>

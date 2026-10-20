@@ -153,6 +153,14 @@ test("Manage billing shows the subscription, card and invoices, and each change 
   await page.waitForURL(/\/app\/billing\/manage\/?$/);
   const sub = page.getByRole("region", { name: "Subscription" });
   await expect(sub).toContainText("TypeWit Pro");
+  // On an older, higher price: the move to today's price is offered and changes nothing until pressed.
+  await expect(sub).toContainText("Billed yearly at $108");
+  const move = page.getByRole("region", { name: "Pro costs less now" });
+  await expect(move).toContainText("$108.00 a year");
+  await expect(move).toContainText("$60.00 a year");
+  await move.getByRole("button", { name: "Move to the new price" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "today's price" })).toBeVisible();
+  await expect(move).toBeHidden();
   await expect(sub).toContainText("$5 / month");
   await expect(sub).toContainText("Billed yearly at $60");
   await expect(page.getByRole("region", { name: "Payment method" })).toContainText("Visa ending in 4242");
@@ -164,9 +172,13 @@ test("Manage billing shows the subscription, card and invoices, and each change 
   await page.getByRole("button", { name: "Update payment method" }).click();
   await page.waitForURL(/__test\/portal/);
   await page.goBack();
+  await page.getByRole("button", { name: "Switch to monthly" }).click();
+  await page.waitForURL(/__test\/portal/);
+  await page.goBack();
   await page.getByRole("button", { name: "Cancel subscription" }).click();
   await page.waitForURL(/__test\/portal/);
   const { requests } = await (await request.get("/__test/requests")).json();
   const flows = requests.filter((r: { path: string }) => r.path === "/functions/v1/billing/portal").map((r: { body: { flow?: string } }) => r.body.flow);
-  expect(flows).toEqual(["payment_method_update", "subscription_cancel"]);
+  expect(flows).toEqual(["payment_method_update", "switch_interval", "subscription_cancel"]);
+  expect(requests.filter((r: { path: string }) => r.path === "/functions/v1/billing/reprice").length).toBe(1);
 });

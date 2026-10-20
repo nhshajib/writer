@@ -102,6 +102,7 @@ function planFrom(body: Record<string, unknown>, seed: number) {
 }
 
 let profileChanges: Record<string, unknown> = {};
+let billingRepriced = false;
 const notifications: { id: string; drip_id: string; kind: string; title: string; body: string; read_at: string | null; created_at: string }[] = [];
 
 const MOCK_USER = {
@@ -196,12 +197,16 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path.startsWith("/auth/v1/")) return send(res, 200, {});
 
   // Billing: Stripe's test card and made-up invoices, never real payment data.
-  if (path === "/functions/v1/billing/summary") {
+  if (path === "/functions/v1/billing/summary" || path === "/functions/v1/billing/reprice") {
+    // The test subscription starts on an older, higher yearly price until it is moved.
+    if (path.endsWith("/reprice")) billingRepriced = true;
     const day = 86_400;
     const now = Math.floor(Date.now() / 1000);
     return send(res, 200, {
       email: MOCK_USER.email,
-      subscription: { status: "active", interval: "year", amount: 6000, currency: "usd", period_start: now - 30 * day, period_end: now + 335 * day, cancel_at_period_end: false, trial_end: null },
+      subscription: { status: "active", interval: "year", amount: billingRepriced ? 6000 : 10800, currency: "usd", period_start: now - 30 * day, period_end: now + 335 * day, cancel_at_period_end: false, trial_end: null },
+      current_price: { amount: 6000, currency: "usd", interval: "year" },
+      outdated_price: !billingRepriced,
       card: { brand: "visa", last4: "4242", exp_month: 8, exp_year: 2030 },
       invoices: [0, 1].map((n) => ({
         id: `in_test_${n}`, number: `TEST-000${n + 1}`, created: now - (30 + 365 * n) * day, amount: 6000, currency: "usd", status: "paid",
@@ -448,6 +453,7 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     events.clear();
     requests.length = 0;
     profileChanges = {};
+    billingRepriced = false;
     notifications.length = 0;
     return send(res, 200, {});
   }
