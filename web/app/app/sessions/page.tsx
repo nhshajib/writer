@@ -34,7 +34,7 @@ export default function SessionsPage() {
   const [sort, setSort] = useState<Sort>("newest");
   const [query, setQuery] = useState("");
   const router = useRouter();
-  const restored = useRef(false);
+  const [restored, setRestored] = useState(false);
 
   // The filter, search and order live in the address, so Back from a session returns to the same list.
   useEffect(() => {
@@ -44,17 +44,18 @@ export default function SessionsPage() {
     if (FILTERS.some((x) => x.key === f)) setFilter(f as Filter);
     if (o === "oldest" || o === "title") setSort(o);
     setQuery(params.get("q") ?? "");
-    restored.current = true;
+    setRestored(true);
   }, []);
   useEffect(() => {
-    if (!restored.current) return;
+    // Only after the saved filter is applied, or the first pass would erase it from the address.
+    if (!restored) return;
     const params = new URLSearchParams();
     if (filter !== "all") params.set("filter", filter);
     if (query.trim()) params.set("q", query.trim());
     if (sort !== "newest") params.set("sort", sort);
     const next = params.size ? `?${params}` : window.location.pathname;
     if (`${window.location.search}` !== (params.size ? `?${params}` : "")) router.replace(next, { scroll: false });
-  }, [filter, query, sort, router]);
+  }, [filter, query, sort, router, restored]);
   // The dashboard holds the newest 100 sessions; older ones load on request.
   const [older, setOlder] = useState<Drip[]>([]);
   const [hasMore, setHasMore] = useState(dashboard.drips.length >= 100);
@@ -124,7 +125,7 @@ export default function SessionsPage() {
       <div className="page-head">
         <div>
           <h1>Sessions</h1>
-          <p>{drips.length ? `${drips.length} session${drips.length === 1 ? "" : "s"}${active ? ` · ${active} active` : ""}. Click one for a quick look.` : "Everything you've asked TypeWit to enter."}</p>
+          <p>{drips.length ? `${drips.length} session${drips.length === 1 ? "" : "s"}${active ? ` · ${active} active` : ""}. Open one to see its progress.` : "Everything you've asked TypeWit to enter."}</p>
         </div>
         <button type="button" className="btn btn-secondary btn-sm desktop-only" onClick={exportCsv} disabled={visible.length === 0}>
           <Icon.download />Export CSV{visible.length !== drips.length ? ` (${visible.length} shown)` : ""}

@@ -95,7 +95,7 @@ export function CommandPalette() {
 
   return (
     <>
-      <button type="button" className="search-btn" onClick={open} aria-keyshortcuts="Control+K Meta+K">
+      <button type="button" className="search-btn" onClick={open} aria-keyshortcuts="Control+K Meta+K" aria-label="Search sessions and pages">
         <Icon.search /><span>Search sessions and pages</span><kbd aria-hidden="true">{mac ? "⌘" : "Ctrl"} K</kbd>
       </button>
       <dialog ref={dialog} className="palette" aria-label="Search" onClick={(e) => e.target === dialog.current && dialog.current?.close()}>

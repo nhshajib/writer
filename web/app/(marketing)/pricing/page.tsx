@@ -159,7 +159,7 @@ function PricingContent() {
               <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Pro</th></tr></thead>
               <tbody>
                 {COMPARE.map((row) => (
-                  <tr key={row.feature}><th scope="row">{row.feature}</th><td>{row.free}</td><td><strong>{row.pro}</strong></td></tr>
+                  <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Pro"><strong>{row.pro}</strong></td></tr>
                 ))}
               </tbody>
             </table>

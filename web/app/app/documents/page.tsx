@@ -180,7 +180,8 @@ export default function DocumentsPage() {
         </details>
         <p className="hint">
           Word sessions run only while the document and the TypeWit panel are open. If you close them, nothing is entered
-          and the rest of the schedule moves later when you come back. Pause, resume and stop also work from this website.
+          and the rest of the schedule moves later when you come back. Word sessions start inside Word, not from this
+          website or a phone browser; pause, resume and stop also work from here.
         </p>
       </section>
       </div>
@@ -213,9 +214,9 @@ export default function DocumentsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="num hide-sm">{doc.account}</td>
-                      <td className="num">{doc.sessions} · {doc.words.toLocaleString()} words</td>
-                      <td className="num">{formatRelative(doc.lastUsed)}</td>
+                      <td className="num hide-sm" data-label="Account">{doc.account}</td>
+                      <td className="num" data-label="Sessions">{doc.sessions} · {doc.words.toLocaleString()} words</td>
+                      <td className="num" data-label="Last used">{formatRelative(doc.lastUsed)}</td>
                       <td>
                         <div className="row" style={{ justifyContent: "flex-end", gap: "0.25rem", flexWrap: "nowrap" }}>
                           {doc.url && (
