@@ -1,6 +1,8 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
 import { extractText, GoogleDocsProvider, revokeGoogleToken } from "../functions/_shared/providers/google.ts";
-import { ProviderError } from "../functions/_shared/providers/types.ts";
+import { Clock, makeSession } from "./fakes.ts";
+import { planResume } from "../functions/_shared/session.ts";
+import { OBJECT_PLACEHOLDER, ProviderError } from "../functions/_shared/providers/types.ts";
 
 // ---------------------------------------------------------------------------
 // Google provider against a fake fetch
@@ -143,4 +145,42 @@ Deno.test("revokeGoogleToken posts the token and reports the result", async () =
   assertEquals(failed, false);
   const offline = await revokeGoogleToken("x", () => Promise.reject(new Error("offline")));
   assertEquals(offline, false);
+});
+
+Deno.test("non-text marker is exactly U+FFFC after serialization", () => {
+  assertEquals(OBJECT_PLACEHOLDER.length, 1);
+  assertEquals(OBJECT_PLACEHOLDER.codePointAt(0), 0xfffc);
+  assertEquals(JSON.parse(JSON.stringify({ marker: OBJECT_PLACEHOLDER })).marker, String.fromCodePoint(0xfffc));
+});
+
+Deno.test("resume preserves an existing image anchor but refuses an image added after confirmed text", async () => {
+  const clock = new Clock();
+  const row = {
+    ...makeSession("First sentence. Second sentence.", { clock }),
+    chunks_written: 1,
+    status: "paused",
+    paused_at: new Date(clock.now).toISOString(),
+    attention: "document_changed",
+    resync_tail: "Existing " + String.fromCodePoint(0xfffc),
+  };
+  for (const imageAfterText of [false, true]) {
+    const elements = [
+      { textRun: { content: "Existing " } },
+      { inlineObjectElement: { inlineObjectId: "existing-image" } },
+      { textRun: { content: row.chunks[0] } },
+      ...(imageAfterText ? [{ inlineObjectElement: { inlineObjectId: "new-image" } }] : []),
+      { textRun: { content: "\n" } },
+    ];
+    const provider = new GoogleDocsProvider(
+      () => Promise.resolve("tok"),
+      fakeFetch([
+        jsonRes({ revisionId: "image-revision", body: { content: [{ paragraph: { elements } }] } }),
+      ], []),
+    );
+    const doc = await provider.readDocument("abc");
+    const resumed = planResume(row, clock.now + 60_000, doc, {});
+    assertEquals(resumed.ok, !imageAfterText);
+    if (!resumed.ok) assertEquals(resumed.attention, "document_changed");
+    else assertEquals(resumed.patch.schedule_shift_seconds, 60);
+  }
 });

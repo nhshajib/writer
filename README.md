@@ -183,6 +183,34 @@ cd web && CHROMIUM_PATH=/path/to/chrome npm run test:e2e   # keyboard + screen r
 
 `.github/workflows/ci.yml` runs all of these on every push and pull request.
 
+### Dependency security and deployment integrity
+
+Run `cd web && npm run audit` to check the installed dependency graph. CI runs
+this after its frozen `npm ci` install. Supabase JS is pinned to 2.50.0 in the
+frontend and Deno imports so both use the patched Auth 2.70.0 dependency.
+The npm overrides keep PostCSS 8.5.31 and Sharp 0.35.5 on patched releases.
+Mammoth's CLI-only dependency is overridden to Argparse 2.0.1,
+removing the vulnerable `sprintf-js` chain. Mammoth's CLI help and real DOCX
+conversion were also checked for compatibility; no advisory is suppressed.
+
+The non-text document marker is calculated from numeric code point `0xfffc`,
+so the source literal itself is ASCII and does not depend on an upload editor's
+Unicode handling. Regression tests verify the exact runtime marker and resume
+behavior with an existing image versus an image added after confirmed text.
+Deploy the checked-out shared modules with the standard Supabase CLI, rather
+than manually pasting an Edge Function and its shared files into an editor.
+A Git push alone does not update a deployed Supabase function. Redeploy all
+affected functions to pick up the shared Supabase SDK security update.
+
+To repair an uploaded copy of `drips`, deploy it from the tested repository:
+`supabase functions deploy drips --project-ref jopggisumjlfitapkgjh`.
+This requires Supabase management access in the deploying environment; the two
+`NEXT_PUBLIC_SUPABASE_*` frontend values do not grant deployment permissions.
+After deployment, test resuming a session whose confirmed insertion anchor
+contains an existing image. An image newly added after the confirmed text must
+still pause for review. The live function copy cannot be verified from source
+checks alone.
+
 ### Operations
 
 - **Security headers** (`web/netlify.toml`): HSTS, and a Content-Security-Policy whose `frame-ancestors` allows

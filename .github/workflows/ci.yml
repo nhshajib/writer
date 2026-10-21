@@ -35,6 +35,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - name: Dependency audit
+        run: npm run audit
       - name: Typecheck
         run: npm run typecheck
       - name: Production build

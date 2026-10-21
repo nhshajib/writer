@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.50.0";
 import { type DocInfo, type DocProvider, type DocState, ProviderError } from "./types.ts";
 
 /**

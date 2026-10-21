@@ -229,6 +229,21 @@ test("screen readers hear progress milestones, not every insertion", async ({ pa
   await expect(page.getByText(/Google Drive listed 3 revisions during this session for 10 insertions/)).toBeVisible();
 });
 
+test("Timeline insertion labels remain distinct from the activity log for screen-reader locators", async ({ page, request }) => {
+  const id = await startSession(page);
+  await request.post("/__test/advance", { data: { id, written: 3 } });
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  // Both panels remain mounted. The activity wording must still identify one
+  // entry even when Timeline is hidden, preserving unambiguous reader output.
+  await expect(page.getByText("Part 3 of 10 entered", { exact: false })).toHaveCount(1);
+  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await expect(page.getByRole("tabpanel", { name: "Timeline" }).getByText("Insertion 3 of 10", { exact: true })).toBeVisible();
+  await expect(page.getByText("Part 3 of 10 entered", { exact: false })).toHaveCount(1);
+  await expectNoAxeViolations(page);
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await expect(page.getByText("Part 3 of 10 entered", { exact: false })).toBeVisible();
+});
+
 test("a session TypeWit paused itself explains why and offers the right choices", async ({ page, request }) => {
   const id = await startSession(page);
   await request.post("/__test/advance", { data: { id, written: 2 } });

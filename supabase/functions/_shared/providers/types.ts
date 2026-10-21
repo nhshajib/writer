@@ -128,4 +128,5 @@ export function classifyHttpStatus(status: number): ProviderErrorKind {
 }
 
 /** Placeholder for non-text content in DocState.text. */
-export const OBJECT_PLACEHOLDER = "\uFFFC";
+// Derive the marker from its numeric code point so source uploads stay ASCII-only.
+export const OBJECT_PLACEHOLDER = String.fromCodePoint(0xfffc);

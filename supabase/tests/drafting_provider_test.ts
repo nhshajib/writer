@@ -3,7 +3,7 @@ import { GoogleDocsProvider } from "../functions/_shared/providers/google.ts";
 import { TestDocProvider } from "../functions/_shared/providers/test.ts";
 import { textRevision, WordDocProvider, type WordHost, wordText } from "../functions/_shared/providers/word.ts";
 import { ProviderError } from "../functions/_shared/providers/types.ts";
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.50.0";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 function paragraph(text: string, start = 1, heading?: { headingId: string; namedStyleType: string }) {
