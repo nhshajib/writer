@@ -8,6 +8,7 @@
 // Checkout starts a Pro subscription. The 7-day trial (card required) is only
 // offered if this person's normalized email has never claimed one.
 
+import { grantDayPass } from "../_shared/dayPass.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { sha256Hex } from "../_shared/crypto.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
@@ -41,6 +42,7 @@ serve(async (req) => {
   const appUrl = requireEnv("APP_URL").replace(/\/$/, "");
 
   try {
+    if (action === "activate-pass") return await activatePass(user.id, secretKey, req);
     if (action === "checkout") return await checkout(user, secretKey, appUrl, req);
     if (action === "portal") return await portal(user.id, secretKey, appUrl, req, user.eligibilityBlocked);
     if (action === "summary") return await summary(user.id, secretKey);
@@ -66,17 +68,23 @@ async function checkout(
     ? requireEnv("STRIPE_PRICE_YEARLY")
     : interval === "month"
     ? requireEnv("STRIPE_PRICE_MONTHLY")
+    : interval === "day"
+    ? "typewit-day-pass-499-usd"
     : null;
-  if (!price) throw new HttpError(400, 'interval must be "month" or "year".');
+  const dayPass = interval === "day";
+  if (!price) throw new HttpError(400, 'interval must be "month", "year" or "day".');
   if (!user.email) throw new HttpError(400, "Your account has no email address.");
 
   const db = adminClient();
   const { data: profile, error } = await db
     .from("profiles")
-    .select("stripe_customer_id, subscription_status, age_confirmed_at, birth_year, birth_month")
+    .select("stripe_customer_id, subscription_status, age_confirmed_at, birth_year, birth_month, day_pass_expires_at")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw new Error(error.message);
+  if (dayPass && profile?.day_pass_expires_at && Date.parse(profile.day_pass_expires_at) > Date.now()) {
+    throw new HttpError(409, "Your Day Pass is still active. You can buy another after it expires, or upgrade to Pro.");
+  }
   // Paying needs an adult. Under-18s' accounts can't start a subscription themselves.
   if (!profile?.age_confirmed_at || profile.birth_year == null || profile.birth_month == null) {
     throw new HttpError(403, "Open your dashboard and finish setting up your account first.");
@@ -101,6 +109,19 @@ async function checkout(
     // Reload after acquiring: another request may have created the customer
     // between the first profile read and this lock.
     const customer = await customerFor(user.id);
+    if (dayPass) {
+      const { data: current, error: currentError } = await db.from("profiles").select("day_pass_expires_at").eq(
+        "user_id",
+        user.id,
+      ).maybeSingle();
+      if (currentError) throw new HttpError(503, "Checkout could not be prepared. Please try again.");
+      if (current?.day_pass_expires_at && Date.parse(current.day_pass_expires_at) > Date.now()) {
+        throw new HttpError(
+          409,
+          "Your Day Pass is still active. You can buy another after it expires, or upgrade to Pro.",
+        );
+      }
+    }
     const liveSubscriptions = customer ? await customerSubscriptions(secretKey, customer, false, checkoutFetch) : [];
     if (
       liveSubscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
@@ -109,6 +130,7 @@ async function checkout(
       throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
     }
 
+    if (dayPass) await ensureDayPassEvents(secretKey, checkoutFetch);
     const customerId = customer ?? await createCustomer(user, secretKey, checkoutFetch);
 
     const open = await stripeGet<
@@ -135,7 +157,9 @@ async function checkout(
         "There are several unfinished checkouts. Please contact support before starting another.",
       );
     }
-    const pending = open.data.filter((session) => session.mode === "subscription");
+    const pending = open.data.filter((session) =>
+      session.mode === "subscription" || session.metadata?.typewit_price === "typewit-day-pass-499-usd"
+    );
     const same = pending.find((session) =>
       (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price && session.url
     );
@@ -147,12 +171,14 @@ async function checkout(
       }
     }
 
-    const { data: trialAvailable, error: trialError } = await db.rpc("trial_available", { email: user.email });
+    const { data: trialAvailable, error: trialError } = dayPass
+      ? { data: false, error: null }
+      : await db.rpc("trial_available", { email: user.email });
     if (trialError) throw new Error(trialError.message);
-    if (same?.url) return json({ url: same.url, trial: Boolean(trialAvailable) });
+    if (same?.url) return json({ url: same.url, trial: dayPass ? false : Boolean(trialAvailable) });
 
     const params: Record<string, string> = {
-      mode: "subscription",
+      mode: dayPass ? "payment" : "subscription",
       customer: customerId,
       client_reference_id: user.id,
       "line_items[0][price]": price,
@@ -161,10 +187,22 @@ async function checkout(
       cancel_url: `${appUrl}/pricing?checkout=canceled`,
       // Always collect a card, including for the trial.
       payment_method_collection: "always",
-      "subscription_data[metadata][user_id]": user.id,
       "metadata[typewit_price]": price,
+      "metadata[user_id]": user.id,
     };
-    if (trialAvailable) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
+    if (dayPass) {
+      delete params["line_items[0][price]"];
+      params["line_items[0][price_data][currency]"] = "usd";
+      params["line_items[0][price_data][unit_amount]"] = "499";
+      params["line_items[0][price_data][product_data][name]"] = "TypeWit Day Pass — 24 hours";
+      params["payment_intent_data[metadata][user_id]"] = user.id;
+      params["payment_intent_data[metadata][typewit_offer]"] = "day_pass";
+      params["invoice_creation[enabled]"] = "true";
+      params.success_url = `${appUrl}/app/billing/?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+    } else {
+      params["subscription_data[metadata][user_id]"] = user.id;
+      if (trialAvailable) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
+    }
 
     const session = await stripeRequest<{ url: string }>(
       secretKey,
@@ -173,12 +211,78 @@ async function checkout(
       checkoutFetch,
       `typewit-checkout-${lease}`,
     );
-    return json({ url: session.url, trial: Boolean(trialAvailable) });
+    return json({ url: session.url, trial: dayPass ? false : Boolean(trialAvailable) });
   } finally {
     // A stale request must never release a newer request's lease.
     const { error } = await db.from("billing_checkout_locks").delete().eq("user_id", user.id).eq("lease_id", lease);
     if (error) console.error("Checkout lock release failed", error.message);
   }
+}
+
+/** Enable fulfillment/refund delivery on our existing endpoint before accepting a pass payment.
+ * Keep every existing subscription event and every other endpoint untouched.
+ */
+async function ensureDayPassEvents(secretKey: string, fetchFn: typeof fetch): Promise<void> {
+  const expected = `${requireEnv("SUPABASE_URL").replace(/\/$/, "")}/functions/v1/stripe-webhook`;
+  let cursor: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const result = await stripeGet<
+      { data: { id: string; url: string; status: string; enabled_events: string[] }[]; has_more: boolean }
+    >(secretKey, "webhook_endpoints", { limit: "100", ...(cursor ? { starting_after: cursor } : {}) }, fetchFn);
+    const endpoint = result.data.find((e) => e.status === "enabled" && e.url.replace(/\/$/, "") === expected);
+    if (endpoint) {
+      const required = ["checkout.session.completed", "checkout.session.async_payment_succeeded", "charge.refunded"];
+      if (endpoint.enabled_events.includes("*") || required.every((event) => endpoint.enabled_events.includes(event))) {
+        return;
+      }
+      const events = [...new Set([...endpoint.enabled_events, ...required])];
+      await stripeRequest(
+        secretKey,
+        `webhook_endpoints/${endpoint.id}`,
+        Object.fromEntries(events.map((event, i) => [`enabled_events[${i}]`, event])),
+        fetchFn,
+      );
+      return;
+    }
+    if (!result.has_more || !result.data.length) break;
+    cursor = result.data.at(-1)!.id;
+  }
+  throw new HttpError(503, "Day Pass checkout is temporarily unavailable. Please try again later.");
+}
+
+/** Read Stripe's paid session; never trust the success query string as payment. */
+async function activatePass(userId: string, secretKey: string, req: Request): Promise<Response> {
+  const { session_id } = await readJson<{ session_id?: unknown }>(req);
+  if (typeof session_id !== "string" || !/^cs_[A-Za-z0-9_]{1,200}$/.test(session_id)) {
+    throw new HttpError(400, "Choose a valid payment receipt.");
+  }
+  const db = adminClient();
+  const { data: allowed, error } = await db.rpc("hit_rate_limit", {
+    owner: userId,
+    bucket_name: "day-pass-activation",
+    max_hits: 20,
+    window_seconds: 60,
+  });
+  if (error) throw new HttpError(503, "Payment verification is temporarily unavailable.");
+  if (!allowed) throw new HttpError(429, "Please wait a moment before verifying payment again.");
+  const session = await stripeGet<Record<string, unknown>>(secretKey, `checkout/sessions/${session_id}`);
+  const metadata = session.metadata as Record<string, string> | undefined;
+  if (metadata?.user_id !== userId || session.customer !== await customerFor(userId)) {
+    throw new HttpError(404, "This payment was not found for your account.");
+  }
+  if (typeof session.payment_intent === "string") {
+    const payment = await stripeGet<{ latest_charge?: { refunded?: boolean } | null }>(
+      secretKey,
+      `payment_intents/${session.payment_intent}`,
+      { "expand[]": "latest_charge" },
+    );
+    if (payment.latest_charge?.refunded) {
+      const { error: refundError } = await db.rpc("refund_day_pass", { intent: session.payment_intent });
+      if (refundError) throw new HttpError(503, "Payment verification is temporarily unavailable.");
+      throw new HttpError(409, "This Day Pass payment was refunded.");
+    }
+  }
+  return json({ active: await grantDayPass(session, userId) });
 }
 
 async function createCustomer(

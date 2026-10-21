@@ -9,6 +9,7 @@ import {
   unitSize,
 } from "./chunker.ts";
 import { MAX_TEXT_CHARS, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "./limits.ts";
+import { windowSchedule, type WorkWindow } from "./workWindow.ts";
 import { type ChunkFormat, parseFormatted, type TextFormat } from "./markdown.ts";
 import { buildPacing, CHARS_PER_WORD, type PacingSettings, type PlannedBreak } from "./pacing.ts";
 import {
@@ -40,6 +41,9 @@ export function rhythmPacing(rhythm: Exclude<SessionRhythm, "custom">, seconds: 
 }
 
 export interface PlanRequest {
+  workWindow?: WorkWindow | null;
+  startsAt?: number;
+  revisionSweep?: boolean;
   rhythm?: SessionRhythm;
   text: string;
   unit: InsertionUnit;
@@ -162,14 +166,27 @@ export function planSession(req: PlanRequest): SessionPlan {
   // The document gets the text without Markdown markers.
   const text = parsed ? parsed.plain : source;
   const asap = req.mode === "as_soon_as_possible";
-  const requested = asap
+  let requested = asap
     ? null
     : req.rhythm && req.rhythm !== "custom"
     ? rhythmPacing(req.rhythm, req.pacing?.duration_seconds ?? req.durationSeconds ?? 0)
     : req.pacing ?? legacyPacing(req.durationSeconds ?? 0);
+  if (req.revisionSweep && requested) {
+    requested = {
+      ...requested,
+      drafting: {
+        typo_rate_pct: 0,
+        false_start_rate_pct: 0,
+        sentence_pause_seconds: 0,
+        sentence_pause_variation_pct: 0,
+        ...requested.drafting,
+        revision_sweep: true,
+      },
+    };
+  }
   // Free uses the standard pace for a chosen duration; typing speed and custom timing are Pro.
-  const freeSpeed = req.plan === "free" && requested?.timing === "speed";
-  const pacing = req.plan === "free" && requested && req.pacing && !freeSpeed
+  const freeSpeed = req.plan !== "pro" && requested?.timing === "speed";
+  const pacing = req.plan !== "pro" && requested && req.pacing && !freeSpeed
     ? (req.rhythm === "natural" || req.rhythm === "steady")
       ? rhythmPacing(req.rhythm, requested.duration_seconds ?? 0)
       : standardPacing(requested.duration_seconds ?? 0)
@@ -177,11 +194,24 @@ export function planSession(req: PlanRequest): SessionPlan {
   const limits = PLAN_LIMITS[req.plan];
   const words = countWords(text);
   const problems: PlanProblem[] = [];
-  const suppliedDrafting = req.rhythm && req.rhythm !== "custom" ? requested?.drafting : req.pacing?.drafting;
+  if (req.revisionSweep && req.plan !== "pro") {
+    problems.push({ code: "pro_feature", message: "The final revision pass is part of Pro." });
+  }
+  if (req.revisionSweep && asap) {
+    problems.push({ code: "invalid_settings", message: "The final revision pass needs a scheduled session." });
+  }
+  if (req.workWindow && req.plan === "free") {
+    problems.push({ code: "pro_feature", message: "Writing hours are included with Day Pass and Pro." });
+  }
+  const suppliedDrafting = req.rhythm && req.rhythm !== "custom"
+    ? requested?.drafting
+    : req.revisionSweep && requested
+    ? requested.drafting
+    : req.pacing?.drafting;
   const draftingProblem = validateDrafting(suppliedDrafting);
   if (draftingProblem) problems.push({ code: "invalid_settings", message: draftingProblem });
   const hasDrafting = !draftingProblem && draftingEnabled(suppliedDrafting);
-  if ((hasDrafting && req.rhythm !== "natural" || req.rhythm === "drafting") && req.plan === "free") {
+  if ((hasDrafting && req.rhythm !== "natural" || req.rhythm === "drafting") && req.plan !== "pro") {
     problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.drafting });
   }
   if (hasDrafting && asap) {
@@ -345,6 +375,12 @@ export function planSession(req: PlanRequest): SessionPlan {
     }
   }
 
+  if (req.workWindow && problems.length === 0) {
+    const before = schedule;
+    schedule = windowSchedule(schedule, req.startsAt ?? Date.now(), req.workWindow);
+    breaks = breaks.map((b) => ({ ...b, start_ms: b.start_ms + (schedule[b.after_index] - before[b.after_index]) }));
+    totalMs = schedule.at(-1) ?? totalMs;
+  }
   const durationSeconds = Math.ceil(totalMs / 1000);
   if (durationSeconds > limits.maxDurationSeconds) {
     problems.push({

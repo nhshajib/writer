@@ -37,10 +37,10 @@ Deno.test("Drafting is enforced as Pro at the planner boundary", () => {
   assertEquals(pro.pacing?.drafting?.typo_rate_pct, 1);
   assertEquals(pro.pacing?.drafting?.false_start_rate_pct, 1);
 });
-Deno.test("Free rhythm presets retain existing word and duration limits", () => {
-  const words = planSession({ ...base, plan: "free", rhythm: "natural", text: "word ".repeat(151) });
+Deno.test("Free rhythm presets enforce the updated 250-word and 60-minute limits", () => {
+  const words = planSession({ ...base, plan: "free", rhythm: "natural", text: "word ".repeat(251) });
   assert(words.problems.some((p) => p.code === "words_over_plan"));
-  const time = planSession({ ...base, plan: "free", rhythm: "natural", durationSeconds: 3600 });
+  const time = planSession({ ...base, plan: "free", rhythm: "natural", durationSeconds: 3601 });
   assert(time.problems.some((p) => p.code === "duration_over_plan"));
 });
 

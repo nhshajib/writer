@@ -22,6 +22,7 @@
 import { type AccessProblem, checkAccess } from "./access.ts";
 import { type DraftActionKind, executionText } from "./drafting.ts";
 import { bodyContent, endsWithTail } from "./doctext.ts";
+import { type WorkWindow, writingClock } from "./workWindow.ts";
 import {
   type DocProvider,
   type DocState,
@@ -73,9 +74,12 @@ export type Attention =
   | "unreachable"
   | "insert_rejected"
   | "not_editable"
-  | "heading_missing";
+  | "heading_missing"
+  | "access_expired";
 
 export const ATTENTION_MESSAGE: Record<Attention, string> = {
+  access_expired:
+    "Your Day Pass has expired. Get another pass or upgrade to Pro to resume. Text already entered stays in the document.",
   document_changed: "The end of the document no longer matches what TypeWit entered, so it can't tell where the " +
     "next part belongs. Undo or move the text that was added or changed after TypeWit's text, or choose to " +
     "continue after the document's current end.",
@@ -103,6 +107,8 @@ const PREFLIGHT_ATTENTION: Partial<Record<AccessProblem, Attention>> = {
 
 /** The `drips` columns the engine reads. */
 export interface SessionRow {
+  work_window?: WorkWindow | null;
+  access_expires_at?: string | null;
   id: string;
   user_id: string;
   document_id: string;
@@ -176,7 +182,11 @@ export interface SessionEvent {
 
 export interface SessionStore {
   /** Fresh status and lease, read right before each write. */
-  control(id: string): Promise<{ status: string; lease_id: string | null; chunks_written?: number } | null>;
+  control(
+    id: string,
+  ): Promise<
+    { status: string; lease_id: string | null; chunks_written?: number; access_expires_at?: string | null } | null
+  >;
   /** Applies the patch only while `lease` is held and the session is running. */
   update(id: string, lease: string, patch: SessionPatch): Promise<boolean>;
   /**
@@ -317,6 +327,13 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
   if (exhausted()) return await yieldRun();
 
   const log = (...events: SessionEvent[]) => store.log(row, events);
+  const nextWritingTime = row.work_window ? writingClock(row.work_window) : (at: number) => at;
+  const expired = async () => {
+    if (!row.access_expires_at || Date.parse(row.access_expires_at) > deps.now()) return false;
+    const fresh = await store.control(row.id);
+    if (fresh && Object.hasOwn(fresh, "access_expires_at")) row.access_expires_at = fresh.access_expires_at;
+    return Boolean(row.access_expires_at && Date.parse(row.access_expires_at) <= deps.now());
+  };
 
   const pause = async (attention: Attention, detail = ""): Promise<Outcome> => {
     const message = detail ? `${ATTENTION_MESSAGE[attention]} ${detail}` : ATTENTION_MESSAGE[attention];
@@ -375,6 +392,12 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
     return "retrying";
   };
 
+  if (await expired()) return await pause("access_expired");
+  const firstOpening = nextWritingTime(deps.now());
+  if (firstOpening > deps.now()) {
+    const ok = await store.update(row.id, lease, { next_run_at: iso(firstOpening), lease_id: null });
+    return ok ? "waiting" : "lost";
+  }
   // Test connection before the first insertion: can the document be opened and
   // edited, without changing it?
   if (row.chunks_written === 0 && row.pending_index === null && row.preflight_at === null) {
@@ -398,6 +421,13 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
   }
 
   while (true) {
+    if (row.chunks_written >= total && row.pending_index === null) return await complete(row, lease, deps);
+    if (await expired()) return await pause("access_expired");
+    const opening = nextWritingTime(deps.now());
+    if (opening > deps.now()) {
+      const ok = await store.update(row.id, lease, { next_run_at: iso(opening), lease_id: null });
+      return ok ? "waiting" : "lost";
+    }
     if (exhausted()) return await yieldRun();
     operations += 4;
     // An earlier run may have stopped between writing and recording a unit.
@@ -475,7 +505,19 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
 
     const due = plannedAt(row, index);
     const earliest = row.last_written_at ? Date.parse(row.last_written_at) + MIN_GAP_SECONDS * 1000 : 0;
-    const target = Math.max(due, earliest, row.retry_at ? Date.parse(row.retry_at) : 0);
+    let target = Math.max(due, earliest, row.retry_at ? Date.parse(row.retry_at) : 0);
+    const allowed = nextWritingTime(target);
+    if (allowed > target) {
+      row.schedule_shift_seconds += Math.ceil((allowed - target) / 1000);
+      target = allowed;
+      const ok = await store.update(row.id, lease, {
+        next_run_at: iso(target),
+        lease_id: null,
+        schedule_shift_seconds: row.schedule_shift_seconds,
+        deadline_at: iso(plannedAt(row, total - 1)),
+      });
+      return ok ? "waiting" : "lost";
+    }
     // Leave it to a later tick only if one comes before it is due.
     const comingTick = (Math.floor(deps.now() / TICK_MS) + 1) * TICK_MS;
     // Release BEFORE the coming tick, including its jitter band. Keeping the
@@ -490,10 +532,13 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
     }
     const wait = target - deps.now();
     if (wait > 0) await deps.sleep(wait);
+    if (await expired()) return await pause("access_expired");
     if (exhausted()) return await yieldRun();
 
     const control = await store.control(row.id);
     if (!control || control.status !== "running" || control.lease_id !== lease) return "lost";
+    if (Object.hasOwn(control, "access_expires_at")) row.access_expires_at = control.access_expires_at;
+    if (await expired()) return await pause("access_expired");
 
     // Where is the insertion point? The document must still end with exactly
     // the text TypeWit entered.
@@ -526,6 +571,9 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
         detail: { by_seconds: by, reason: "behind_schedule", finish_at: iso(plannedAt(row, total - 1)) },
       });
     }
+
+    if (await expired()) return await pause("access_expired");
+    if (exhausted()) return await yieldRun();
 
     row.pending_index = index;
     row.pending_revision = revisionId;

@@ -1,4 +1,13 @@
-export type PlanTier = "free" | "pro";
+export type PlanTier = "free" | "day_pass" | "pro";
+
+/** Subscription state stays backward compatible; a pass is a separate expiring grant. */
+export function effectivePlan(
+  profile: { plan?: string | null; day_pass_expires_at?: string | null },
+  now = Date.now(),
+): PlanTier {
+  if (profile.plan === "pro") return "pro";
+  return profile.day_pass_expires_at && Date.parse(profile.day_pass_expires_at) > now ? "day_pass" : "free";
+}
 
 export interface PlanLimits {
   /** null = unlimited */
@@ -8,7 +17,8 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { dailyWords: 150, maxDurationSeconds: 30 * 60, maxActiveDrips: 1 },
+  free: { dailyWords: 250, maxDurationSeconds: 60 * 60, maxActiveDrips: 1 },
+  day_pass: { dailyWords: null, maxDurationSeconds: 24 * 60 * 60, maxActiveDrips: 1 },
   pro: { dailyWords: null, maxDurationSeconds: 7 * 24 * 60 * 60, maxActiveDrips: 3 },
 };
 

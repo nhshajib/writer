@@ -1,11 +1,14 @@
 import { compileDrafting, executionText } from "./drafting.ts";
 import { parseFormatted, type TextFormat } from "./markdown.ts";
 import { type PlanRequest, planSession } from "./plan.ts";
-import type { PlannedBreak } from "./pacing.ts";
+import type { PacingSettings, PlannedBreak } from "./pacing.ts";
 import type { SessionRow } from "./session.ts";
 import { PLAN_LIMITS } from "./limits.ts";
+import type { WorkWindow } from "./workWindow.ts";
 
 export type EditableSession = SessionRow & {
+  pacing?: PacingSettings | null;
+  work_window?: WorkWindow | null;
   text: string;
   text_format?: "plain" | "markdown" | "rich";
   paused_at: string | null;
@@ -50,11 +53,15 @@ export function replanPaused(
     ? source.slice(completed).join("").slice(partial.length)
     : parseFormatted(replacement, replacementFormat)?.plain ?? replacement;
   if (!remaining.trim()) throw new Error("There is no remaining text to reschedule.");
+  const workWindow = request.workWindow === undefined ? row.work_window ?? null : request.workWindow;
   const plan = planSession({
     ...request,
     text: replacement ?? remaining,
     plan: "pro",
     format: replacement === undefined ? "plain" : replacementFormat,
+    startsAt: Date.now(),
+    workWindow,
+    revisionSweep: request.revisionSweep ?? row.pacing?.drafting?.revision_sweep,
   });
   if (!plan.ok) throw new Error(plan.problems.map((p) => p.message).join(" "));
   let formats = plan.chunk_formats;
@@ -79,6 +86,7 @@ export function replanPaused(
     throw new Error("Your plan allows sessions up to 1 week, including the part already entered.");
   }
   return {
+    work_window: workWindow,
     chunks: [...row.chunks.slice(0, written), ...plan.units],
     chunk_deletions: [...(row.chunk_deletions ?? row.chunks.map(() => 0)).slice(0, written), ...plan.chunk_deletions],
     action_kinds: [

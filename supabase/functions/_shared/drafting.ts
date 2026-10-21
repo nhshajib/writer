@@ -7,6 +7,8 @@ import { type ChunkFormat, type ParsedMarkdown } from "./markdown.ts";
 import { seededRandom } from "./schedule.ts";
 
 export interface DraftingSettings {
+  /** Pro: a small reversible final review of the session-owned suffix. */
+  revision_sweep?: boolean;
   /** Percentage of eligible ASCII words receiving one adjacent-key slip. */
   typo_rate_pct: number;
   /** Percentage of eligible ASCII words preceded by a temporary nearby word. */
@@ -36,6 +38,9 @@ export function validateDrafting(raw: unknown): string | null {
   if (raw === undefined) return null;
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return "Drafting settings must be an object.";
   const settings = raw as Record<string, unknown>;
+  if (settings.revision_sweep !== undefined && typeof settings.revision_sweep !== "boolean") {
+    return "Final revision pass must be on or off.";
+  }
   for (const [key, limit] of Object.entries(DRAFTING_LIMITS)) {
     const value = settings[key];
     if (typeof value !== "number" || !Number.isFinite(value) || value < limit.min || value > limit.max) {
@@ -49,7 +54,8 @@ export function validateDrafting(raw: unknown): string | null {
 export function draftingEnabled(settings: DraftingSettings | undefined): boolean {
   return Boolean(
     settings &&
-      (settings.typo_rate_pct > 0 || settings.false_start_rate_pct > 0 || settings.sentence_pause_seconds > 0),
+      (settings.typo_rate_pct > 0 || settings.false_start_rate_pct > 0 || settings.sentence_pause_seconds > 0 ||
+        settings.revision_sweep),
   );
 }
 
@@ -255,6 +261,21 @@ export function compileDrafting(
     }
     flush();
     out.source_unit_ends.push(out.chunks.length);
+  }
+  if (cfg.revision_sweep && text.length && out.source_unit_ends.length) {
+    // Only touch a bounded generated suffix, never document content that
+    // existed before the session. Restore exact text and rich spans afterward.
+    const tail = /[A-Za-z][^\p{L}\p{N}\n]{0,8}$/u.exec(sourceChunks.at(-1) ?? "")?.[0];
+    if (tail) {
+      const from = text.length - tail.length;
+      const first = tail[0] === tail[0].toUpperCase() ? tail[0].toLowerCase() : tail[0].toUpperCase();
+      emit(first + tail.slice(1), tail.length, "typo", from);
+      emit(tail, tail.length, "correction", from);
+    } else {
+      emit(" ", 0, "false_start");
+      emit("", 1, "backspace");
+    }
+    out.source_unit_ends[out.source_unit_ends.length - 1] = out.chunks.length;
   }
   out.stats.extra_edits = out.chunks.length - sourceChunks.length;
   if (executionText(out.chunks, out.chunk_deletions, 0, out.chunks.length) !== text) {

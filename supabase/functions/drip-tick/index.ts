@@ -133,7 +133,10 @@ function dbStore(deadline: number): SessionStore {
   const db = adminClient();
   return {
     async control(id) {
-      const { data, error } = await db.from("drips").select("status, lease_id, chunks_written").eq("id", id)
+      const { data, error } = await db.from("drips").select("status, lease_id, chunks_written, access_expires_at").eq(
+        "id",
+        id,
+      )
         .abortSignal(signal()).maybeSingle();
       if (error) throw new Error(error.message);
       return data;

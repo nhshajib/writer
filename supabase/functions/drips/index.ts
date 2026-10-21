@@ -32,7 +32,8 @@ import { googleAccessToken, loadConnection, providerFor } from "../_shared/conne
 import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { checkAccess } from "../_shared/access.ts";
-import { checkCreateLimits, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "../_shared/limits.ts";
+import { checkCreateLimits, effectivePlan, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "../_shared/limits.ts";
+import { readWorkWindow } from "../_shared/workWindow.ts";
 import { type BreakAlignment, type PacingSettings } from "../_shared/pacing.ts";
 import { planSession, type SessionPlan } from "../_shared/plan.ts";
 import { revokeGoogleToken } from "../_shared/providers/google.ts";
@@ -65,7 +66,7 @@ const DRIP_COLUMNS =
   "chunks_written, interval_seconds, duration_seconds, status, next_run_at, attempts, last_error, " +
   "created_at, updated_at, completed_at, insertion_unit, mode, text_sha256, approved_at, schedule, " +
   "schedule_shift_seconds, session_started_at, paused_at, deadline_at, last_written_at, attention, pending_index, " +
-  "timing_mode, pacing, breaks, retry_at, preflight_at, text_format, insert_target";
+  "timing_mode, pacing, breaks, retry_at, preflight_at, text_format, insert_target, work_window, access_expires_at";
 
 /** Everything the resume checks need on top of DRIP_COLUMNS. */
 const EXECUTION_COLUMNS = "chunks, chunk_deletions, action_kinds, source_chunks, source_unit_ends";
@@ -145,6 +146,7 @@ serve(async (req) => {
   if (parts.length >= 1 && UUID_RE.test(parts[0])) {
     const id = parts[0];
     if (parts.length === 1 && method === "GET") return await getDrip(user.id, id);
+    if (parts.length === 2 && parts[1] === "playback" && method === "GET") return await getPlayback(user.id, id);
     if (parts.length === 2 && method === "POST") {
       if (parts[1] === "pause") return await pauseDrip(user.id, id);
       if (parts[1] === "settings") return await editPausedSettings(user.id, id, req);
@@ -173,6 +175,8 @@ function routeParts(req: Request): string[] {
 // ---------------------------------------------------------------------------
 
 interface CreateDripBody {
+  work_window?: unknown;
+  revision_sweep?: boolean;
   rhythm?: "steady" | "natural" | "drafting" | "custom";
   connection_id?: string;
   /** Optional later start (ISO time, up to 7 days ahead); the schedule counts from it. */
@@ -197,6 +201,9 @@ interface CreateDripBody {
 }
 
 interface PlanBody {
+  work_window?: unknown;
+  revision_sweep?: boolean;
+  start_at?: string;
   rhythm?: "steady" | "natural" | "drafting" | "custom";
   text?: string;
   duration_minutes?: number;
@@ -233,6 +240,15 @@ function readPacing(raw: unknown): PacingSettings {
 }
 
 function readPlanInput(body: PlanBody) {
+  if (body.revision_sweep !== undefined && typeof body.revision_sweep !== "boolean") {
+    throw new HttpError(400, "Final revision pass must be on or off.");
+  }
+  let workWindow;
+  try {
+    workWindow = body.work_window === undefined ? undefined : readWorkWindow(body.work_window);
+  } catch (error) {
+    throw new HttpError(400, error instanceof Error ? error.message : "Check writing hours.");
+  }
   if (body.rhythm !== undefined && !["steady", "natural", "drafting", "custom"].includes(body.rhythm)) {
     throw new HttpError(400, "Choose a supported writing rhythm.");
   }
@@ -266,6 +282,9 @@ function readPlanInput(body: PlanBody) {
     throw new HttpError(400, "schedule_seed must be a 32-bit unsigned integer.");
   }
   return {
+    workWindow,
+    revisionSweep: body.revision_sweep,
+    startsAt: body.start_at ? (readStartAt(body.start_at)?.getTime() ?? Date.now()) : Date.now(),
     rhythm: body.rhythm,
     text,
     unit,
@@ -292,13 +311,18 @@ function readTarget(raw: CreateDripBody["insert_target"]): InsertTarget | null {
   return { heading_id: id, heading_text: text, level: level as number };
 }
 
-async function userPlan(userId: string): Promise<{ plan: PlanTier; agreed: boolean }> {
-  const { data, error } = await adminClient().from("profiles").select("plan, agreed_terms_version").eq(
-    "user_id",
-    userId,
-  ).maybeSingle();
+async function userPlan(userId: string): Promise<{ plan: PlanTier; agreed: boolean; expiresAt: string | null }> {
+  const { data, error } = await adminClient().from("profiles").select("plan, agreed_terms_version, day_pass_expires_at")
+    .eq(
+      "user_id",
+      userId,
+    ).maybeSingle();
   if (error) throw new Error(error.message);
-  return { plan: (data?.plan ?? "free") as PlanTier, agreed: data?.agreed_terms_version === CURRENT_TERMS_VERSION };
+  return {
+    plan: effectivePlan(data ?? {}),
+    agreed: data?.agreed_terms_version === CURRENT_TERMS_VERSION,
+    expiresAt: data?.day_pass_expires_at ?? null,
+  };
 }
 
 /** The plan as the client sees it: unit lengths instead of the units, so the response stays small. */
@@ -378,18 +402,24 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   }
   if (body.document_id) await assertNoActiveSession(connection.id, body.document_id);
 
-  const [{ plan: tier, agreed }, { count: activeDrips, error: countError }] = await Promise.all([
+  const [{ plan: tier, agreed, expiresAt }, { count: activeDrips, error: countError }] = await Promise.all([
     userPlan(userId),
     db.from("drips").select("id", { count: "exact", head: true }).eq("user_id", userId).in("status", ACTIVE_STATUSES),
   ]);
   if (countError) throw new Error(countError.message);
   if (!agreed) throw new HttpError(403, "Please read and agree to the Responsible Use Agreement before writing.");
-  if (tier === "free" && body.start_at) throw new HttpError(403, PRO_ONLY_MESSAGES.startLater);
-  if (tier === "free" && target) throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
+  if (tier !== "pro" && body.start_at) throw new HttpError(403, PRO_ONLY_MESSAGES.startLater);
+  if (tier !== "pro" && target) throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
 
   // Splits the text and builds the complete schedule before anything starts.
   const plan = planSession({ ...input, plan: tier });
   if (!plan.ok) return json({ error: plan.problems[0].message, problems: plan.problems }, 422);
+  if (tier === "day_pass" && expiresAt && input.startsAt + (plan.schedule.at(-1) ?? 0) > Date.parse(expiresAt)) {
+    throw new HttpError(
+      422,
+      "This schedule finishes after your Day Pass expires. Choose a shorter session or upgrade to Pro.",
+    );
+  }
 
   const limitError = checkCreateLimits({
     plan: tier,
@@ -413,7 +443,17 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   }
 
   try {
-    return await startSession(userId, body, input, plan, tier, connection, textHash, target);
+    return await startSession(
+      userId,
+      body,
+      input,
+      plan,
+      tier,
+      connection,
+      textHash,
+      target,
+      tier === "day_pass" ? expiresAt : null,
+    );
   } catch (error) {
     // Let the same Start be retried after a failure.
     if (body.request_id) {
@@ -446,6 +486,7 @@ async function startSession(
   connection: NonNullable<Awaited<ReturnType<typeof loadConnection>>>,
   textHash: string,
   target: InsertTarget | null,
+  accessExpiresAt: string | null = null,
 ): Promise<Response> {
   const db = adminClient();
   const { text } = input;
@@ -453,6 +494,18 @@ async function startSession(
   // start time; in that case start when approval is saved, without charging
   // for a session that fails a second time-of-day validation.
   const requestedStart = readStartAt(body.start_at);
+  const checkAccess = () => {
+    if (
+      accessExpiresAt &&
+      Math.max(Date.now(), requestedStart?.getTime() ?? 0) + (plan.schedule.at(-1) ?? 0) > Date.parse(accessExpiresAt)
+    ) {
+      throw new HttpError(
+        422,
+        "This session would finish after your Day Pass expires. Choose a shorter duration or upgrade to Pro.",
+      );
+    }
+  };
+  checkAccess();
   // Resolve the target document before reserving quota, so a bad document id
   // doesn't use up the day's words.
   // A Word document is identified by its address in Word; only the add-in running in it can write to it.
@@ -482,7 +535,9 @@ async function startSession(
   if (!reserved) throw new HttpError(422, `Your plan allows ${PLAN_LIMITS[tier].dailyWords} words per day.`);
 
   try {
+    checkAccess();
     doc ??= await resolveDoc();
+    checkAccess();
   } catch (error) {
     await db.rpc("release_words", { target_user: userId, words: plan.words });
     throw error;
@@ -493,6 +548,8 @@ async function startSession(
   const { data: drip, error } = await db
     .from("drips")
     .insert({
+      work_window: input.workWindow,
+      access_expires_at: accessExpiresAt,
       user_id: userId,
       connection_id: connection.id,
       provider: connection.provider,
@@ -643,6 +700,27 @@ async function getDrip(userId: string, id: string): Promise<Response> {
   return json({ drip: withProgress(row as unknown as DripWithChunks, true), events: events ?? [] });
 }
 
+/** Read-only replay of this user's TypeWit actions, not Google's revision API. */
+async function getPlayback(userId: string, id: string): Promise<Response> {
+  if ((await userPlan(userId)).plan !== "pro") throw new HttpError(403, "Session playback is part of Pro.");
+  const { data, error } = await adminClient().from("drips")
+    .select("chunks,chunk_deletions,chunks_written,schedule,session_started_at,schedule_shift_seconds")
+    .eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error) throw new HttpError(503, "Playback could not be loaded. Please try again.");
+  if (!data) throw new HttpError(404, "Session not found.");
+  const written = Math.min(data.chunks_written, data.chunks.length);
+  return json({
+    playback: {
+      chunks: data.chunks.slice(0, written),
+      deletions: (data.chunk_deletions ?? []).slice(0, written),
+      schedule: (data.schedule ?? []).slice(0, written),
+      starts_at: data.session_started_at,
+      recorded_actions: written,
+      timing: "planned",
+    },
+  });
+}
+
 async function pauseDrip(userId: string, id: string): Promise<Response> {
   return await transition(
     userId,
@@ -682,6 +760,12 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   if (error) throw new Error(error.message);
   if (!data) throw new HttpError(404, "Drip not found.");
   const row = data as unknown as ResumeRow;
+  if ((row as { access_expires_at?: string }).access_expires_at) {
+    const entitlement = await userPlan(userId);
+    if (entitlement.plan === "free") {
+      throw new HttpError(403, "Your Day Pass has expired. Get another pass or upgrade to Pro to resume.");
+    }
+  }
   if (row.status !== "paused") throw new HttpError(409, "Only a paused session can be resumed.");
 
   let doc = null;
@@ -1142,7 +1226,7 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
   const { data: drip, error } = await db.from("drips")
     .select(
       "id, user_id, provider, document_id, document_title, document_url, status, lease_id, next_run_at, attention, " +
-        "word_count, chunks_written, total_chunks",
+        "word_count, chunks_written, total_chunks, access_expires_at",
     )
     .eq("id", id).eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
@@ -1161,8 +1245,29 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
     word_count: number;
     chunks_written: number;
     total_chunks: number;
+    access_expires_at?: string | null;
   };
   if (row.provider !== "microsoft") throw new HttpError(409, "This session runs on TypeWit's servers.");
+  if (
+    row.access_expires_at && Date.parse(row.access_expires_at) <= Date.now() && (await userPlan(userId)).plan === "free"
+  ) {
+    if (["running", "scheduled"].includes(row.status)) {
+      await db.from("drips").update({
+        status: "paused",
+        paused_at: new Date().toISOString(),
+        attention: "access_expired",
+        next_run_at: null,
+        lease_id: null,
+        last_error: "Your Day Pass has expired. Renew access to resume.",
+      }).eq("id", id).in("status", ["running", "scheduled"]);
+    }
+    if (body.op === "control" || body.op === "claim") {
+      return json({ row: null, status: "paused", lease_id: null, attention: "access_expired" });
+    }
+    if (body.op !== "confirm" && body.op !== "log") {
+      throw new HttpError(403, "Your Day Pass has expired. Renew access to resume.");
+    }
+  }
 
   switch (body.op) {
     case "claim": {
@@ -1181,7 +1286,12 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
       return json({ row: claimed, status: row.status, next_run_at: row.next_run_at, attention: row.attention });
     }
     case "control":
-      return json({ status: row.status, lease_id: row.lease_id, chunks_written: row.chunks_written });
+      return json({
+        status: row.status,
+        lease_id: row.lease_id,
+        chunks_written: row.chunks_written,
+        access_expires_at: row.access_expires_at,
+      });
     case "update":
     case "confirm": {
       const patch = enginePatch(body.patch);

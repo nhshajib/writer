@@ -152,7 +152,7 @@ Deno.test("plan: unsupported characters, empty text and plan limits are problems
   assertEquals(codes("a\rb."), ["unsupported_characters"]);
   assertEquals(codes("   "), ["empty"]);
   assertEquals(codes("One. Two.", { plan: "free", durationSeconds: 7200 }), ["duration_over_plan"]);
-  assertEquals(codes("w ".repeat(151), { plan: "free", durationSeconds: 1800 }), ["words_over_plan"]);
+  assertEquals(codes("w ".repeat(251), { plan: "free", durationSeconds: 1800 }), ["words_over_plan"]);
 });
 
 Deno.test("plan: Free uses the standard pace, and typing speed is Pro", () => {

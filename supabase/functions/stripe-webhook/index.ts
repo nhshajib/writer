@@ -2,6 +2,7 @@
 // records trial claims. Deployed with verify_jwt = false: requests are
 // authenticated by the Stripe-Signature header instead.
 
+import { grantDayPass } from "../_shared/dayPass.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
 import {
@@ -53,6 +54,16 @@ serve(async (req) => {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
+        await grantDayPass(event.data.object);
+        break;
+      case "charge.refunded":
+        if (event.data.object.refunded === true && typeof event.data.object.payment_intent === "string") {
+          const { error } = await db.rpc("refund_day_pass", { intent: event.data.object.payment_intent });
+          if (error) throw new Error("The Day Pass refund could not be recorded.");
+        }
+        break;
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
