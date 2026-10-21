@@ -26,11 +26,16 @@ export async function continueWithGoogle(options: { agreed: boolean; next?: stri
     // Storage blocked: the dashboard will ask for the agreement instead.
   }
   const next = safeNext(options.next);
-  const { error } = await supabase().auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: `${window.location.origin}${next}` },
-  });
-  return error ? error.message : null;
+  try {
+    const { error } = await supabase().auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}${next}` },
+    });
+    return error ? error.message : null;
+  } catch {
+    return "Google sign-in could not start. Check your connection and try again.";
+  }
+
 }
 
 /** Records an agreement the person gave on the sign-up page before using Google. Returns true if recorded. */

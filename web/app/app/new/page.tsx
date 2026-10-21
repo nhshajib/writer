@@ -1,4 +1,5 @@
 "use client";
+import { RichTextEditor } from "@/components/app/RichTextEditor";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,7 +16,7 @@ import { PacePresets } from "@/components/app/PacePresets";
 import { MarkdownPreview } from "@/components/app/MarkdownPreview";
 import { IMPORT_ACCEPT, importFile } from "@/lib/importDoc";
 import { rhythmPacing, type SessionRhythm } from "../../../../supabase/functions/_shared/plan.ts";
-import { parseMarkdown, type TextFormat } from "../../../../supabase/functions/_shared/markdown.ts";
+import { parseFormatted, type TextFormat } from "../../../../supabase/functions/_shared/markdown.ts";
 import { pickGoogleDoc } from "@/lib/googlePicker";
 import { supabase } from "@/lib/supabase";
 import { span, when } from "@/lib/time";
@@ -172,9 +173,6 @@ export default function NewSessionPage() {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [stepError, setStepError] = useState<string | null>(null);
-  const [pasteNote, setPasteNote] = useState<string | null>(null);
-  const [canPaste, setCanPaste] = useState(false);
-  useEffect(() => setCanPaste(typeof navigator.clipboard?.readText === "function"), []);
   const [leaving, setLeaving] = useState(false);
   const stepHeading = useRef<HTMLParagraphElement>(null);
   // One id per Start press, so a repeated request can't start a second session.
@@ -219,7 +217,7 @@ export default function NewSessionPage() {
         setText(data.text as string);
         setRhythm(plan === "pro" ? "custom" : (data.pacing as PacingSettings | null)?.drafting?.sentence_pause_seconds ? "natural" : "steady");
         setAutoDuration(false);
-        if (data.text_format === "markdown") setFormat("markdown");
+        if (data.text_format === "markdown" || data.text_format === "rich") setFormat(data.text_format);
         if (data.insertion_unit) setUnit(data.insertion_unit as InsertionUnit);
         const pacing = data.pacing as PacingSettings | null;
         if (data.timing_mode === "asap") setTiming("asap");
@@ -248,7 +246,6 @@ export default function NewSessionPage() {
   useEffect(() => {
     if (plan !== "pro" && timing === "speed") setTiming("duration");
     if (plan !== "pro" && startLater) setStartLater(false);
-    if (plan !== "pro" && format !== "plain") setFormat("plain");
     if (plan !== "pro" && place !== "end") setPlace("end");
     // Start on the longest duration the plan allows, never on a Pro-only one.
     const allowed = PLAN_LIMITS[plan].maxMinutes;
@@ -274,14 +271,14 @@ export default function NewSessionPage() {
   // Keep the unsent text in this browser while it's being written.
   useEffect(() => {
     const handle = setTimeout(() => {
-      if (text) writeDraft(text);
+      if (text) writeDraft(JSON.stringify({ format, text }));
     }, 500);
     return () => clearTimeout(handle);
-  }, [text]);
+  }, [text, format]);
 
   const isPro = plan === "pro";
   const limits = { words: PLAN_LIMITS[plan].dailyWords ?? Infinity, minutes: PLAN_LIMITS[plan].maxMinutes };
-  const parsed = useMemo(() => (format === "markdown" ? parseMarkdown(text) : null), [format, text]);
+  const parsed = useMemo(() => parseFormatted(text, format), [format, text]);
   // The document gets the text without Markdown markers; counts and steps are of that text.
   const plainText = parsed ? parsed.plain : text;
   const words = countWords(plainText);
@@ -508,17 +505,7 @@ export default function NewSessionPage() {
     requestAnimationFrame(() => document.getElementById("new-title")?.focus());
   }
 
-  async function pasteText() {
-    setPasteNote(null);
-    try {
-      const clip = await navigator.clipboard.readText();
-      if (clip) changeText(text ? `${text}${text.endsWith("\n") ? "" : "\n"}${clip}` : clip);
-      else setPasteNote("Nothing to paste. Copy your text first.");
-    } catch {
-      setPasteNote("Your browser didn't allow pasting from here. Press Ctrl+V (⌘V on a Mac) in the box instead.");
-    }
-    document.getElementById("text")?.focus();
-  }
+
 
   function cancel() {
     if (text.trim() || title.trim()) setLeaving(true);
@@ -608,10 +595,10 @@ export default function NewSessionPage() {
           <div className="icon"><Icon.doc /></div>
           <h3>Connect Google first</h3>
           <p>TypeWit needs your permission to create documents and add your text to them.</p>
-          <Link href="/app/documents" className="btn btn-primary btn-sm">Connect Google Docs</Link>
+          <Link href="/app/connections" className="btn btn-primary btn-sm">Connect Google Docs</Link>
           <p className="small muted" style={{ marginTop: "1rem" }}>
             Writing in Microsoft Word instead? Sessions for Word start from the{" "}
-            <Link href="/app/documents#word">TypeWit add-in in Word</Link>; no Google account is needed.
+            <Link href="/app/connections#word">TypeWit add-in in Word</Link>; no Google account is needed.
           </p>
         </div>
       </>
@@ -646,21 +633,18 @@ export default function NewSessionPage() {
         <div className="card card-flush new-main">
         <div className="form-section" data-step-section="2">
           <h2><span className="step-n" aria-hidden="true">2</span>Add your text</h2>
-          <p className="muted">Paste or dictate your text. TypeWit enters it exactly as written, in order, including line breaks.</p>
+          <p className="muted">Paste your text with its formatting, choose a document, then review and start.</p>
           <div className="field">
             {draft && !text && (
               <p className="alert alert-info" style={{ marginBottom: "0.75rem" }}>
-                <span>You have unsent text from before ({countWords(draft).toLocaleString()} words), saved in this browser.</span>{" "}
-                <button type="button" className="link-btn" onClick={() => { changeText(draft); setDraft(""); }}>Restore it</button>{" "}
+                <span>You have unsent text from before (saved in this browser), saved in this browser.</span>{" "}
+                <button type="button" className="link-btn" onClick={() => { try { const saved = JSON.parse(draft); if (saved && typeof saved.text === "string" && ["plain", "markdown", "rich"].includes(saved.format)) { parseFormatted(saved.text, saved.format); changeText(saved.text); setFormat(saved.format); } else changeText(draft); } catch { changeText(draft); } setDraft(""); }}>Restore it</button>{" "}
                 <button type="button" className="link-btn" onClick={() => { writeDraft(""); setDraft(""); }}>Discard</button>
               </p>
             )}
             <div className="text-head">
               <label className="label" htmlFor="text">Text to enter</label>
               <div className="text-actions">
-                {canPaste && (
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={pasteText}><Icon.clipboard />Paste text</button>
-                )}
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
                   disabled={!isPro || importing} aria-describedby={isPro ? undefined : "import-pro"}>
                   <Icon.doc />{importing ? "Importing…" : "Import file"}{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}
@@ -670,25 +654,8 @@ export default function NewSessionPage() {
               </div>
             </div>
             {!isPro && <span id="import-pro" className="sr-only">Importing .docx, .md and .txt files is part of Pro.</span>}
-            {pasteNote && <p className="hint" role="status">{pasteNote}</p>}
             {importNote && <p className="hint" role="status">{importNote}</p>}
-            <details className="more"><summary>Formatting options</summary>
-            <div className="choices choices-inline format-choice" role="radiogroup" aria-label="Text format">
-              <label className="choice">
-                <input type="radio" name="format" value="plain" checked={format === "plain"} onChange={() => changeFormat("plain")} />
-                <span><strong>Plain text</strong><small>Entered exactly as typed.</small></span>
-              </label>
-              <label className="choice">
-                <input type="radio" name="format" value="markdown" checked={format === "markdown"} onChange={() => changeFormat("markdown")}
-                  disabled={!isPro} />
-                <span>
-                  <strong>Keep formatting{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong>
-                  <small># Heading, **bold**, *italic* and - bullets become real formatting.</small>
-                </span>
-              </label>
-            </div>
-            </details>
-            <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
+            <RichTextEditor text={text} format={format} onChange={(next, kind) => { changeText(next); changeFormat(kind); }} />
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span id="text-count" className={overWords ? "error-text" : "hint"}>
                 {words.toLocaleString()} {words === 1 ? "word" : "words"} · {plainText.length.toLocaleString()} characters
@@ -696,23 +663,18 @@ export default function NewSessionPage() {
               </span>
               {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
             </div>
-            {parsed && text.trim() && (
-              <div className="format-preview">
-                <p className="label">How it will look</p>
-                <MarkdownPreview parsed={parsed} />
-              </div>
-            )}
+
           </div>
         </div>
 
-        <details className="destination-options" open={target === "existing" ? true : undefined}><summary>Destination: {docLabel}</summary>
+        <details className="destination-options" open><summary>Destination: {docLabel}</summary>
         <fieldset className="form-section" data-step-section="1">
           <legend className="sr-only">Document</legend>
           <h2 aria-hidden="true"><span className="step-n">1</span>Choose a document</h2>
           <p className="muted">
             Where the text should go. TypeWit adds it at the end of the document, or with Pro, under a heading you choose.
             Writing in Microsoft Word? Start
-            from the <Link href="/app/documents#word">TypeWit add-in in Word</Link>.
+            from the <Link href="/app/connections#word">TypeWit add-in in Word</Link>.
           </p>
           {connections.length > 1 && (
             <div className="field" style={{ marginBottom: "1rem", maxWidth: 420 }}>
@@ -967,7 +929,7 @@ export default function NewSessionPage() {
             <dt>Document</dt><dd>{docLabel}</dd>
             {place === "heading" && <><dt>Insertion location</dt><dd>{placeLabel}</dd></>}
             <dt>Rhythm</dt><dd>{timing === "asap" ? "All at once" : rhythm === "custom" ? "Custom" : rhythm === "drafting" ? "Drafting with simulated corrections" : rhythm === "natural" ? "Natural" : "Steady"}</dd>
-            {format === "markdown" && <><dt>Formatting</dt><dd>Headings, bold, italic and bullets kept</dd></>}
+            {format !== "plain" && <><dt>Formatting</dt><dd>Headings, bold, italic, bullets and highlights kept</dd></>}
             {startLater && <><dt>Starts</dt><dd>{when(new Date(startAt).getTime())}</dd></>}
             <dt>Text length</dt><dd>{words.toLocaleString()} words, {plainText.length.toLocaleString()} characters</dd>
             {unit !== "word" && <><dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}</dd></>}

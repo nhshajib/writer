@@ -133,7 +133,7 @@ export default function HomePage() {
           <p className="muted">Paste your text, use a ready-made rhythm, and review before starting. Your document updates automatically while you get on with your day.</p>
           <div className="row mt-4">
             {googleConnected ? <Link href="/app/new" className="btn btn-primary">Create your first session</Link> : <button type="button" className="btn btn-primary" onClick={connect}>Connect Google Docs</button>}
-            <Link href="/app/documents#word" className="small">Using Microsoft Word?</Link>
+            <Link href="/app/connections#word" className="small">Using Microsoft Word?</Link>
           </div>
           {profile.plan === "free" && <p className="hint mt-4">Free includes 150 words a day, two ready-made rhythms and sentence pauses. Try a complete short session before deciding whether you need Pro.</p>}
           {connectError && <p className="alert alert-error mt-4" role="alert">{connectError}</p>}
@@ -277,12 +277,12 @@ export default function HomePage() {
             <section className="card card-flush home-docs" aria-labelledby="docs-title">
               <div className="card-head">
                 <h2 id="docs-title">Connected documents</h2>
-                <Link href="/app/documents" className="small">Manage</Link>
+                <Link href="/app/connections" className="small">Manage</Link>
               </div>
               <ul className="rows">
                 {googleAccounts.map((c) => (
                   <li key={c.id}>
-                    <Link href="/app/documents" className="doc-row link-row">
+                    <Link href="/app/connections" className="doc-row link-row">
                       <span className="doc-icon gdoc" aria-hidden="true"><Icon.doc /></span>
                       <span className="doc-main"><span className="title">Google Docs</span><span className="meta">{c.account_email ?? "Google account"}</span></span>
                       {c.connected === false
@@ -293,7 +293,7 @@ export default function HomePage() {
                   </li>
                 ))}
                 <li>
-                  <Link href="/app/documents#word" className="doc-row link-row">
+                  <Link href="/app/connections#word" className="doc-row link-row">
                     <span className="doc-icon word" aria-hidden="true"><Icon.doc /></span>
                     <span className="doc-main">
                       <span className="title">Word add-in</span>

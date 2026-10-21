@@ -33,71 +33,59 @@ test.beforeEach(async ({ page, request }) => {
   }, SESSION);
 });
 
-test("Free sees the Pro writing features marked, and the server refuses formatting", async ({ page, request }) => {
+test("Free keeps pasted formatting, while imports and advanced insertion remain Pro", async ({ page, request }) => {
   await request.post("/__test/profile", { data: { plan: "free", subscription_status: null } });
   await page.goto("/app/new/");
-  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
-  await page.getByLabel("Title").fill("Note");
-  await toStep(page, 2);
-  await expect(page.getByRole("radio", { name: /Keep formatting/ })).toBeDisabled();
   await expect(page.getByRole("button", { name: /Import file/ })).toBeDisabled();
-  await page.getByLabel("Text to enter").fill("A short note for today.");
+  await pasteRich(page, '<h1>Weekly plan</h1><p>Read <b>bold</b> and <i>italic</i> <mark>notes</mark>.</p>');
+  const editor = page.getByLabel("Text to enter");
+  await expect(editor.locator('h1')).toHaveText('Weekly plan');
+  await expect(editor.locator('[style*="font-weight"]')).toContainText(['bold']);
+  await expect(page.locator('#text-count')).toContainText('7 words');
+  await expectNoAxeViolations(page);
   await toStep(page, 3);
   await expect(page.getByRole("radio", { name: /Under a heading/ })).toBeDisabled();
-  await expectNoAxeViolations(page);
-
-  const refused = await request.post("/functions/v1/drips", { data: { text: "# Hi", text_format: "markdown" } });
-  expect(refused.status()).toBe(403);
-  expect((await refused.json()).error).toMatch(/part of Pro/);
-});
-
-test("Pro keeps formatting: the preview shows it and the session is created with Markdown", async ({ page, request }) => {
-  await page.goto("/app/new/");
-  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
-  await page.getByLabel("Title").fill("Plan");
-  await toStep(page, 2);
-  await page.getByRole("radio", { name: /Keep formatting/ }).check();
-  await page.getByLabel("Text to enter").fill("# Weekly plan\nStart with **reading**. Then *write* notes.\n- Monday\n- Tuesday");
-  const preview = page.locator(".format-preview");
-  await expect(preview.getByRole("heading", { name: "Weekly plan" })).toBeVisible();
-  await expect(preview.locator("strong")).toHaveText("reading");
-  await expect(preview.locator("em")).toHaveText("write");
-  await expect(preview.getByRole("listitem")).toHaveCount(2);
-  // Counts are of the text that goes into the document, without the markers.
-  await expect(page.locator("#text-count")).toContainText("10 words");
-  await expectNoAxeViolations(page);
-
-  await toStep(page, 4);
-  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
   await toStep(page, 5);
-  await expect(page.getByText("Headings, bold, italic and bullets kept")).toBeVisible();
   await page.getByLabel(/I've read this exact text/).check();
-  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole('button', { name: 'Start session', exact: true }).click();
   await expect(page).toHaveURL(/\/app\/session/);
   const create = await createRequest(request);
-  expect(create.body.text_format).toBe("markdown");
-  expect(create.body.text.startsWith("# Weekly plan")).toBe(true);
+  expect(create.body.text_format).toBe('rich');
+  const source = JSON.parse(create.body.text);
+  expect(source.plain).toBe('Weekly plan\nRead bold and italic notes.');
+  expect(source.spans.some((s: { highlight?: string }) => s.highlight === '#ffff00')).toBe(true);
 });
 
-test("Pro imports .md, .txt and .docx files into the text box", async ({ page }) => {
-  await page.goto("/app/new/");
-  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
-  await page.getByLabel("Title").fill("Imports");
-  await toStep(page, 2);
-  const input = page.getByTestId("import-file");
+async function pasteRich(page: Page, html: string) {
+  await page.getByLabel('Text to enter').focus();
+  await page.getByLabel('Text to enter').evaluate((el, markup) => {
+    const data = new DataTransfer(); data.setData('text/html', markup);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, html);
+}
 
-  await input.setInputFiles(path.join(FIXTURES, "sample.md"));
-  await expect(page.getByLabel("Text to enter")).toHaveValue("## Shopping list\n- Apples\n- **Bread**");
-  await expect(page.getByRole("radio", { name: /Keep formatting/ })).toBeChecked();
-  await expect(page.getByText(/Imported "sample.md" with its headings/)).toBeVisible();
+test("rich paste strips scripts and remote elements and preserves combined Unicode styles", async ({ page }) => {
+  await page.goto('/app/new/');
+  await pasteRich(page, '<p><b><i><span style="background-color:rgb(10, 180, 90)">Café 👩🏽‍💻</span></i></b></p><script>window.evil=true</script><img src="https://evil.invalid/a" onerror="alert(1)">');
+  const editor = page.getByLabel('Text to enter');
+  await expect(editor).toHaveText('Café 👩🏽‍💻');
+  await expect(editor.locator('script,img,iframe')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { evil?: boolean }).evil)).toBeUndefined();
+  await page.getByRole('button', { name: 'Review session', exact: true }).click();
+  await expect(page.locator('.md-preview mark')).toHaveText('Café 👩🏽‍💻');
+});
 
-  await input.setInputFiles(path.join(FIXTURES, "sample.txt"));
-  await expect(page.getByLabel("Text to enter")).toHaveValue("Plain notes line one.\nLine two.");
-  await expect(page.getByRole("radio", { name: "Plain text" })).toBeChecked();
-
-  await input.setInputFiles(path.join(FIXTURES, "sample.docx"));
-  await expect(page.getByLabel("Text to enter")).toHaveValue("# Garden notes\n\nWater the **tomatoes** every *morning*.");
-  await expect(page.locator(".format-preview strong")).toHaveText("tomatoes");
+test("Pro imports .md, .txt and .docx into the visual editor", async ({ page }) => {
+  await page.goto('/app/new/');
+  const input = page.getByTestId('import-file');
+  await input.setInputFiles(path.join(FIXTURES, 'sample.md'));
+  await expect(page.getByLabel('Text to enter').locator('h2')).toHaveText('Shopping list');
+  await expect(page.getByLabel('Text to enter').locator('[style*="font-weight"]')).toHaveText('Bread');
+  await input.setInputFiles(path.join(FIXTURES, 'sample.txt'));
+  await expect(page.getByLabel('Text to enter')).toContainText('Plain notes line one.');
+  await input.setInputFiles(path.join(FIXTURES, 'sample.docx'));
+  await expect(page.getByLabel('Text to enter').locator('h1')).toHaveText('Garden notes');
+  await expect(page.getByLabel('Text to enter').locator('[style*="font-weight"]')).toHaveText('tomatoes');
 });
 
 test("Pro adds text under a chosen heading of an existing document", async ({ page, request }) => {

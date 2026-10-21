@@ -17,9 +17,12 @@ import { planResume } from "../../supabase/functions/_shared/session.ts";
 
 const PORT = Number(process.env.MOCK_PORT ?? 54399);
 const OUT = join(import.meta.dirname, "..", "out");
-const TERMS = "2026-10-17";
+const TERMS = "2026-10-21";
 
 interface Row {
+  text?: string;
+  text_format?: "plain" | "markdown" | "rich";
+  chunk_formats?: import("../../supabase/functions/_shared/markdown.ts").ChunkFormat[] | null;
   id: string;
   user_id: string;
   connection_id: string;
@@ -106,7 +109,7 @@ function planFrom(body: Record<string, unknown>, seed: number) {
     durationSeconds: Math.round(Number(body.duration_minutes) * 60),
     seed,
     plan: profileChanges.plan === "free" ? "free" : "pro",
-    format: body.text_format === "markdown" ? "markdown" : "plain",
+    format: body.text_format === "rich" ? "rich" : body.text_format === "markdown" ? "markdown" : "plain",
   });
 }
 
@@ -173,7 +176,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const id = new URL(req.url ?? "/", "http://localhost").searchParams.get("id")?.replace(/^eq\./, "");
     const row = id ? drips.get(id) : undefined;
     const data = row
-      ? { text: row.chunks.join(""), insertion_unit: row.insertion_unit, timing_mode: row.timing_mode, pacing: row.pacing }
+      ? { text: row.text ?? row.chunks.join(""), text_format: row.text_format ?? "plain", insertion_unit: row.insertion_unit, timing_mode: row.timing_mode, pacing: row.pacing }
       : null;
     const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
     return send(res, 200, single ? data : data ? [data] : []);
@@ -296,9 +299,6 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (parts.length === 0 && method === "POST" && profileChanges.plan === "free" && body.start_at) {
     return send(res, 403, { error: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it." });
   }
-  if (parts.length === 0 && method === "POST" && profileChanges.plan === "free" && body.text_format === "markdown") {
-    return send(res, 403, { error: "Keeping headings, bold, italic and bullets is part of Pro. Use plain text, or upgrade." });
-  }
   if (parts.length === 0 && method === "POST") {
     const existing = [...drips.values()].find((d) => body.request_id && d.request_id === body.request_id);
     if (existing) return send(res, 200, { drip: view(existing, false), duplicate: true });
@@ -311,6 +311,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const row: Row = {
       id,
       user_id: "u1",
+      text: String(body.text ?? ""),
+      text_format: (body.text_format ?? "plain") as Row["text_format"],
+      chunk_formats: plan.chunk_formats,
       connection_id: word ? "m1" : "c1",
       provider: word ? "microsoft" : "google",
       document_id: word ? String(body.document_id) : "doc1",
@@ -375,8 +378,8 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       if (body.updated_at !== row.updated_at) return send(res, 409, { error: "The session changed. Reload it." });
       if (body.confirmed !== true) return send(res, 400, { error: "Approve the changes." });
       try {
-        const editable = { ...row, text: (row.source_chunks ?? row.chunks).join("") } as unknown as EditableSession;
-        const patch = replanPaused(editable, { unit: body.insertion_unit as never, seed: 42, pacing: body.pacing as never }, body.remaining_text as string | undefined);
+        const editable = { ...row, text: row.text ?? (row.source_chunks ?? row.chunks).join("") } as unknown as EditableSession;
+        const patch = replanPaused(editable, { unit: body.insertion_unit as never, seed: 42, pacing: body.pacing as never }, body.remaining_text as string | undefined, body.remaining_text_format as never);
         Object.assign(row, patch, { updated_at: new Date(now).toISOString(), word_count: patch.source_chunks.join("").match(/\S+/g)?.length ?? 0 });
         log(row.id, "settings_updated");
         return send(res, 200, { drip: view(row, false) });

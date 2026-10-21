@@ -61,7 +61,7 @@ test("Run again starts a new session from a finished one's text, settings and do
   await expect(page.getByText(/Started from "Lab report"/)).toBeVisible();
   await expect(page.getByRole("radio", { name: /Existing document/ })).toBeChecked();
   await toStep(page, 2);
-  await expect(page.getByLabel("Text to enter")).toHaveValue(TEXT);
+  await expect(page.getByLabel("Text to enter")).toHaveText(TEXT);
   // A fresh approval is always needed.
   await toStep(page, 5);
   await expect(page.getByLabel(/I've read this exact text/)).not.toBeChecked();
@@ -78,9 +78,9 @@ test("unsent text is kept in this browser and can be restored or discarded", asy
   await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Draft");
   await toStep(page, 2);
-  await expect(page.getByText(/You have unsent text from before \(7 words\)/)).toBeVisible();
+  await expect(page.getByText(/You have unsent text from before/)).toBeVisible();
   await page.getByRole("button", { name: "Restore it" }).click();
-  await expect(page.getByLabel("Text to enter")).toHaveValue("A draft I don't want to lose.");
+  await expect(page.getByLabel("Text to enter")).toHaveText("A draft I don't want to lose.");
 
   await page.getByLabel("Text to enter").fill("");
   await page.goto("/app/new/");

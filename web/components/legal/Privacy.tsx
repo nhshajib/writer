@@ -17,8 +17,8 @@ export function PrivacyBody() {
       </div>
 
       <p>
-        This policy explains what information TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects when you use
-        typewit.com, how we use it, and the choices you have. Questions: {email}.
+        This policy explains what information Typewit Organization, based in Bangladesh and operating TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;), collects when you use
+        typewit.com, how we use it, and the choices you have. Typewit Organization is responsible for this processing (the data controller where that term applies). Questions: {email}.
       </p>
 
       <h2>What we collect</h2>
@@ -43,8 +43,8 @@ export function PrivacyBody() {
       </ul>
       <h3>Text and activity</h3>
       <ul>
-        <li>The text you approve for each session, how it's split into steps, and your approval (including a fingerprint of the exact text).</li>
-        <li>An activity log of each step: when it was entered, paused, resumed or stopped.</li>
+        <li>The text and supported formatting you submit for each session, its steps, selected rhythm, timing, simulated corrections and pauses, and your approval (including a fingerprint of the exact submitted content). Paused Pro edits replace the remaining approved content and update settings; already entered text and activity remain part of the session record.</li>
+        <li>An activity log of execution, approvals, settings changes, pauses, resumes and stops. Temporary typo and false-start actions can be written into your chosen document and remain in Google or Microsoft history even after correction.</li>
       </ul>
       <h3>Billing</h3>
       <ul>
@@ -57,7 +57,7 @@ export function PrivacyBody() {
       <h3>Technical information</h3>
       <ul>
         <li>Our hosting providers keep standard server logs (such as IP address, browser type and time of request) for security and troubleshooting.</li>
-        <li>We store your sign-in session in your browser's local storage. We don't use advertising or analytics cookies.</li>
+        <li>We store your sign-in session, unsent drafts (including supported formatting), and optional pace preferences in your browser’s local storage. Drafts and .docx conversion are processed locally until you submit a session. Clear browser storage on shared devices. We don't use advertising or analytics cookies.</li>
       </ul>
 
       <h2>How we use it</h2>
@@ -84,8 +84,9 @@ export function PrivacyBody() {
       <p>We share information only with service providers that help us run TypeWit, and only as much as they need:</p>
       <ul>
         <li><strong>Supabase</strong>: database, sign-in and server functions.</li>
-        <li><strong>Netlify</strong>: website hosting.</li>
-        <li><strong>Google</strong>: sign-in and Google Docs, at your request.</li>
+        <li><strong>Vercel</strong>: website hosting.</li>
+        <li><strong>Google</strong>: sign-in, document picking and Google Docs, at your request.</li>
+        <li><strong>Microsoft</strong>: the Word host document and add-in APIs when you use Word. We do not store a Microsoft password or OAuth token.</li>
         <li><strong>Stripe</strong>: payments and subscription management.</li>
         <li><strong>Resend</strong>: notification emails, if email notifications are turned on.</li>
       </ul>
@@ -105,11 +106,14 @@ export function PrivacyBody() {
       <h2>Your choices and rights</h2>
       <ul>
         <li>Turn email notifications on or off from <Link href="/app/settings/">Settings</Link>.</li>
-        <li>Disconnect TypeWit from Google at any time in your Google Account under Security, Third-party access.</li>
+        <li>Manage or disconnect Google accounts from Connected accounts in your dashboard, or revoke access in your Google Account under Security, Third-party access. Disconnecting stops active sessions and removes stored access credentials; it does not erase your documents, their history or existing session records.</li>
         <li>Ask for a copy of your data, a correction, or deletion by emailing {email}.</li>
       </ul>
       <p>Depending on where you live, you may have additional rights under local privacy laws. Contact us and we'll help.</p>
 
+      <h2>Processing grounds and international services</h2>
+      <p>Where data-protection law requires a legal basis, we process information to perform our contract with you, meet legal obligations, and pursue legitimate interests in service security, fraud prevention and support, subject to your rights. We seek consent where required. Providers may process data outside your country under applicable contractual and legal safeguards. Contact us for details or to exercise access, correction, erasure, restriction, portability or objection rights where available, or to withdraw consent without affecting earlier lawful processing. You may complain to your local data-protection authority.</p>
+      <p>Account deletion removes live application records; provider backups, legally required billing records and limited fraud-prevention records may remain for their applicable retention periods. Deleting TypeWit records does not delete Google or Microsoft documents or their version history; manage those with the provider. Do not submit sensitive data you lack authority to process.</p>
       <h2>Security</h2>
       <p>
         We use encryption in transit, encrypt Google tokens at rest, and restrict each account to its own data. No

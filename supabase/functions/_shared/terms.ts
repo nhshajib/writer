@@ -3,4 +3,4 @@
  * when the agreement changes; users are asked to agree again before writing.
  * Must match web/lib/terms.ts.
  */
-export const CURRENT_TERMS_VERSION = "2026-10-17";
+export const CURRENT_TERMS_VERSION = "2026-10-21";

@@ -45,7 +45,6 @@ function PricingContent() {
   const router = useRouter();
   // Read after load (not useSearchParams), so the whole page is in the pre-rendered HTML for search engines.
   const [canceled, setCanceled] = useState(false);
-  const [interval, setInterval] = useState<Interval>("year");
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +54,7 @@ function PricingContent() {
     setCanceled(new URLSearchParams(window.location.search).get("checkout") === "canceled");
   }, []);
 
-  async function startPro() {
+  async function startPro(interval: Interval) {
     if (!signedIn) {
       router.push("/signup?next=/pricing");
       return;
@@ -71,7 +70,6 @@ function PricingContent() {
     }
   }
 
-  const price = PRO_PRICE[interval];
   const tick = (t: React.ReactNode, key: string) => <li key={key}><Icon.check /><span>{t}</span></li>;
 
   return (
@@ -88,44 +86,43 @@ function PricingContent() {
               Checkout was canceled. You haven't been charged.
             </p>
           )}
-          <div style={{ marginTop: "2rem" }}>
-            <div className="seg" role="group" aria-label="Billing period" style={{ "--n": 2, "--i": interval === "year" ? 0 : 1 } as React.CSSProperties}>
-              <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · {YEARLY_SAVING}</button>
-              <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
-            </div>
-          </div>
         </div>
       </section>
 
-      <div className="container" style={{ marginTop: "2.5rem" }}>
-        <div className="plans">
+      <section className="container pricing-grid-section" aria-label="Plans and comparison">
+        {error && <p className="alert alert-error" role="alert">{error}</p>}
+        <div className="pricing-cards">
+          <div className="pricing-intro"><p className="kicker">Your testing toolkit</p><h2>Start small.<br />Get more control with Pro.</h2><p className="muted">Both paid plans include every Pro feature. Yearly costs $23.88 less than 12 monthly payments.</p></div>
           <section className="plan" aria-labelledby="free-title">
-            <h2 id="free-title">Free</h2>
-            <p className="desc">For short pieces and trying TypeWit.</p>
-            <div className="price"><strong>$0</strong><span>forever</span></div>
-            <p className="price-note">No card needed</p>
-            <ul className="ticks">
-              {FREE_FEATURES.map((f) => tick(f, f))}
-            </ul>
-            <Link href="/signup/" className="btn btn-secondary btn-block">Get started</Link>
+            <h2 id="free-title">Free</h2><p className="desc">Try a short document session.</p>
+            <div className="price"><strong>$0</strong><span>/ month</span></div><p className="price-note">Free forever · no card needed</p>
+            <Link href={signedIn ? "/app/new/" : "/signup/"} className="btn btn-secondary btn-block">{signedIn ? "Start a session" : "Start free"}</Link>
+            <ul className="ticks">{FREE_FEATURES.map(f => tick(f, f))}</ul>
           </section>
-
-          <section className="plan featured" aria-labelledby="pro-title">
-            <div className="plan-top"><h2 id="pro-title">Pro</h2><span className="badge badge-blue">7 days free</span></div>
-            <p className="desc">For essays, reports and anything long.</p>
-            <div className="price"><strong>{price.amount}</strong><span>{price.note}</span></div>
-            <p className="price-note">{price.saving ? <span className="save">{price.saving}</span> : "Billed monthly"}</p>
-            <ul className="ticks">
-              {PRO_FEATURES.map((f) => tick(f, f))}
-            </ul>
-            <button type="button" className="btn btn-primary btn-block" onClick={startPro} disabled={busy}>
-              {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
-            </button>
-            <p className="price-note center" style={{ marginTop: "0.75rem" }}>Nothing to pay today. Cancel before day 7 and you won't be charged.</p>
-            {error && <p className="alert alert-error" role="alert" style={{ marginTop: "0.75rem" }}>{error}</p>}
+          <section className="plan" aria-labelledby="monthly-title">
+            <h2 id="monthly-title">Monthly</h2><p className="desc">All Pro features, billed monthly.</p>
+            <div className="price"><strong>{PRO_PRICE.month.amount}</strong><span>/ month</span></div><p className="price-note">$6.99 billed each month after trial</p>
+            <button type="button" className="btn btn-secondary btn-block" onClick={() => startPro("month")} disabled={busy}>{busy ? "Opening checkout…" : "Try Monthly free"}</button>
+            <ul className="ticks">{["Unlimited words · up to 3 sessions at once", "Drafting rhythm and all advanced controls", "Import files and edit paused sessions"].map(f => tick(f,f))}</ul>
+          </section>
+          <section className="plan featured" aria-labelledby="yearly-title">
+            <div className="plan-top"><h2 id="yearly-title">Yearly</h2><span className="badge badge-blue">Best value</span></div><p className="desc">All Pro features, at our lowest rate.</p>
+            <div className="price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month equivalent</span></div><p className="price-note"><span className="save">$60 billed yearly · {YEARLY_SAVING}</span></p>
+            <button type="button" className="btn btn-primary btn-block" onClick={() => startPro("year")} disabled={busy}>{busy ? "Opening checkout…" : "Try Yearly free"}</button>
+            <ul className="ticks">{["Everything in Monthly", "$23.88 less per year than paying monthly", "One annual payment · cancel renewal anytime"].map(f => tick(f,f))}</ul>
           </section>
         </div>
-      </div>
+        <p className="hint pricing-disclosure">Eligible new Pro subscribers get 7 days free with a card. Then $6.99/month or $60/year, paid upfront and renewed automatically until canceled. Cancel before the trial ends to avoid the first charge. Taxes may apply. Existing subscribers can manage their plan in <Link href="/app/billing/">Plan &amp; usage</Link>.</p>
+        <h2 id="compare-title" className="section-title">Compare every feature</h2>
+        <div className="compare-wrap pricing-comparison">
+          <table className="compare">
+            <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Monthly</th><th scope="col">Yearly</th></tr></thead>
+            <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Monthly">{row.pro}</td><td data-label="Yearly"><strong>{row.pro}</strong></td></tr>)}</tbody>
+          </table>
+        </div>
+        <details className="more pricing-pro-list"><summary>Explore the Pro toolkit</summary><ul className="ticks">{PRO_FEATURES.map(f => tick(f,f))}</ul></details>
+        <p className="hint">For authorized testing only. Simulated edits are automated; Google controls how edits appear in version history. <Link href="/responsible-use/">Read the Responsible Use Agreement</Link>.</p>
+      </section>
 
       <section id="pro-steps" className="section" aria-labelledby="steps-title">
         <div className="container">
@@ -133,24 +130,8 @@ function PricingContent() {
           <ol className="steps">
             <li><h3>Create your account</h3><p>Continue with Google or a personal email, and accept the Responsible Use Agreement.</p></li>
             <li><h3>Start your free week</h3><p>Pick yearly or monthly above and add a card on Stripe&apos;s secure page.</p></li>
-            <li><h3>Write without limits</h3><p>Pro starts right away. Cancel any time in Plan &amp; usage.</p></li>
+            <li><h3>Test with more control</h3><p>Pro starts right away. Cancel any time in Plan &amp; usage.</p></li>
           </ol>
-        </div>
-      </section>
-
-      <section className="section" aria-labelledby="compare-title">
-        <div className="container narrow">
-          <div className="section-head"><h2 id="compare-title">Compare plans</h2></div>
-          <div className="compare-wrap">
-            <table className="compare">
-              <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Pro</th></tr></thead>
-              <tbody>
-                {COMPARE.map((row) => (
-                  <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Pro"><strong>{row.pro}</strong></td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       </section>
 

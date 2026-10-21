@@ -406,9 +406,7 @@ function SessionView() {
                     <div className="tab-head">
                       <p className="small muted">
                         TypeWit&apos;s own record: when each part was planned and entered, pauses, retries and problems.
-                        {isPro && drip.provider === "google" && completed
-                          ? " Permanent milestones were saved in Google Docs version history at the start and end of this session."
-                          : ` It's separate from ${docName} version history, which groups edits, so the two won't match one to one.`}
+                        {` It's separate from ${docName} version history, which groups edits, so the two won't match one to one.`}
                       </p>
                       <button type="button" className="btn btn-ghost btn-sm" onClick={downloadLog}><Icon.download />Download CSV</button>
                     </div>
@@ -464,18 +462,7 @@ function SessionView() {
                   );
                   return (
                     <div className="timeline-wrap">
-                      {!isPro && drip.provider === "google" && (
-                        <p className="alert alert-info small mb-3">
-                          <strong>Pro:</strong> Permanent milestones are preserved in Google Docs version history at the start and end of each session.{" "}
-                          <Link href="/app/billing">Upgrade to Pro</Link>
-                        </p>
-                      )}
-                      {isPro && drip.provider === "google" && completed && (
-                        <p className="alert alert-info small mb-3">
-                          Permanent milestones were saved in Google Docs version history. Open{" "}
-                          File &gt; Version history in your document to see them.
-                        </p>
-                      )}
+                      {drip.provider === "google" && <p className="small muted mb-3">Google controls grouping and retention in version history. Open File &gt; Version history in your document to inspect the recorded edits.</p>}
                       {allTimed.length === 0 && (
                         <p className="small muted">No activity recorded yet.</p>
                       )}
@@ -643,7 +630,7 @@ function AttentionPanel({ attention, message, nextPart, needsConfirm, busy, onRe
           : attention === "reconnect"
           ? (
             <>
-              <Link href="/app/documents" className="btn btn-secondary btn-sm">Reconnect Google</Link>
+              <Link href="/app/connections" className="btn btn-secondary btn-sm">Reconnect Google</Link>
               <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onResume({})}>Resume</button>
             </>
           )

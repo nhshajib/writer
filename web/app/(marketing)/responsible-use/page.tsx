@@ -3,7 +3,7 @@ import { pageMeta } from "@/lib/seo";
 import { Agreement } from "@/components/Agreement";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
-export const metadata: Metadata = pageMeta("/responsible-use/", "Responsible Use Agreement", "What TypeWit is for and what it isn't: an assistive tool that enters text you wrote or approved, clearly labelled as automated text entry.");
+export const metadata: Metadata = pageMeta("/responsible-use/", "Responsible Use Agreement", "What TypeWit is for and what it isn't: authorized testing of automated text entry, with academic cheating and deceptive authorship claims prohibited.");
 
 export default function ResponsibleUsePage() {
   return (

@@ -12,7 +12,7 @@ const TABS = [
     href: "/app/account/",
     label: "Account",
     icon: Icon.user,
-    match: (p: string) => p === "/app/account" || p === "/app/settings" || p === "/app/billing",
+    match: (p: string) => p === "/app/account" || p === "/app/settings" || p === "/app/billing" || p === "/app/connections",
   },
 ];
 

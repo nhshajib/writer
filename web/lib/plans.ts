@@ -8,6 +8,7 @@ export const FREE_FEATURES = [
   "150 words a day",
   "Sessions up to 30 minutes",
   "Natural and Steady rhythms, ready to use",
+  "Paste formatted text without Markdown",
   "Random word groups, sentence pauses and accessibility tools",
 ];
 
@@ -20,13 +21,11 @@ export const PRO_FEATURES = [
   "False starts: temporary wrong words, deleted and replaced",
   "Natural breaks: short sentence pauses with adjustable variation",
   "Custom longer breaks up to 8 hours",
-  "Keep headings, bold, italic and bullets",
   "Insert under a heading (Google Docs)",
   "Import .docx, .md and .txt files",
   "Edit remaining text and settings while paused",
   "Saved pace presets",
   "Start sessions later",
-  "Permanent milestones in Google Docs version history",
   "Priority email support",
 ];
 
@@ -41,7 +40,7 @@ export const PLAN_COMPARISON: { feature: string; free: string; pro: string }[] =
   { feature: "Neighbor-key typos", free: "No", pro: "Adjustable rate; automatically corrected" },
   { feature: "False starts", free: "No", pro: "Adjustable rate; wrong words deleted and replaced" },
   { feature: "Natural breaks after sentences", free: "Included in Natural rhythm", pro: "Fully adjustable" },
-  { feature: "Keep headings, bold, italic and bullets", free: "No", pro: "Yes" },
+  { feature: "Paste headings, bold, italic, bullets and highlights", free: "Yes", pro: "Yes" },
   { feature: "Insert under a heading (Google Docs)", free: "No", pro: "Yes" },
   { feature: "Import .docx, .md and .txt files", free: "No", pro: "Yes" },
   { feature: "Edit remaining text and settings while paused", free: "No", pro: "Yes" },
@@ -49,7 +48,6 @@ export const PLAN_COMPARISON: { feature: string; free: string; pro: string }[] =
   { feature: "Start a session later", free: "No", pro: "Yes" },
   { feature: "Pause, resume and stop", free: "Yes", pro: "Yes" },
   { feature: "Activity log with download", free: "Yes", pro: "Yes" },
-  { feature: "Permanent milestones in Google Docs version history", free: "No", pro: "Yes" },
   { feature: "Google Docs and Microsoft Word", free: "Yes", pro: "Yes" },
   { feature: "Every accessibility feature", free: "Yes", pro: "Yes" },
   { feature: "Email support", free: "Yes", pro: "Priority" },

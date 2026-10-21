@@ -115,7 +115,7 @@ export function AttentionCard({ drip, control }: { drip: Drip; control: ReturnTy
           ? <Link href={`/app/session?id=${drip.id}`} className="btn btn-primary btn-sm">Review and fix<span className="sr-only"> {title}</span></Link>
           : (
             <>
-              {drip.attention === "reconnect" && <Link href="/app/documents" className="btn btn-secondary btn-sm">Reconnect Google</Link>}
+              {drip.attention === "reconnect" && <Link href="/app/connections" className="btn btn-secondary btn-sm">Reconnect Google</Link>}
               <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => control.run(drip.id, "resume")}>
                 Resume<span className="sr-only"> {title}</span>
               </button>

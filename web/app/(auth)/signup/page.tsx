@@ -26,8 +26,10 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resending, setResending] = useState(false);
   const [resent, setResent] = useState<string | null>(null);
   const [about, setAbout] = useState<AboutYouValue>(EMPTY_ABOUT_YOU);
+  const [accountStep, setAccountStep] = useState(false);
   const [step, setStep] = useState<"form" | "refused">("form");
   const check = aboutYouCheck(about);
   // The account options open only once the age answers allow joining.
@@ -60,13 +62,16 @@ function SignupForm() {
   };
 
   async function resend() {
+    if (resending) return;
+    setResending(true);
     setResent(null);
-    const { error: resendError } = await supabase().auth.resend({
-      type: "signup",
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}${next}` },
-    });
-    setResent(resendError ? resendError.message : "Sent again. It can take a minute; check your spam folder too.");
+    try {
+      const { error: resendError } = await supabase().auth.resend({
+        type: "signup", email: email.trim(), options: { emailRedirectTo: `${window.location.origin}${next}` },
+      });
+      setResent(resendError ? resendError.message : "Sent again. It can take a minute; check your spam folder too.");
+    } catch { setResent("Could not send the email. Check your connection and try again."); }
+    finally { setResending(false); }
   }
 
   async function google() {
@@ -101,26 +106,31 @@ function SignupForm() {
     }
 
     setBusy(true);
-    const { data, error: signUpError } = await supabase().auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: { agreed_terms_version: CURRENT_TERMS_VERSION, ...ageAnswers },
-        emailRedirectTo: `${window.location.origin}${next}`,
-      },
-    });
-    setBusy(false);
-    if (signUpError) {
-      if (/can't create a TypeWit account/i.test(signUpError.message)) {
-        rememberAgeBlock();
-        setStep("refused");
+    try {
+      const { data, error: signUpError } = await supabase().auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: { agreed_terms_version: CURRENT_TERMS_VERSION, ...ageAnswers },
+          emailRedirectTo: `${window.location.origin}${next}`,
+        },
+      });
+      setBusy(false);
+      if (signUpError) {
+        if (/can't create a TypeWit account/i.test(signUpError.message)) {
+          rememberAgeBlock();
+          setStep("refused");
+          return;
+        }
+        setError(signUpError.message);
         return;
       }
-      setError(signUpError.message);
-      return;
-    }
-    if (data.session) router.push(next);
-    else setSent(true);
+      if (data.session) router.push(next);
+      else setSent(true);
+    } catch {
+      setError("Could not create your account. Check your connection and try again.");
+    } finally { setBusy(false); }
+
   }
 
   if (sent) {
@@ -130,7 +140,7 @@ function SignupForm() {
           <h1>Check your email</h1>
           <p className="sub">We sent a confirmation link to <strong>{email}</strong>. Open it to finish creating your account.</p>
           <div className="auth-form">
-            <button type="button" className="btn btn-block" onClick={resend}>Send the email again</button>
+            <button type="button" className="btn btn-block" onClick={resend} disabled={resending}>{resending ? "Sending…" : "Send the email again"}</button>
             <button type="button" className="link-btn" onClick={() => { setSent(false); setResent(null); }}>Use a different email</button>
             {resent && <p className="alert alert-info">{resent}</p>}
             <p className="small muted center">Already confirmed? <Link href="/login/">Sign in</Link></p>
@@ -162,10 +172,24 @@ function SignupForm() {
         <p className="sub">Free plan, no card needed.</p>
 
         <form className="auth-form signup-form" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
-          <AboutYou value={about} onChange={setAbout} legend="First, your age" />
+          {!accountStep ? <>
+            <p className="hint">Step 1 of 2 · Eligibility</p>
+            <AboutYou value={about} onChange={setAbout} legend="First, your age" />
+            <button type="button" className="btn btn-primary btn-block" disabled={!unlocked} onClick={() => setAccountStep(true)}>Continue</button>
+          </> : <div className="row"><span className="hint">Step 2 of 2 · Account</span><button type="button" className="link-btn" onClick={() => setAccountStep(false)}>Edit age details</button></div>}
 
-          <div className="signup-locked" data-locked={!unlocked || undefined}>
+          <div className="signup-locked" hidden={!accountStep} data-locked={!unlocked || undefined}>
             <div className="signup-fields" inert={!unlocked}>
+              <div className="agree-row">
+                <label className="check" htmlFor="agree">
+                  <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                  <span>I accept the Terms and Responsible Use Agreement and acknowledge the Privacy Policy</span>
+                </label>
+                <LegalDialog doc="agreement" onAgree={() => setAgreed(true)}>Read agreement</LegalDialog>
+                <LegalDialog doc="terms">Terms</LegalDialog>
+                <LegalDialog doc="privacy">Privacy</LegalDialog>
+              </div>
+              <p className="hint">For authorized testing only. Academic cheating and deceptive claims of authorship are prohibited.</p>
               <button type="button" className="btn btn-google btn-lg btn-block" onClick={google} disabled={busy}>
                 <GoogleMark /> Continue with Google
               </button>
@@ -184,13 +208,6 @@ function SignupForm() {
                 <PasswordField id="password" autoComplete="new-password" required minLength={8} value={password}
                   onChange={(e) => setPassword(e.target.value)} aria-describedby="password-hint" placeholder="At least 8 characters" />
                 <span id="password-hint" className="sr-only">At least 8 characters.</span>
-              </div>
-              <div className="agree-row">
-                <label className="check" htmlFor="agree">
-                  <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-                  <span>I agree to the Responsible Use&nbsp;Agreement</span>
-                </label>
-                <LegalDialog doc="agreement" onAgree={() => setAgreed(true)}>Read it</LegalDialog>
               </div>
               {error && <p className="alert alert-error" role="alert">{error}</p>}
               <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>

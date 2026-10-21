@@ -326,34 +326,6 @@ export class GoogleDocsProvider implements DocProvider {
   }
 
   /**
-   * Marks the latest Drive revision as keepRevisionForever so it is never
-   * auto-compressed in Google Docs version history (Pro milestone feature).
-   * Best-effort: silently ignores errors so it never breaks a session.
-   */
-  async createMilestone(documentId: string): Promise<void> {
-    // Revisions are returned in chronological order; last page holds the latest.
-    let latestId: string | undefined;
-    let pageToken = "";
-    for (let page = 0; page < 10; page++) {
-      const query = new URLSearchParams({ fields: "nextPageToken,revisions(id)", pageSize: "200" });
-      if (pageToken) query.set("pageToken", pageToken);
-      const body = await this.request<{ nextPageToken?: string; revisions?: { id?: string }[] }>(
-        `${DRIVE_API}/${encodeURIComponent(documentId)}/revisions?${query}`,
-        { method: "GET" },
-      );
-      const ids = (body.revisions ?? []).map((r) => r.id).filter(Boolean) as string[];
-      if (ids.length > 0) latestId = ids[ids.length - 1];
-      if (!body.nextPageToken) break;
-      pageToken = body.nextPageToken;
-    }
-    if (!latestId) return;
-    await this.request(
-      `${DRIVE_API}/${encodeURIComponent(documentId)}/revisions/${encodeURIComponent(latestId)}`,
-      { method: "PATCH", body: JSON.stringify({ keepRevisionForever: true }) },
-    );
-  }
-
-  /**
    * Lists the file's revisions through the Drive API (allowed by drive.file for
    * files TypeWit created or the user picked). Needs the Drive API enabled in
    * the Google Cloud project; otherwise this throws and the log says so.
@@ -507,6 +479,8 @@ function sectionEnd(content: StructuralElement[], target: InsertTarget): number 
 
 const NAMED_STYLE: Record<ParagraphKind, string> = {
   normal: "NORMAL_TEXT",
+  title: "TITLE",
+  subtitle: "SUBTITLE",
   h1: "HEADING_1",
   h2: "HEADING_2",
   h3: "HEADING_3",
@@ -524,14 +498,34 @@ export function formatRequests(format: ChunkFormat, index: number, length: numbe
   const requests: unknown[] = [];
   if (length > 0) {
     requests.push({
-      updateTextStyle: { range: range(0, length), textStyle: { bold: false, italic: false }, fields: "bold,italic" },
+      updateTextStyle: {
+        range: range(0, length),
+        textStyle: { bold: false, italic: false, backgroundColor: {} },
+        fields: "bold,italic,backgroundColor",
+      },
     });
   }
   for (const span of format.spans) {
-    const textStyle = span.bold ? { bold: true } : { italic: true };
-    requests.push({
-      updateTextStyle: { range: range(span.start, span.end), textStyle, fields: span.bold ? "bold" : "italic" },
-    });
+    const textStyle: Record<string, unknown> = {};
+    if (span.bold) textStyle.bold = true;
+    if (span.italic) textStyle.italic = true;
+    if (span.highlight) {
+      const hex = span.highlight.slice(1);
+      textStyle.backgroundColor = {
+        color: {
+          rgbColor: {
+            red: parseInt(hex.slice(0, 2), 16) / 255,
+            green: parseInt(hex.slice(2, 4), 16) / 255,
+            blue: parseInt(hex.slice(4, 6), 16) / 255,
+          },
+        },
+      };
+    }
+    if (Object.keys(textStyle).length) {
+      requests.push({
+        updateTextStyle: { range: range(span.start, span.end), textStyle, fields: Object.keys(textStyle).join(",") },
+      });
+    }
   }
   for (const p of format.paragraphs) {
     if (p.start === 0 && !atParagraphStart) continue;

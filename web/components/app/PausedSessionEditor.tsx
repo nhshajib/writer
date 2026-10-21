@@ -1,5 +1,7 @@
 "use client";
 
+import { RichTextEditor } from "./RichTextEditor";
+import type { TextFormat } from "../../../supabase/functions/_shared/markdown.ts";
 import { type FormEvent, useState } from "react";
 import { DEFAULT_PACE, PaceControls, paceFromSettings, pacingFor, sanitizePace, type Pace } from "./PaceControls";
 import { api, sha256Hex } from "@/lib/api";
@@ -13,6 +15,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
   const [originalText] = useState(drip.progress.remaining_text ?? "");
   const [version] = useState(drip.updated_at);
   const [text, setText] = useState(originalText);
+  const [format, setFormat] = useState<TextFormat>("plain");
   const [timing, setTiming] = useState<"duration" | "speed">(drip.pacing?.timing ?? "duration");
   const [minutes, setMinutes] = useState(Math.max(1, Math.ceil(drip.duration_seconds * (1 - drip.progress.percent / 100) / 60)));
   const [unit, setUnit] = useState<InsertionUnit>(drip.insertion_unit);
@@ -29,7 +32,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
     try {
       await api(`drips/${drip.id}/settings`, { method: "POST", body: {
         confirmed: true, updated_at: version,
-        ...(text !== originalText ? { remaining_text: text, remaining_sha256: await sha256Hex(text) } : {}),
+        ...(text !== originalText ? { remaining_text: text, remaining_text_format: format, remaining_sha256: await sha256Hex(text) } : {}),
         insertion_unit: unit, mode: "scheduled",
         pacing: pacingFor(timing, minutes, pace),
       } });
@@ -47,8 +50,8 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
         <legend className="sr-only">Remaining text and settings</legend>
         <div className="field">
           <label className="label" htmlFor="remaining-text">Remaining text</label>
-          <textarea id="remaining-text" value={text} onChange={(e) => change(() => setText(e.target.value))} required aria-describedby="remaining-hint" />
-          <p id="remaining-hint" className="hint">Review this exact text before approving. This editor saves plain text; formatting already entered is kept. Keep any spaces or line breaks needed to join it to the text already in the document.</p>
+          <RichTextEditor id="remaining-text" label="Remaining text" text={text} format={format} disabled={busy} onChange={(next, kind) => change(() => { setText(next); setFormat(kind); })} />
+          <p className="hint">Keep spaces or line breaks needed to join the entered text. Leave this text unchanged to retain its original formatting; paste a formatted replacement to change it. Saving does not resume the session.</p>
         </div>
         <div className="field">
           <label className="label" htmlFor="edit-unit">Insertion steps</label>

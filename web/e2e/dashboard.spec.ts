@@ -63,7 +63,7 @@ test("Home shows what needs you with the fix right there, and live sessions can 
   const glance = page.getByRole("region", { name: "Today at a glance" });
   await expect(glance).toContainText("Active sessions");
   await expect(glance).toContainText("2 / 3");
-  await page.getByText("Connected accounts", { exact: true }).click();
+  await page.locator("summary").filter({ hasText: "Connected accounts" }).click();
   const docs = page.getByRole("region", { name: "Connected documents" });
   await expect(docs.getByRole("link", { name: /Google Docs.*Connected/ })).toBeVisible();
   await expect(docs.getByRole("link", { name: /Word add-in.*Not set up/ })).toBeVisible();

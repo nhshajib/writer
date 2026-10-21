@@ -1,4 +1,6 @@
 "use client";
+import { RichTextEditor } from "@/components/app/RichTextEditor";
+import { parseFormatted, type TextFormat } from "../../../supabase/functions/_shared/markdown.ts";
 
 import type { Session } from "@supabase/supabase-js";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -70,7 +72,7 @@ export default function WordPane() {
           This page is TypeWit&apos;s add-in for Microsoft Word. In Word, choose Home → Add-ins (or Insert → Add-ins),
           then TypeWit. To add it to Word the first time, follow the steps on the Documents page.
         </p>
-        <p><a href="/app/documents#word">How to add TypeWit to Word</a></p>
+        <p><a href="/app/connections#word">How to add TypeWit to Word</a></p>
       </div>
     );
   } else if (!env.documentUrl) {
@@ -200,6 +202,9 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   onStarted: (id: string) => void;
 }) {
   const [text, setText] = useState("");
+  const [textFormat, setTextFormat] = useState<TextFormat>("plain");
+  const formatted = parseFormatted(text, textFormat);
+  const plainText = formatted?.plain ?? text;
   const [unit, setUnit] = useState<InsertionUnit>("sentence");
   const [timing, setTiming] = useState<Timing>("duration");
   const [minutes, setMinutes] = useState(tier === "pro" ? 60 : 30);
@@ -221,7 +226,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const simulatedDrafting = isPro && timing !== "asap" && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0);
   useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
-  const key = JSON.stringify([text, unit, timing, pacing, rhythm, seed ?? null]);
+  const key = JSON.stringify([text, textFormat, unit, timing, pacing, rhythm, seed ?? null]);
   const current = plan !== null && planKey === key;
 
   useEffect(() => {
@@ -233,6 +238,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           method: "POST",
           body: {
             text,
+            text_format: textFormat,
             rhythm,
             insertion_unit: unit,
             mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
@@ -244,7 +250,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
         setPlan(res.plan);
-        setPlanKey(JSON.stringify([text, unit, timing, pacing, rhythm, kept]));
+        setPlanKey(JSON.stringify([text, textFormat, unit, timing, pacing, rhythm, kept]));
       } catch (e) {
         if (!stale) setError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -280,6 +286,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           document_id: documentUrl,
           document_title: title,
           text,
+          text_format: textFormat,
           rhythm,
           insertion_unit: unit,
           mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
@@ -300,18 +307,14 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   }
 
   const steps = current && plan.ok ? plan.source_unit_count ?? plan.unit_count : 0;
-  const words = (text.match(/\S+/g) ?? []).length;
+  const words = (plainText.match(/\S+/g) ?? []).length;
 
   return (
     <form onSubmit={start} noValidate aria-label="New Word session">
       <div className="field">
-        <label className="label" htmlFor="pane-text">Text to enter</label>
-        <textarea id="pane-text" value={text} rows={8}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (approved) setApproved(false);
-          }} />
-        <span className="hint">{words.toLocaleString()} words · {text.length.toLocaleString()} characters</span>
+        <label className="label" htmlFor="text">Text to enter</label>
+        <RichTextEditor text={text} format={textFormat} onChange={(next, format) => { setText(next); setTextFormat(format); setApproved(false); }} />
+        <span id="text-count" className="hint">{words.toLocaleString()} words · {plainText.length.toLocaleString()} characters</span>
       </div>
 
       <div className="field">

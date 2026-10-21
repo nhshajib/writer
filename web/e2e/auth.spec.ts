@@ -101,21 +101,16 @@ async function aboutYou(page: Page, country: string, age: number) {
   await page.getByLabel("Year you were born").selectOption(String(year - age));
 }
 
-test("sign-up is one screen, and the account options stay locked until the age answers allow joining", async ({ page }) => {
+test("sign-up separates eligibility from account creation without exposing locked fields", async ({ page }) => {
   await page.goto("/signup/");
-  const create = page.getByRole("button", { name: "Create free account" });
-  // Locked: inert, so the keyboard skips from the age answers past every account field.
-  await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", true);
-  await page.getByLabel("Year you were born").focus();
-  await page.keyboard.press("Tab");
-  await expect(page.locator(".signup-form").getByRole("button", { name: "Terms" })).toBeFocused();
-  await expect(page.getByText("Answer the questions above to continue")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+  await expect(page.getByLabel("Email")).toBeHidden();
   await expectNoAxeViolations(page);
   await aboutYou(page, "US", 30);
-  await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", false);
-  await expect(page.getByText("Answer the questions above to continue")).toHaveCount(0);
-  await create.focus();
-  await expect(create).toBeFocused();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /I accept the Terms/ })).not.toBeChecked();
   await expectNoAxeViolations(page);
 });
 
@@ -124,15 +119,16 @@ test("joining under 18 needs a parent or guardian, and the answers go with the s
   await aboutYou(page, "US", 15);
   const guardian = page.getByLabel(/A parent or guardian knows I'm using TypeWit/);
   await expect(guardian).toBeVisible();
-  await expect(page.getByText("Tick the parent or guardian box to continue")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
   await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", true);
   await guardian.check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   await page.getByLabel("Email").fill("teen@gmail.com");
   await page.getByLabel("Password").fill("a good password");
   await page.getByRole("button", { name: "Create free account" }).click();
   await expect(page.locator(".alert-error")).toHaveText(/Responsible Use Agreement/);
-  await page.getByLabel("I agree to the Responsible Use Agreement").check();
+  await page.getByLabel(/I accept the Terms/).check();
   await page.getByRole("button", { name: "Create free account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 

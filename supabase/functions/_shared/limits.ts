@@ -17,7 +17,6 @@ export const MIN_DURATION_SECONDS = 60;
 /** What Free can't do, in the words shown to people. Free keeps every accessibility feature and insertion mode. */
 export const PRO_ONLY_MESSAGES = {
   startLater: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it.",
-  formatting: "Keeping headings, bold, italic and bullets is part of Pro. Use plain text, or upgrade.",
   headings: "Adding text under a heading is part of Pro. Text goes at the end of the document on Free.",
   drafting:
     "Custom drafting effects are part of Pro. Free includes ready-made Natural and Steady rhythms with optional sentence pauses.",

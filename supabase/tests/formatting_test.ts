@@ -56,7 +56,7 @@ Deno.test("markdown: a span crossing units is split, and a paragraph after a bul
 // Planning
 // ---------------------------------------------------------------------------
 
-Deno.test("plan: markdown is Pro, units are the text without markers, and formats line up", () => {
+Deno.test("plan: formatted paste is included on Free, units are the text without markers, and formats line up", () => {
   const text = "# Heading\nA **bold** sentence. Another one.";
   const pro = planSession({ text, unit: "sentence", seed: 1, plan: "pro", durationSeconds: 600, format: "markdown" });
   assert(pro.ok);
@@ -66,7 +66,7 @@ Deno.test("plan: markdown is Pro, units are the text without markers, and format
   assertEquals(pro.words, 6);
 
   const free = planSession({ text, unit: "sentence", seed: 1, plan: "free", durationSeconds: 600, format: "markdown" });
-  assertEquals(free.problems[0].code, "pro_feature");
+  assert(free.ok);
 
   const plain = planSession({ text, unit: "sentence", seed: 1, plan: "free", durationSeconds: 600 });
   assert(plain.ok);

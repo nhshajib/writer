@@ -7,15 +7,14 @@ export function TermsBody() {
   return (
     <>
       <p>
-        These terms are an agreement between you and TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;) for your use of
+        These terms are an agreement between you and Typewit Organization, based in Bangladesh, operating TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;) for your use of
         typewit.com and the TypeWit service. By creating an account or using TypeWit, you agree to these terms, our{" "}
         <Link href="/privacy/">Privacy Policy</Link> and the <Link href="/responsible-use/">Responsible Use Agreement</Link>.
       </p>
 
       <h2>1. What TypeWit does</h2>
       <p>
-        TypeWit is an assistive tool. It enters text that you provide and approve into Google Docs in your connected
-        account, in sentence, paragraph or larger steps over a time you choose. TypeWit does not write content for you.
+        TypeWit is provided only for authorized testing and demonstration of automated text entry into Google Docs and Microsoft Word. You supply and approve the text. It is not developed or authorized for academic cheating. Natural, Steady and Drafting vary automated entry timing; optional typos and false starts temporarily insert and correct text. These are simulations, not evidence of human authorship.
       </p>
 
       <h2>2. Your account</h2>
@@ -35,21 +34,21 @@ export function TermsBody() {
       <p>
         You agree to follow the <Link href="/responsible-use/">Responsible Use Agreement</Link>. In particular, you'll
         only use text you wrote or have the right to use, and you'll follow the rules of your school, employer or any
-        other organisation that applies to your work, including any rules about disclosing assistive tools. You must
+        other organisation that applies to your work, including any rules about disclosing automation. Academic cheating, assessment misconduct, evading integrity checks, fabricating evidence of authorship or a writing process, and disguising copied or AI-generated work as your own are prohibited. You are responsible for your misuse and any resulting academic, employment, contractual or legal consequences. We do not endorse misuse. You must
         not use TypeWit to break the law, infringe others' rights, or misrepresent automated input as manual typing.
       </p>
 
       <h2>4. Your content</h2>
       <p>
-        You own the text you submit. You give us permission to store and process it only as needed to provide
-        TypeWit: to enter it into your documents, show your progress and keep your activity log. You're responsible
+        You retain ownership of content you own. You give us permission to store and process it only as needed to provide
+        TypeWit: to enter it into your documents, preserve supported formatting, execute the approved schedule (including temporary simulated edits), show your progress and keep your activity log. You retain any rights you hold in the content; you do not acquire rights in third-party content by uploading it. You're responsible
         for your content and for having the right to use it.
       </p>
 
-      <h2>5. Google services</h2>
+      <h2>5. Connected services and execution</h2>
       <p>
         TypeWit works with your Google account through Google's APIs. Your use of Google Docs is also subject to
-        Google's terms. We're not responsible for Google's services, outages or changes that affect TypeWit.
+        Google's terms. Microsoft Word runs through its add-in and requires the document and panel to remain open. These providers control their services and version-history grouping. We do not guarantee a particular number, appearance or permanence of visible versions. Google sessions run on our servers even after you close the dashboard. You may pause or stop them. Pro users may revise remaining text and settings while safely paused; text changes require renewed approval. Disconnecting an account stops its active sessions but does not undo past edits. Temporary mistakes may remain visible in document history. Review output and use test documents with backups.
       </p>
 
       <h2>6. Plans, trials and billing</h2>
@@ -94,7 +93,7 @@ export function TermsBody() {
 
       <h2>9. Availability and changes</h2>
       <p>
-        We work to keep TypeWit reliable, but it may sometimes be unavailable, and sessions can be delayed or stop
+        Supported paste preserves text, headings, bold, italic, bullets and highlight colors; it does not reproduce images, tables, fonts or page layout. Review the preview and destination before starting. Timing is a target, not a deadline. We work to keep TypeWit reliable, but it may sometimes be unavailable, and sessions can be delayed or stop
         because of problems with Google or other services. You can always see what was entered in your activity log.
         We may improve or change features over time.
       </p>
@@ -103,25 +102,27 @@ export function TermsBody() {
       <p>
         TypeWit is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo;. To the extent the law allows, we make
         no warranties beyond those stated in these terms, including that the service will be uninterrupted or
-        error-free. Always check your document before relying on it or submitting it.
+        error-free, fit for a particular purpose, or capable of proving authorship or satisfying any institution. We exclude implied warranties of merchantability, fitness and non-infringement to the maximum lawful extent. Always check your document before relying on it or submitting it.
       </p>
 
       <h2>11. Limitation of liability</h2>
       <p>
         To the extent the law allows, TypeWit isn't liable for indirect, incidental or consequential losses, or for lost
         data, grades, profits or opportunities. Our total liability for any claim is limited to the amount you paid us
-        in the 12 months before the claim, or US$50 if greater. Nothing in these terms limits liability that can't be
-        limited by law.
+        in the 12 months before the claim, or US$50 if greater. These limitations apply to the operator and its personnel to the maximum lawful extent. They do not exclude fraud, willful misconduct, death or personal injury caused by negligence where protected by law, or any non-waivable consumer rights, statutory guarantees or other liability that cannot lawfully be limited. We do not assume responsibility for your prohibited use or an institution’s decisions; you remain responsible for your own conduct.
       </p>
 
-      <h2>12. Changes to these terms</h2>
+      <h2>12. Third-party claims, mandatory rights and disputes</h2>
+      <p>To the extent permitted by law, you will reimburse the operator for reasonable losses and defense costs arising from third-party claims caused by your unlawful content, intentional misuse or material breach of these terms. This does not cover losses caused by our own unlawful conduct and does not override mandatory consumer protections. We will notify you of a claim, allow reasonable participation in its defense, and will not impose a settlement admitting your liability without your consent.</p>
+      <p>These terms are governed by the laws of Bangladesh, except to the extent mandatory laws where you live require otherwise. Disputes may be brought before competent courts in Bangladesh, without limiting a consumer’s right to bring proceedings in another court where mandatory law permits. Contact us first to try to resolve a dispute. These terms do not require arbitration, waive class-action rights, or deprive you of mandatory protections or access to courts available under applicable law. If a provision is unenforceable, the remaining provisions continue where lawful. Failure to enforce a provision is not a waiver. Rights and obligations that by their nature should survive termination, including payment obligations and lawful liability limits, survive.</p>
+      <h2>13. Changes to these terms</h2>
       <p>
         We may update these terms. We'll change the date above and, for significant changes, tell you by email or in
         the app before they apply. If you keep using TypeWit after that, the new terms apply.
       </p>
 
-      <h2>13. Contact</h2>
-      <p>Questions about these terms? Email {email}.</p>
+      <h2>14. Contact and operator</h2>
+      <p>TypeWit and typewit.com are operated by Typewit Organization, based in Bangladesh. Questions or legal notices? Email {email}.</p>
     </>
   );
 }

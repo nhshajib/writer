@@ -50,6 +50,7 @@ export default function AccountPage() {
       </Group>
 
       <Group title="Settings">
+        <Row icon={Icon.user} href="/app/connections/" label="Connected Google accounts" />
         <Row icon={Icon.user} href="/app/settings/#profile" label="Profile" />
         <Row icon={Icon.bell} href="/app/settings/#notifications" label="Notifications" />
         <Row icon={Icon.lock} href="/app/settings/#security" label="Security" />

@@ -22,7 +22,7 @@ const RULES: { test: RegExp; title: string; help: string; action?: FriendlyError
     test: /invalid_grant|token has been (expired|revoked)|unauthenticated|invalid credentials|\b401\b/i,
     title: "TypeWit lost access to your Google account",
     help: "This happens when access is removed in your Google account. Reconnect Google, then resume.",
-    action: { label: "Reconnect Google", href: "/app/documents/" },
+    action: { label: "Reconnect Google", href: "/app/connections/" },
   },
   {
     test: /permission|insufficient|forbidden|\b403\b/i,

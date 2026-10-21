@@ -5,8 +5,8 @@
  * ever sees the plain text, and the formatting travels next to each unit.
  */
 
-export type TextFormat = "plain" | "markdown";
-export type ParagraphKind = "normal" | "h1" | "h2" | "h3" | "bullet";
+export type TextFormat = "plain" | "markdown" | "rich";
+export type ParagraphKind = "normal" | "title" | "subtitle" | "h1" | "h2" | "h3" | "bullet";
 
 export interface ParagraphRange {
   start: number;
@@ -22,6 +22,7 @@ export interface SpanRange {
   end: number;
   bold?: boolean;
   italic?: boolean;
+  highlight?: string;
 }
 
 export interface ParsedMarkdown {
@@ -118,4 +119,80 @@ export function formatsForUnits(parsed: ParsedMarkdown, units: string[]): ChunkF
 /** Whether a unit's format changes anything (so plain units keep the simple insert). */
 export function hasFormatting(format: ChunkFormat | null | undefined): format is ChunkFormat {
   return !!format && (format.paragraphs.length > 0 || format.spans.length > 0);
+}
+
+/** Rich paste stores only text and bounded style ranges, never executable HTML. */
+export function parseRichText(source: string): ParsedMarkdown {
+  const doc = JSON.parse(source);
+  if (
+    !doc || typeof doc.plain !== "string" || doc.plain.length > 1_000_000 ||
+    !Array.isArray(doc.paragraphs) || !Array.isArray(doc.spans) ||
+    doc.paragraphs.length > 50000 || doc.spans.length > 50000
+  ) throw new Error("Invalid formatted text.");
+  const range = (r: { start: number; end: number }) =>
+    Number.isInteger(r.start) && Number.isInteger(r.end) &&
+    r.start >= 0 && r.end > r.start && r.end <= doc.plain.length;
+  let end = 0;
+  const paragraphs: ParagraphRange[] = doc.paragraphs.map((p: ParagraphRange) => {
+    if (
+      !range(p) || p.start !== end || !["normal", "title", "subtitle", "h1", "h2", "h3", "bullet"].includes(p.kind) ||
+      (p.start > 0 && doc.plain[p.start - 1] !== "\n") ||
+      (p.end < doc.plain.length && doc.plain[p.end - 1] !== "\n")
+    ) throw new Error("Invalid paragraph range.");
+    end = p.end;
+    return { start: p.start, end: p.end, kind: p.kind };
+  });
+  if (end !== doc.plain.length) throw new Error("Incomplete paragraph ranges.");
+  const spans: SpanRange[] = doc.spans.map((s: SpanRange) => {
+    if (
+      !range(s) || (s.bold !== undefined && typeof s.bold !== "boolean") ||
+      (s.italic !== undefined && typeof s.italic !== "boolean") ||
+      (s.highlight !== undefined && !/^#[0-9a-f]{6}$/i.test(s.highlight))
+    ) throw new Error("Invalid text style.");
+    return {
+      start: s.start,
+      end: s.end,
+      ...(s.bold ? { bold: true } : {}),
+      ...(s.italic ? { italic: true } : {}),
+      ...(s.highlight ? { highlight: s.highlight } : {}),
+    };
+  });
+  return { plain: doc.plain, paragraphs, spans };
+}
+
+export function parseFormatted(source: string, format: TextFormat): ParsedMarkdown | null {
+  return format === "rich" ? parseRichText(source) : format === "markdown" ? parseMarkdown(source) : null;
+}
+
+/** Keep the already-entered prefix and its styles when replacing a formatted tail. */
+export function replaceFormattedTail(original: ParsedMarkdown, offset: number, tail: ParsedMarkdown): ParsedMarkdown {
+  const prefix = original.plain.slice(0, offset);
+  const paragraphs = original.paragraphs.filter((p) => p.start < offset).map((p) => ({
+    ...p,
+    end: Math.min(p.end, offset),
+  }));
+  const shifted = tail.paragraphs.map((p) => ({ ...p, start: p.start + offset, end: p.end + offset }));
+  if (prefix && !prefix.endsWith("\n") && paragraphs.length && shifted.length) {
+    paragraphs[paragraphs.length - 1].end = shifted.shift()!.end;
+  }
+  return {
+    plain: prefix + tail.plain,
+    paragraphs: [...paragraphs, ...shifted],
+    spans: [
+      ...original.spans.filter((s) => s.start < offset).map((s) => ({ ...s, end: Math.min(s.end, offset) })),
+      ...tail.spans.map((s) => ({ ...s, start: s.start + offset, end: s.end + offset })),
+    ],
+  };
+}
+
+export function plainDocument(plain: string): ParsedMarkdown {
+  return {
+    plain,
+    spans: [],
+    paragraphs: [...plain.matchAll(/[^\n]*\n|[^\n]+$/g)].map((m) => ({
+      start: m.index!,
+      end: m.index! + m[0].length,
+      kind: "normal",
+    })),
+  };
 }

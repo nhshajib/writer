@@ -9,7 +9,7 @@ import {
   unitSize,
 } from "./chunker.ts";
 import { MAX_TEXT_CHARS, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "./limits.ts";
-import { type ChunkFormat, parseMarkdown, type TextFormat } from "./markdown.ts";
+import { type ChunkFormat, parseFormatted, type TextFormat } from "./markdown.ts";
 import { buildPacing, CHARS_PER_WORD, type PacingSettings, type PlannedBreak } from "./pacing.ts";
 import {
   formatSeconds,
@@ -50,7 +50,7 @@ export interface PlanRequest {
   durationSeconds?: number;
   /** `as_soon_as_possible` writes everything in one insertion. */
   mode?: "scheduled" | "as_soon_as_possible";
-  /** "markdown" (Pro) keeps headings, bold, italic and bullets; the units are the text without the markers. */
+  /** Plain, legacy Markdown or structured rich text; execution units contain only document text. */
   format?: TextFormat;
 }
 
@@ -98,7 +98,7 @@ export interface SessionPlan {
   source_unit_ends: number[];
   drafting_stats: { typos: number; false_starts: number; sentence_pauses: number; extra_edits: number };
   text_format: TextFormat;
-  /** Markdown: the formatting of each unit. */
+  /** Supported formatting for each unit. */
   chunk_formats: ChunkFormat[] | null;
   /** Offsets in ms from the start; empty when the plan has problems. */
   schedule: number[];
@@ -157,8 +157,8 @@ export function legacyPacing(durationSeconds: number): PacingSettings {
 export function planSession(req: PlanRequest): SessionPlan {
   const { unit, seed } = req;
   const source = req.text;
-  const format: TextFormat = req.format === "markdown" ? "markdown" : "plain";
-  const parsed = format === "markdown" ? parseMarkdown(source) : null;
+  const format: TextFormat = req.format === "rich" ? "rich" : req.format === "markdown" ? "markdown" : "plain";
+  const parsed = parseFormatted(source, format);
   // The document gets the text without Markdown markers.
   const text = parsed ? parsed.plain : source;
   const asap = req.mode === "as_soon_as_possible";
@@ -191,9 +191,6 @@ export function planSession(req: PlanRequest): SessionPlan {
     });
   }
   if (freeSpeed) problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.speed });
-  if (format === "markdown" && req.plan === "free") {
-    problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.formatting });
-  }
   const warnings: PlanWarning[] = [];
 
   const split = (u: InsertionUnit) => {

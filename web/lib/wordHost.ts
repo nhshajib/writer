@@ -4,7 +4,7 @@ import type { ChunkFormat, ParagraphKind } from "../../supabase/functions/_share
 
 /* Word's JavaScript API (Office.js, WordApi 1.1; styleBuiltIn needs 1.3), only the parts TypeWit uses. */
 interface WordRange {
-  font: { bold: boolean; italic: boolean };
+  font: { bold: boolean; italic: boolean; highlightColor?: string | null };
   delete(): void;
 }
 interface WordParagraph {
@@ -120,6 +120,7 @@ export const officeWordHost: WordHost = {
             const range = paragraph.insertText(segment.text, "End");
             range.font.bold = segment.bold;
             range.font.italic = segment.italic;
+            range.font.highlightColor = segment.highlight ?? null;
           }
           // The person's own paragraph keeps its style; new paragraphs get theirs.
           const style = format.paragraphs.find((p) => p.start === offset);
@@ -175,6 +176,7 @@ export const officeWordHost: WordHost = {
             const inserted = paragraph.insertText(segment.text, "End");
             inserted.font.bold = segment.bold;
             inserted.font.italic = segment.italic;
+            inserted.font.highlightColor = segment.highlight ?? null;
           }
           const style = format.paragraphs.find((p) => p.start === offset);
           if (style && styles && (i > 0 || lastWasEmpty)) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
@@ -190,6 +192,8 @@ export const officeWordHost: WordHost = {
 
 const WORD_STYLE: Record<ParagraphKind, string> = {
   normal: "Normal",
+  title: "Title",
+  subtitle: "Subtitle",
   h1: "Heading1",
   h2: "Heading2",
   h3: "Heading3",
@@ -208,11 +212,12 @@ export function segments(line: string, lineStart: number, format: ChunkFormat) {
     for (const at of [s.start - lineStart, s.end - lineStart]) if (at > 0 && at < line.length) cuts.add(at);
   }
   const points = [...cuts].sort((a, b) => a - b);
-  const out: { text: string; bold: boolean; italic: boolean }[] = [];
+  const out: { text: string; bold: boolean; italic: boolean; highlight?: string }[] = [];
   for (let i = 0; i < points.length - 1; i++) {
     const from = lineStart + points[i];
     const inSpan = (key: "bold" | "italic") => format.spans.some((s) => s[key] && s.start <= from && from < s.end);
-    out.push({ text: line.slice(points[i], points[i + 1]), bold: inSpan("bold"), italic: inSpan("italic") });
+    const highlight = format.spans.findLast(s => s.highlight && s.start <= from && from < s.end)?.highlight;
+    out.push({ text: line.slice(points[i], points[i + 1]), bold: inSpan("bold"), italic: inSpan("italic"), ...(highlight ? { highlight } : {}) });
   }
   return out;
 }

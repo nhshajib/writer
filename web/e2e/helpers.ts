@@ -11,7 +11,6 @@ export async function toStep(page: Page, n: number) {
   }
   if (current === 5) await page.locator(".step-bar").getByRole("button", { name: "Back", exact: true }).click();
   if (n === 1) await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
-  if (n === 2) await page.locator(".format-choice").evaluate((el) => { (el.parentElement as HTMLDetailsElement).open = true; });
   if (n === 3 || n === 4) await page.locator(".session-advanced").evaluate((el: HTMLDetailsElement) => { el.open = true; });
 
 }

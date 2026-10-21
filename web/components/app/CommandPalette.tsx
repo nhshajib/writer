@@ -19,6 +19,7 @@ const PAGES: Omit<Item, "group">[] = [
   { key: "new", label: "New session", hint: "Start entering text", href: "/app/new", icon: Icon.plus },
   { key: "home", label: "Home", href: "/app", icon: Icon.home },
   { key: "sessions", label: "Sessions", href: "/app/sessions", icon: Icon.list },
+  { key: "connections", label: "Connected accounts", href: "/app/connections", icon: Icon.user },
   { key: "documents", label: "Documents", href: "/app/documents", icon: Icon.doc },
   { key: "billing", label: "Plan & usage", href: "/app/billing", icon: Icon.card },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Icon.gear },

@@ -1,12 +1,12 @@
 import { compileDrafting, executionText } from "./drafting.ts";
-import { parseMarkdown } from "./markdown.ts";
+import { parseFormatted, type TextFormat } from "./markdown.ts";
 import { type PlanRequest, planSession } from "./plan.ts";
 import type { PlannedBreak } from "./pacing.ts";
 import type { SessionRow } from "./session.ts";
 
 export type EditableSession = SessionRow & {
   text: string;
-  text_format?: "plain" | "markdown";
+  text_format?: "plain" | "markdown" | "rich";
   paused_at: string | null;
   attention?: string | null;
   breaks?: PlannedBreak[];
@@ -17,6 +17,7 @@ export function replanPaused(
   row: EditableSession,
   request: Omit<PlanRequest, "text" | "plan" | "format">,
   replacement?: string,
+  replacementFormat: TextFormat = "plain",
 ) {
   const written = row.chunks_written;
   if (!row.paused_at || !Number.isFinite(Date.parse(row.paused_at))) {
@@ -44,13 +45,20 @@ export function replanPaused(
     prefixSource.push(partial);
     prefixEnds.push(written);
   }
-  const remaining = replacement ?? source.slice(completed).join("").slice(partial.length);
+  const remaining = replacement === undefined
+    ? source.slice(completed).join("").slice(partial.length)
+    : parseFormatted(replacement, replacementFormat)?.plain ?? replacement;
   if (!remaining.trim()) throw new Error("There is no remaining text to reschedule.");
-  const plan = planSession({ ...request, text: remaining, plan: "pro", format: "plain" });
+  const plan = planSession({
+    ...request,
+    text: replacement ?? remaining,
+    plan: "pro",
+    format: replacement === undefined ? "plain" : replacementFormat,
+  });
   if (!plan.ok) throw new Error(plan.problems.map((p) => p.message).join(" "));
   let formats = plan.chunk_formats;
-  if (row.text_format === "markdown" && replacement === undefined) {
-    const parsed = parseMarkdown(row.text);
+  if ((row.text_format === "markdown" || row.text_format === "rich") && replacement === undefined) {
+    const parsed = parseFormatted(row.text, row.text_format)!;
     const offset = prefixSource.join("").length;
     const clip = <T extends { start: number; end: number }>(ranges: T[]) =>
       ranges.filter((r) => r.end > offset)

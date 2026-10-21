@@ -1,3 +1,4 @@
+import { parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
 // User-facing API for drips, document connections and documents.
 //
 //   GET  /drips[?before=<iso>]      list my drips (with progress), newest first, 100 at a time
@@ -167,7 +168,7 @@ interface CreateDripBody {
   /** One id per Start press; repeating the request returns the same session. */
   request_id?: string;
   approval?: { confirmed?: boolean; text_sha256?: string };
-  text_format?: "plain" | "markdown";
+  text_format?: "plain" | "markdown" | "rich";
   /** Pro, Google Docs: add the text at the end of this heading's section. */
   insert_target?: { heading_id?: unknown; heading_text?: unknown; level?: unknown } | null;
 }
@@ -180,7 +181,7 @@ interface PlanBody {
   mode?: "scheduled" | "as_soon_as_possible";
   schedule_seed?: number;
   pacing?: unknown;
-  text_format?: "plain" | "markdown";
+  text_format?: "plain" | "markdown" | "rich";
 }
 
 /** Reads pace settings from a request body; shape only, ranges are checked by the planner. */
@@ -227,7 +228,16 @@ function readPlanInput(body: PlanBody) {
     throw new HttpError(400, "duration_minutes must be a number of at least 1.");
   }
   const format = body.text_format ?? "plain";
-  if (format !== "plain" && format !== "markdown") throw new HttpError(400, "text_format must be plain or markdown.");
+  if (format !== "plain" && format !== "markdown" && format !== "rich") {
+    throw new HttpError(400, "Unsupported text format.");
+  }
+  if (format === "rich") {
+    try {
+      parseRichText(text);
+    } catch {
+      throw new HttpError(400, "The formatted text could not be read. Paste it again.");
+    }
+  }
   const seed = body.schedule_seed;
   if (seed !== undefined && !(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff)) {
     throw new HttpError(400, "schedule_seed must be a 32-bit unsigned integer.");
@@ -347,7 +357,6 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (!agreed) throw new HttpError(403, "Please read and agree to the Responsible Use Agreement before writing.");
   if (tier === "free" && body.start_at) throw new HttpError(403, PRO_ONLY_MESSAGES.startLater);
   if (tier === "free" && target) throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
-  if (tier === "free" && input.format === "markdown") throw new HttpError(403, PRO_ONLY_MESSAGES.formatting);
 
   // Splits the text and builds the complete schedule before anything starts.
   const plan = planSession({ ...input, plan: tier });
@@ -356,7 +365,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   const limitError = checkCreateLimits({
     plan: tier,
     words: plan.words,
-    textLength: text.length,
+    textLength: plan.chars,
     // The planner already checked the duration; a short speed-mode session is fine.
     durationSeconds: Math.max(60, plan.duration_seconds),
     activeDrips: activeDrips ?? 0,
@@ -675,7 +684,13 @@ async function editPausedSettings(userId: string, id: string, req: Request): Pro
   if (tier.plan !== "pro") throw new HttpError(403, "Editing paused session settings is a Pro feature.");
   if (!tier.agreed) throw new HttpError(403, "Accept the current Responsible Use Agreement first.");
   const body = await readJson<
-    PlanBody & { confirmed?: boolean; updated_at?: string; remaining_text?: string; remaining_sha256?: string }
+    PlanBody & {
+      confirmed?: boolean;
+      updated_at?: string;
+      remaining_text?: string;
+      remaining_sha256?: string;
+      remaining_text_format?: "plain" | "markdown" | "rich";
+    }
   >(req);
   if (body.confirmed !== true) throw new HttpError(400, "Review and approve the changed settings first.");
   const db = adminClient();
@@ -699,17 +714,32 @@ async function editPausedSettings(userId: string, id: string, req: Request): Pro
     if (body.remaining_text !== undefined && body.remaining_sha256 !== await sha256Hex(body.remaining_text)) {
       throw new Error("Approve the exact remaining text before saving.");
     }
-    patch = replanPaused(row, input, body.remaining_text);
+    if (
+      body.remaining_text_format !== undefined && !["plain", "markdown", "rich"].includes(body.remaining_text_format)
+    ) throw new Error("Unsupported remaining text format.");
+    patch = replanPaused(row, input, body.remaining_text, body.remaining_text_format);
   } catch (e) {
     throw new HttpError(422, e instanceof Error ? e.message : "These settings cannot be applied.");
   }
   const fullText = patch.source_chunks.join("");
   if (fullText.length > 200_000) throw new HttpError(422, "The whole session must stay within 200,000 characters.");
+  const replacementDoc = body.remaining_text === undefined
+    ? null
+    : parseFormatted(body.remaining_text, body.remaining_text_format ?? "plain") ?? plainDocument(body.remaining_text);
+  const keepStyles = (row.text_format ?? "plain") !== "plain" || body.remaining_text_format === "rich" ||
+    body.remaining_text_format === "markdown";
+  const savedSource = replacementDoc && keepStyles
+    ? JSON.stringify(replaceFormattedTail(
+      parseFormatted(row.text, row.text_format ?? "plain") ?? plainDocument(row.text),
+      fullText.length - replacementDoc.plain.length,
+      replacementDoc,
+    ))
+    : fullText;
   const textPatch = body.remaining_text === undefined ? {} : {
-    text: fullText,
-    text_format: "plain",
+    text: savedSource,
+    text_format: keepStyles ? "rich" : "plain",
     word_count: countWords(fullText),
-    text_sha256: await sha256Hex(fullText),
+    text_sha256: await sha256Hex(savedSource),
     approved_at: new Date().toISOString(),
   };
   const { data: updated, error: saveError } = await db.from("drips").update({ ...patch, ...textPatch })

@@ -115,7 +115,7 @@ test("a new session is two stages on mobile and editing clears approval", async 
   await approve.check();
   await expectNoAxeViolations(page);
   await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page.getByLabel("Text to enter")).toHaveValue(TEXT);
+  await expect(page.getByLabel("Text to enter")).toHaveText(TEXT);
   await page.getByLabel("Text to enter").fill(TEXT + " One more.");
   await page.getByRole("button", { name: "Review session", exact: true }).click();
   await expect(approve).not.toBeChecked();
@@ -149,8 +149,8 @@ test("a raw Google error is explained, with the details behind a disclosure", as
   await expect(panel.locator("code")).not.toContainText("AIza");
 });
 
-test("Documents explains where Word sessions run", async ({ page }) => {
-  await page.goto("/app/documents/");
+test("Connected accounts explains where Word sessions run", async ({ page }) => {
+  await page.goto("/app/connections/");
   await expect(page.getByText(/Word sessions start inside Word, not from this\s+website or a phone browser/)).toBeVisible();
   await expectNoAxeViolations(page);
 });

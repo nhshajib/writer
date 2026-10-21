@@ -219,7 +219,7 @@ export function useDashboardLoader() {
 export const DashboardProvider = DashboardContext.Provider;
 
 /** Starts the "Connect Google Docs" flow and returns to `returnPath`. */
-export async function connectGoogleDocs(returnPath = "/app/documents"): Promise<void> {
+export async function connectGoogleDocs(returnPath = "/app/connections"): Promise<void> {
   const redirect = encodeURIComponent(`${window.location.origin}${returnPath}`);
   const { url } = await api<{ url: string }>(`google-oauth-start?redirect_to=${redirect}`);
   window.location.assign(url);

@@ -22,6 +22,7 @@ const MAIN_NAV = [
   { href: "/app/documents", label: "Documents", icon: Icon.doc },
 ];
 const ACCOUNT_NAV = [
+  { href: "/app/connections", label: "Connected accounts", icon: Icon.user },
   { href: "/app/billing", label: "Plan & usage", icon: Icon.card },
   { href: "/app/settings", label: "Settings", icon: Icon.gear },
 ];

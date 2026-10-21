@@ -9,7 +9,7 @@ export function Footer() {
           <div>
             <Link href="/" className="brand" aria-label="TypeWit home"><Logo /><Wordmark /></Link>
             <p className="footer-about">
-              Assistive writing for people who find typing difficult. Your words, entered into your own Google Docs and Word documents.
+              Automated document entry for authorized testing. Your approved text, entered into Google Docs and Word. Not for academic cheating or deceptive authorship claims.
             </p>
           </div>
           <nav aria-labelledby="f-product">
