@@ -1,6 +1,7 @@
 -- Applied history ends in the future-dated 20261023000001. Never rename it.
 -- These guards are additive and safe to re-run.
 alter table public.drips add column if not exists conflict_runs integer not null default 0;
+alter table public.drips add column if not exists last_attention_email_at timestamptz;
 
 create or replace function public.enforce_active_drip_limit()
 returns trigger language plpgsql security definer set search_path = '' as $$

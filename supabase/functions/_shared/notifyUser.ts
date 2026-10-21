@@ -15,7 +15,10 @@ export interface NotifiableDrip {
 export async function notifyUser(drip: NotifiableDrip, kind: NotificationKind): Promise<void> {
   try {
     const db = adminClient();
-    const { data: current } = await db.from("drips").select("chunks_written, last_error").eq("id", drip.id)
+    const { data: current } = await db.from("drips").select("chunks_written, last_error, last_attention_email_at").eq(
+      "id",
+      drip.id,
+    )
       .maybeSingle();
     const notifyDrip = {
       document_title: drip.document_title,
@@ -47,11 +50,27 @@ export async function notifyUser(drip: NotifiableDrip, kind: NotificationKind): 
     const email = userData?.user?.email;
     if (!email) return;
 
+    // Resume clears the in-app notice so the next failure gets a fresh one.
+    // Claim the email separately, atomically, so rapid pause/resume cycles do
+    // not re-send it. Completion email behavior is unchanged.
+    const attentionClaim = kind === "drip_attention" ? new Date().toISOString() : null;
+    if (attentionClaim) {
+      const cutoff = new Date(Date.parse(attentionClaim) - 60_000).toISOString();
+      const { data: claimed, error: claimError } = await db.from("drips")
+        .update({ last_attention_email_at: attentionClaim }).eq("id", drip.id)
+        .or(`last_attention_email_at.is.null,last_attention_email_at.lt.${cutoff}`).select("id");
+      if (claimError || !claimed?.length) return;
+    }
     const result = await sendEmail(
       email,
       buildEmail(content, notifyDrip, Deno.env.get("APP_URL")),
       emailConfigFromEnv(),
     );
+    if (result !== "sent" && attentionClaim) {
+      // A provider outage must not use up the notification cooldown.
+      await db.from("drips").update({ last_attention_email_at: current?.last_attention_email_at ?? null })
+        .eq("id", drip.id).eq("last_attention_email_at", attentionClaim);
+    }
     if (result === "sent") {
       await db.from("notifications").update({ email_sent_at: new Date().toISOString() }).eq("id", inserted[0].id);
     }

@@ -707,9 +707,8 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   if (updateError) throw new Error(updateError.message);
   if (!updated) throw new HttpError(409, "The session changed while resuming. Try again.");
 
-  // A later attention pause may notify again after a cooldown, never on rapid toggles.
-  await db.from("notifications").delete().eq("drip_id", id).eq("kind", "drip_attention")
-    .lt("created_at", new Date(Date.now() - 60 * 60_000).toISOString());
+  // Preserve fresh in-app attention notices. notifyUser throttles only repeat emails.
+  await db.from("notifications").delete().eq("drip_id", id).eq("kind", "drip_attention");
   await logEvent(id, userId, "resumed", result.detail);
   await kickWorkerIfDue(Date.parse(String(result.patch.next_run_at)));
   return json({ drip: updated });
