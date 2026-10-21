@@ -123,4 +123,22 @@ begin
   end if;
 end;
 $$;
+do $$
+declare helper text; tab text;
+begin
+  foreach helper in array array['normalize_email(text)','minimum_age(text)','age_from(integer,integer)',
+    'valid_drafting_execution(jsonb,jsonb,jsonb,jsonb,jsonb,integer)','get_app_secret(text)',
+    'reserve_words(uuid,integer,integer)','release_words(uuid,integer)','hit_rate_limit(uuid,text,integer,integer)'] loop
+    if has_function_privilege('anon','public.'||helper,'execute') or has_function_privilege('authenticated','public.'||helper,'execute') then
+      raise exception 'Unexpected helper client execution: %',helper;
+    end if;
+  end loop;
+  foreach tab in array array['trial_claims','stripe_events','start_requests','rate_limits','worker_heartbeat'] loop
+    if has_table_privilege('anon','public.'||tab,'select,insert,update,delete') or
+      has_table_privilege('authenticated','public.'||tab,'select,insert,update,delete') then
+      raise exception 'Unexpected client privilege on service table: %',tab;
+    end if;
+  end loop;
+end;
+$$;
 rollback;

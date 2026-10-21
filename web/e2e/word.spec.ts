@@ -242,6 +242,7 @@ test("Word detects a concurrent edit after its write and recovers without a dupl
   await page.goto("/word/");
   await page.getByLabel("Text to enter").fill("Approved testing text.");
   await page.getByRole("radio", { name: "All at once" }).check();
+  await expect(page.getByText(/planned 1 second/)).toBeVisible();
   await page.getByLabel(/I've read this exact text/).check();
   await page.getByRole("button", { name: "Start session" }).click();
   await expect(page.getByText("State: Paused")).toBeVisible({ timeout: 20000 });

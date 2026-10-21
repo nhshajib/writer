@@ -162,3 +162,13 @@ Deno.test("remaining-text editor omits approved text already entered inside a so
   assertEquals(progress.written_text, prefix);
   assertEquals(progress.remaining_text, text.slice(prefix.length));
 });
+
+Deno.test("audit 26: a paused edit checks the combined session duration, not only the replacement", () => {
+  const row = fixture();
+  row.paused_at = new Date(Date.parse(row.session_started_at) + 6.5 * 86400_000).toISOString();
+  assertThrows(
+    () => replanPaused(row, { ...request, pacing: standardPacing(86400) }),
+    Error,
+    "including the part already entered",
+  );
+});

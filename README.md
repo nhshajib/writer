@@ -657,3 +657,23 @@ Production is **Netlify at https://typewit.com**. Vercel is a test deployment an
 `web/netlify.toml` sets the production canonical URL, preview safeguards, private-route robot headers and the www-to-apex redirect. Keep `NEXT_PUBLIC_NOINDEX=true` and `NEXT_PUBLIC_ALLOW_INDEXING=false` out of the main production context unless intentionally pausing indexing. `NEXT_PUBLIC_ALLOW_INDEXING=true` never overrides test-host safeguards.
 
 After a production-context build, run `npm run seo:check` in `web/`. The checker also supports a non-indexable build when run under the same environment as that build. See [the SEO audit and keyword plan](docs/seo-audit.md) for keyword ownership, sources, Search Console setup and release checks. No Search Console ownership or indexing submission happens automatically.
+
+### Backend audit release
+
+The live history includes `20261023000001_premium_drafting.sql`, although its
+name is later than the environment date. It is already applied: never rename
+or edit it. New migrations start at `20261023000002` and follow that ordering.
+The worker switches to the projected `claim_due_worker_drips` RPC; the original
+`claim_due_drips` stays available for compatibility.
+
+Google account connection uses an initiating-tab PKCE verifier and a one-time
+server challenge. The callback forwards the code in a fragment, which the app
+immediately removes before authenticated finalization. Existing saved sessions
+and Google connections are unchanged. Restart any old in-flight consent link
+from the updated dashboard; a forwarded or reused link cannot attach a grant.
+
+Run `cd supabase && deno test -A tests/` and `deno fmt --check` plus
+`deno check functions/*/index.ts`. The SQL regression fixtures in
+`supabase/tests/*_database_test.sql` run in an isolated PostgreSQL database after
+migrations and roll back their fixtures. They must not run on customer data.
+See [the backend audit report](docs/audits/backend-hardening.md) for release evidence.
