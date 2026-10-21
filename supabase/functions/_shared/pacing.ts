@@ -60,6 +60,7 @@ export const LIMITS = {
 
 /** Characters in one "word" for words-per-minute. */
 export const CHARS_PER_WORD = 5;
+export const ABSOLUTE_MAX_DURATION_SECONDS = 7 * 24 * 60 * 60;
 
 export const DEFAULT_BREAKS: BreakSettings = {
   enabled: true,
@@ -109,6 +110,9 @@ export function validatePacing(p: PacingSettings): string | null {
     !(typeof p.duration_seconds === "number" && Number.isFinite(p.duration_seconds) && p.duration_seconds >= 60)
   ) {
     return "Choose a duration of at least 1 minute.";
+  }
+  if (p.timing === "duration" && p.duration_seconds! > ABSOLUTE_MAX_DURATION_SECONDS) {
+    return "Choose a duration of at most 1 week.";
   }
   if (p.timing === "speed" && !within(p.wpm, LIMITS.wpm.min, LIMITS.wpm.max)) {
     return `Choose a typing speed between ${LIMITS.wpm.min} and ${LIMITS.wpm.max} WPM.`;

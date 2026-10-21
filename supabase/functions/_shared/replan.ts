@@ -3,6 +3,7 @@ import { parseFormatted, type TextFormat } from "./markdown.ts";
 import { type PlanRequest, planSession } from "./plan.ts";
 import type { PlannedBreak } from "./pacing.ts";
 import type { SessionRow } from "./session.ts";
+import { PLAN_LIMITS } from "./limits.ts";
 
 export type EditableSession = SessionRow & {
   text: string;
@@ -74,6 +75,9 @@ export function replanPaused(
     Date.parse(row.paused_at!) - Date.parse(row.session_started_at) - row.schedule_shift_seconds * 1000,
   );
   const schedule = [...row.schedule.slice(0, written), ...plan.schedule.map((ms) => anchor + ms)];
+  if (schedule[schedule.length - 1] > PLAN_LIMITS.pro.maxDurationSeconds * 1000) {
+    throw new Error("Your plan allows sessions up to 1 week, including the part already entered.");
+  }
   return {
     chunks: [...row.chunks.slice(0, written), ...plan.units],
     chunk_deletions: [...(row.chunk_deletions ?? row.chunks.map(() => 0)).slice(0, written), ...plan.chunk_deletions],

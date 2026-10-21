@@ -39,6 +39,7 @@ export const MAX_ATTEMPTS = 6;
 export const LATE_TOLERANCE_MS = 15_000;
 /** Quick re-checks when the user is typing at the same moment as an insertion. */
 export const CONFLICT_RETRIES = 3;
+export const MAX_CONFLICT_RUNS = 5;
 export const CONFLICT_RETRY_MS = 1_500;
 /** Characters of the document kept as the anchor when the user continues after their own edits. */
 export const RESYNC_TAIL_CHARS = 1_000;
@@ -117,6 +118,8 @@ export interface SessionRow {
   session_started_at: string;
   schedule_shift_seconds: number;
   attempts: number;
+  /** Consecutive runs exhausted by concurrent document edits. Missing on legacy rows. */
+  conflict_runs?: number;
   pending_index: number | null;
   pending_revision: string | null;
   pending_doc_length: number | null;
@@ -173,7 +176,7 @@ export interface SessionEvent {
 
 export interface SessionStore {
   /** Fresh status and lease, read right before each write. */
-  control(id: string): Promise<{ status: string; lease_id: string | null } | null>;
+  control(id: string): Promise<{ status: string; lease_id: string | null; chunks_written?: number } | null>;
   /** Applies the patch only while `lease` is held and the session is running. */
   update(id: string, lease: string, patch: SessionPatch): Promise<boolean>;
   /**
@@ -268,10 +271,44 @@ export function judgePending(
 const iso = (ms: number) => new Date(ms).toISOString();
 
 export async function runSession(initial: SessionRow, lease: string, deps: EngineDeps): Promise<Outcome> {
+  try {
+    return await runSessionWindow(initial, lease, deps);
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error; // Store failures must retry, not become document failures.
+    const message = ATTENTION_MESSAGE.insert_rejected + " The saved execution is invalid.";
+    const ok = await deps.store.update(initial.id, lease, {
+      status: "paused",
+      paused_at: iso(deps.now()),
+      next_run_at: null,
+      lease_id: null,
+      attention: "insert_rejected",
+      last_error: message,
+    });
+    if (ok) await deps.store.log(initial, [{ kind: "attention", detail: { reason: "insert_rejected", message } }]);
+    return ok ? "paused" : "lost";
+  }
+}
+
+async function runSessionWindow(initial: SessionRow, lease: string, deps: EngineDeps): Promise<Outcome> {
   const { provider, store } = deps;
   const row: SessionRow = { ...initial, chunks: initial.chunks, schedule: initial.schedule };
   const total = row.total_chunks;
   let conflicts = 0;
+  let operations = 0;
+  // Leave room for an in-flight read/write and its confirmation. Each loop is
+  // bounded even if a malformed legacy schedule contains no waits.
+  const exhausted = () => deps.now() >= deps.deadline - 30_000 || operations >= 96;
+  const yieldRun = async (): Promise<Outcome> => {
+    const next = Math.max(
+      deps.now(),
+      row.retry_at ? Date.parse(row.retry_at) : 0,
+      row.chunks_written < total ? plannedAt(row, row.chunks_written) : deps.now(),
+    );
+    const ok = await store.update(row.id, lease, { next_run_at: iso(next), lease_id: null });
+    return ok ? "waiting" : "lost";
+  };
+  provider.setRunBudget?.(deps.deadline, 128);
+  if (exhausted()) return await yieldRun();
 
   const log = (...events: SessionEvent[]) => store.log(row, events);
 
@@ -297,7 +334,7 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
   };
 
   const fail = async (error: unknown): Promise<Outcome> => {
-    const kind = error instanceof ProviderError ? error.kind : "transient";
+    const kind = error instanceof RangeError ? "permanent" : error instanceof ProviderError ? error.kind : "transient";
     const message = error instanceof Error ? error.message : String(error);
     if (kind === "auth") return await pause("reconnect", message);
     if (error instanceof ProviderError && (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE)) {
@@ -307,7 +344,10 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
       const status = error instanceof ProviderError ? error.status : undefined;
       return await pause(status === 404 || status === 403 ? "document_unavailable" : "insert_rejected", message);
     }
-    const attempts = row.attempts + 1;
+    // Quota pressure is not a broken connection. Back off without consuming
+    // the finite outage budget, retaining write-ahead recovery information.
+    const quota = error instanceof ProviderError && error.status === 429;
+    const attempts = row.attempts + (quota ? 0 : 1);
     if (attempts >= MAX_ATTEMPTS) {
       row.attempts = attempts;
       return await pause("unreachable", message);
@@ -351,6 +391,8 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
   }
 
   while (true) {
+    if (exhausted()) return await yieldRun();
+    operations += 4;
     // An earlier run may have stopped between writing and recording a unit.
     if (row.pending_index !== null) {
       const index = row.pending_index;
@@ -378,6 +420,7 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
             last_revision_id: doc.revisionId,
             last_written_at: iso(now),
             attempts: 0,
+            conflict_runs: 0,
             last_error: null,
           };
           if (!(await store.confirm(row.id, index, patch))) return "lost";
@@ -414,7 +457,10 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
     const earliest = row.last_written_at ? Date.parse(row.last_written_at) + MIN_GAP_SECONDS * 1000 : 0;
     const target = Math.max(due, earliest, row.retry_at ? Date.parse(row.retry_at) : 0);
     // Leave it to a later tick only if one comes before it is due.
-    if (target >= nextTickAfter(deps.now()) || target > deps.deadline) {
+    const comingTick = (Math.floor(deps.now() / TICK_MS) + 1) * TICK_MS;
+    // Release BEFORE the coming tick, including its jitter band. Keeping the
+    // 240-second lease across that tick can hide a 4-second unit for a minute.
+    if (target >= comingTick || target > deps.deadline - 30_000) {
       const ok = await store.update(row.id, lease, {
         next_run_at: iso(target),
         lease_id: null,
@@ -424,6 +470,7 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
     }
     const wait = target - deps.now();
     if (wait > 0) await deps.sleep(wait);
+    if (exhausted()) return await yieldRun();
 
     const control = await store.control(row.id);
     if (!control || control.status !== "running" || control.lease_id !== lease) return "lost";
@@ -486,20 +533,40 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
         )
         : await provider.insertAtEnd(row.document_id, row.chunks[index], revisionId, row.chunk_formats?.[index]);
     } catch (error) {
-      if (error instanceof ProviderError && error.kind !== "transient") {
+      if (error instanceof ProviderError && error.kind !== "transient" && error.code !== "write_uncertain") {
         // Google refused it outright, so the unit is certainly not in the document.
         const clear = { pending_index: null, pending_revision: null, pending_doc_length: null };
         Object.assign(row, clear);
         if (!(await store.update(row.id, lease, clear))) return "lost";
       }
       if (error instanceof ProviderError && error.kind === "conflict") {
+        // Reload the cursor after a race; never retry a unit another runner
+        // already confirmed. Older stores may omit the optional cursor.
+        const fresh = await store.control(row.id);
+        if (
+          !fresh || fresh.status !== "running" || fresh.lease_id !== lease ||
+          (fresh.chunks_written !== undefined && fresh.chunks_written !== row.chunks_written)
+        ) return "lost";
+        if (exhausted()) return await yieldRun();
         // The user is typing at this moment. Check again shortly.
         if (++conflicts <= CONFLICT_RETRIES) {
           await deps.sleep(CONFLICT_RETRY_MS);
           continue;
         }
+        row.conflict_runs = (row.conflict_runs ?? 0) + 1;
+        if (row.conflict_runs >= MAX_CONFLICT_RUNS) {
+          return await pause(
+            "document_changed",
+            "The document kept changing during several attempts. Pause other editing, check the insertion point, then resume.",
+          );
+        }
         const retryAt = iso(deps.now() + 15_000);
-        const ok = await store.update(row.id, lease, { next_run_at: retryAt, retry_at: retryAt, lease_id: null });
+        const ok = await store.update(row.id, lease, {
+          conflict_runs: row.conflict_runs,
+          next_run_at: retryAt,
+          retry_at: retryAt,
+          lease_id: null,
+        });
         return ok ? "retrying" : "lost";
       }
       // A transient failure leaves the write-ahead record in place: the write
@@ -528,6 +595,7 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
       last_revision_id: result.revisionId,
       last_written_at: iso(actual),
       attempts: 0,
+      conflict_runs: 0,
       last_error: null,
     };
     const confirmed = await store.confirm(row.id, index, patch);
@@ -577,11 +645,14 @@ async function complete(row: SessionRow, lease: string, deps: EngineDeps): Promi
   } catch (error) {
     detail.text_at_end_matches = null;
     detail.verify_error = error instanceof Error ? error.message : String(error);
-    verificationAttention = error instanceof ProviderError && error.kind === "auth"
-      ? "reconnect"
-      : error instanceof ProviderError && error.kind === "permanent" && (error.status === 403 || error.status === 404)
-      ? "document_unavailable"
-      : "unreachable";
+    verificationAttention =
+      error instanceof ProviderError && (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE)
+        ? "heading_missing"
+        : error instanceof ProviderError && error.kind === "auth"
+        ? "reconnect"
+        : error instanceof ProviderError && error.kind === "permanent" && (error.status === 403 || error.status === 404)
+        ? "document_unavailable"
+        : "unreachable";
   }
 
   if (verificationAttention) {
@@ -603,7 +674,7 @@ async function complete(row: SessionRow, lease: string, deps: EngineDeps): Promi
   }
 
   const finished = deps.now();
-  if (deps.provider.summarizeRevisions) {
+  if (deps.provider.summarizeRevisions && deps.now() < deps.deadline - 30_000) {
     try {
       detail.provider_revisions = await deps.provider.summarizeRevisions(
         row.document_id,
@@ -688,8 +759,9 @@ export function planResume(row: ResumableRow, now: number, doc: DocState | null,
       const verdict = row.pending_index === written ? judgePending(row, row.pending_index, doc) : "not_written";
       const answer = options.last_part;
       if (
-        row.chunk_deletions?.some((n) => n > 0) && answer &&
-        ((answer === "present" && verdict !== "written") || (answer === "absent" && verdict !== "not_written"))
+        (row.chunk_deletions?.[row.pending_index] ?? 0) > 0 && answer &&
+        ((answer === "present" && verdict !== "written") ||
+          (answer === "absent" && verdict !== "not_written" && !options.continue_from_current_end))
       ) {
         return {
           ok: false,
@@ -749,6 +821,7 @@ export function planResume(row: ResumableRow, now: number, doc: DocState | null,
     attention: null,
     last_error: null,
     attempts: 0,
+    conflict_runs: 0,
     retry_at: null,
     lease_id: null,
     schedule_shift_seconds: shift,

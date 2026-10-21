@@ -276,6 +276,16 @@ export function planSession(req: PlanRequest): SessionPlan {
     problems.push({ code: "words_over_plan", message: `Your plan allows ${limits.dailyWords} words per day.` });
   }
 
+  // Refuse over-plan durations before buildPacing allocates break arrays.
+  // Preserve the existing plan-limit code and wording for these requests.
+  if (targetSeconds !== null && Number.isFinite(targetSeconds) && targetSeconds > limits.maxDurationSeconds) {
+    problems.push({
+      code: "duration_over_plan",
+      message: `Your plan allows sessions up to ${formatSeconds(limits.maxDurationSeconds)}; this one would take ${
+        formatSeconds(targetSeconds)
+      }.`,
+    });
+  }
   let schedule: number[] = [];
   let breaks: PlannedBreak[] = [];
   let totalMs = asap ? 1000 : 0;

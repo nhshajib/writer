@@ -45,6 +45,8 @@ export interface InsertTarget {
 /** A document service the worker can write into (Google Docs, later Word Online). */
 export interface DocProvider {
   readonly name: "google" | "microsoft" | "test";
+  /** Optional provider-wide bound, shared by retries and auxiliary reads. */
+  setRunBudget?(deadline: number, maxRequests: number): void;
   createDoc(title: string): Promise<DocInfo>;
   getDoc(documentId: string): Promise<DocInfo>;
   readDocument(documentId: string): Promise<DocState>;
