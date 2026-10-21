@@ -313,7 +313,7 @@ function SessionView() {
       {/* Polite live region: status changes and progress milestones only. */}
       <p id="session-announcer" className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
 
-      {progress.temporary_edit_active && paused && <p className="alert alert-info" role="status">Paused during a simulated edit. Temporary text remains in the document until correction resumes; review it before sharing.</p>}
+      {progress.temporary_edit_active && paused && <p className="alert alert-info mb-5" role="status">Paused during a simulated edit. Temporary text remains in the document until correction resumes; review it before sharing.</p>}
       <div className="stack-4 mb-6" hidden={!(confirmStop || error || offline || attention || drip.status === "failed" || report)}>
         {confirmStop && (
           <div className="confirm" role="alertdialog" aria-modal="false" aria-labelledby="stop-title" aria-describedby="stop-desc" onKeyDown={onConfirmKey} style={{ marginTop: 0 }}>

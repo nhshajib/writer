@@ -10,19 +10,19 @@ export default function SupportPage() {
     <article className="prose">
       <p className="kicker">Support</p>
       <h1>How can we help?</h1>
-      <p className="updated" style={{ fontSize: "1.0625rem", marginBottom: "2rem" }}>
+      <p className="updated support-lead">
         Email us and a real person will reply. Pro members get priority.
       </p>
 
-      <div className="card center" style={{ padding: "2rem" }}>
-        <h2 style={{ marginTop: 0 }}>Email support</h2>
+      <div className="card support-card">
+        <h2>Email support</h2>
         <p className="muted">Tell us what you were doing and what happened. Screenshots help.</p>
-        <a className="btn btn-primary" style={{ marginTop: "1rem" }} href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-        <p className="hint" style={{ marginTop: "1rem", marginBottom: 0 }}>Please don't send passwords or card numbers. We'll never ask for them.</p>
+        <a className="btn btn-primary" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        <p className="hint">Please don't send passwords or card numbers. We'll never ask for them.</p>
       </div>
 
-      <div className="card" style={{ padding: "1.5rem", marginTop: "1rem" }}>
-        <h2 style={{ marginTop: 0 }}>Pro members: priority support</h2>
+      <div className="card support-card">
+        <h2>Pro members: priority support</h2>
         <p className="muted">
           Emails from Pro accounts are answered first. Send it from the address on your account, or start the subject
           with [Pro].

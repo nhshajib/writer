@@ -139,10 +139,10 @@ export default function BillingPage() {
       )}
 
       {!isPro && (
-        <section className="plan featured mb-6" aria-labelledby="upgrade-title">
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+        <section className="plan featured upgrade-card mb-6" aria-labelledby="upgrade-title">
+          <div className="row upgrade-head">
             <div>
-              <div className="plan-top" style={{ justifyContent: "flex-start", gap: "0.6rem" }}>
+              <div className="plan-top upgrade-title">
                 <h2 id="upgrade-title">Upgrade to Pro</h2><span className="badge badge-blue">7 days free</span>
               </div>
               <p className="desc">For essays, reports and anything long.</p>
@@ -152,13 +152,13 @@ export default function BillingPage() {
               <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
             </div>
           </div>
-          <div className="grid-2" style={{ alignItems: "end", marginTop: "0.5rem" }}>
-            <ul className="ticks" style={{ margin: "1rem 0 0" }}>
+          <div className="grid-2 upgrade-body">
+            <ul className="ticks">
               {PRO_FEATURES.map((f) => tick(f, f))}
             </ul>
             <div>
-              <div className="price" style={{ marginTop: "1rem" }}><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></div>
-              <p className="price-note" style={{ marginBottom: "1rem" }}>{PRO_PRICE[interval].saving ? <span className="save">{PRO_PRICE[interval].saving}</span> : "Billed monthly"}</p>
+              <div className="price"><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></div>
+              <p className="price-note">{PRO_PRICE[interval].saving ? <span className="save">{PRO_PRICE[interval].saving}</span> : "Billed monthly"}</p>
               {minor
                 ? (
                   <p className="alert alert-info">
@@ -170,7 +170,7 @@ export default function BillingPage() {
                     <button type="button" className="btn btn-primary btn-block" onClick={startTrial} disabled={busy}>
                       {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
                     </button>
-                    <p className="price-note center" style={{ marginTop: "0.6rem" }}>Nothing to pay today.</p>
+                    <p className="price-note center mt-2">Nothing to pay today.</p>
                   </>
                 )}
             </div>
@@ -179,7 +179,7 @@ export default function BillingPage() {
       )}
 
       <section aria-labelledby="billing-faq-title">
-        <h2 id="billing-faq-title" style={{ fontSize: "0.9375rem", marginBottom: "0.5rem" }}>Questions</h2>
+        <h2 id="billing-faq-title" className="card-title billing-faq-title">Questions</h2>
         <div className="faq">
           <details><summary>How do I cancel?</summary><p>Choose Manage billing, then Cancel plan. You keep Pro until the end of the period you&apos;ve paid for.</p></details>
           <details><summary>Where are my invoices?</summary><p>In Manage billing. Stripe keeps every invoice and receipt for you to download.</p></details>

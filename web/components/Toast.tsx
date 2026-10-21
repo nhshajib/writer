@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { Icon } from "@/components/Icons";
 
 type Show = (message: string) => void;
 
@@ -30,7 +31,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {message && (
           <div className="toast">
             <span>{message}</span>
-            <button type="button" className="icon-btn" onClick={() => setMessage(null)} aria-label="Dismiss">×</button>
+            <button type="button" className="icon-btn toast-close" onClick={() => setMessage(null)} aria-label="Dismiss"><Icon.close /></button>
           </div>
         )}
       </div>

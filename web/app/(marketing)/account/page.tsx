@@ -12,5 +12,5 @@ export default function AccountRedirect() {
     }
     window.location.replace(`/app/billing/${window.location.search}`);
   }, []);
-  return <p role="status">Opening Plan & usage…</p>;
+  return <p className="loading" role="status">Opening Plan & usage…</p>;
 }

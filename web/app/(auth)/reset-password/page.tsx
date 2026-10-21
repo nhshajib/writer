@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
           <div role="alert">
             <p className="sub">This reset link has expired or was already used.</p>
             {error && <p className="alert alert-error">{error}</p>}
-            <p className="center" style={{ marginTop: "1.5rem" }}>
+            <p className="center mt-6">
               <Link className="btn btn-primary" href="/login/">Send a new link</Link>
             </p>
           </div>
@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
         {stage === "done" && (
           <div role="status">
             <p className="sub">Your password is changed and you&apos;re signed in.</p>
-            <p className="center" style={{ marginTop: "1.5rem" }}>
+            <p className="center mt-6">
               <Link className="btn btn-primary" href="/app/">Go to your dashboard</Link>
             </p>
           </div>

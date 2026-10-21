@@ -32,21 +32,22 @@ export function ScheduleStrip({ offsets, startMs, done = 0, nowMs, breaks = [], 
         <rect x="0" y="18" width="1000" height="4" rx="2" style={{ fill: "var(--surface-2)" }} />
         {breaks.map((b) => (
           <rect key={`b${b.after_index}`} x={x(b.start_ms)} y="4" width={Math.max(2, x(b.start_ms + b.duration_ms) - x(b.start_ms))}
-            height="32" rx="2" style={{ fill: "var(--amber-soft)", stroke: "var(--amber)", strokeWidth: 1 }} />
+            height="32" rx="2" vectorEffect="non-scaling-stroke" style={{ fill: "var(--amber-soft)", stroke: "var(--amber)", strokeWidth: 1 }} />
         ))}
         {offsets.map((offset, i) => (
-          <rect
+          <line
             key={i}
-            x={x(offset) - (thin ? 0.5 : 1.5)}
-            y={i < done ? 8 : 12}
-            width={thin ? 1 : 3}
-            height={i < done ? 24 : 16}
-            rx="1"
-            style={{ fill: i < done ? "var(--accent)" : "var(--border-strong)" }}
+            x1={x(offset)}
+            x2={x(offset)}
+            y1={i < done ? 8 : 12}
+            y2={i < done ? 32 : 28}
+            vectorEffect="non-scaling-stroke"
+            strokeLinecap="round"
+            style={{ stroke: i < done ? "var(--accent)" : "var(--border-strong)", strokeWidth: thin ? 1 : 2.5 }}
           />
         ))}
         {now !== null && now > 0 && now < 1000 && (
-          <rect x={now - 1} y="0" width="2" height="40" style={{ fill: "var(--text)" }} />
+          <line x1={now} x2={now} y1="0" y2="40" vectorEffect="non-scaling-stroke" style={{ stroke: "var(--text)", strokeWidth: 2 }} />
         )}
       </svg>
       {startMs !== undefined && (

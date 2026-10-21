@@ -225,7 +225,7 @@ export default function SettingsPage() {
             </div>
             <form onSubmit={saveName} className="field" style={{ maxWidth: 420 }}>
               <label className="label" htmlFor="name">Name</label>
-              <div className="row" style={{ flexWrap: "nowrap" }}>
+              <div className="row input-row">
                 <input id="name" type="text" autoComplete="name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
                 <button type="submit" className="btn btn-secondary" disabled={busy === "name"}>{busy === "name" ? "Saving…" : "Save"}</button>
               </div>
@@ -275,7 +275,7 @@ export default function SettingsPage() {
                 </form>
                 <form onSubmit={changeEmail} className="field" aria-label="Change email">
                   <label className="label" htmlFor="new-email">New email address</label>
-                  <div className="row" style={{ flexWrap: "nowrap" }}>
+                  <div className="row input-row">
                     <input id="new-email" type="email" autoComplete="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} aria-describedby="new-email-hint" />
                     <button type="submit" className="btn btn-secondary" disabled={busy === "email"}>{busy === "email" ? "Sending…" : "Change"}</button>
                   </div>
@@ -290,7 +290,7 @@ export default function SettingsPage() {
                   sign-in, set a TypeWit password too. Google sign-in keeps working.
                 </p>
                 <label className="label" htmlFor="first-password">Password</label>
-                <div className="row" style={{ flexWrap: "nowrap" }}>
+                <div className="row input-row">
                   <input id="first-password" type="password" autoComplete="new-password" minLength={8} value={password}
                     onChange={(e) => setPassword(e.target.value)} aria-describedby="first-password-hint" />
                   <button type="submit" className="btn btn-secondary" disabled={busy === "password"}>{busy === "password" ? "Saving…" : "Set password"}</button>

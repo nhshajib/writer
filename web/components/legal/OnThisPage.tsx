@@ -21,7 +21,7 @@ export function OnThisPage() {
   }, []);
 
   return (
-    <details ref={ref} className="on-this-page" hidden={items.length === 0}>
+    <details ref={ref} className="on-this-page">
       <summary>On this page</summary>
       <ol>{items.map((item) => <li key={item.id}><a href={`#${item.id}`}>{item.text}</a></li>)}</ol>
     </details>

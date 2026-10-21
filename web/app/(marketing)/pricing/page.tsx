@@ -74,15 +74,15 @@ function PricingContent() {
 
   return (
     <>
-      <section className="hero" aria-labelledby="pricing-title" style={{ paddingTop: "4.5rem" }}>
+      <section className="hero pricing-hero" aria-labelledby="pricing-title">
         <div className="container">
           <p className="kicker">Pricing</p>
-          <h1 id="pricing-title" className="display" style={{ marginTop: 0, fontSize: "clamp(2.25rem, 5vw, 3.25rem)" }}>
+          <h1 id="pricing-title" className="display pricing-display">
             Simple pricing. <span className="soft">Start free.</span>
           </h1>
           <p className="lead">Try every Pro feature free for 7 days. Cancel any time.</p>
           {canceled && (
-            <p className="alert alert-info" role="status" style={{ maxWidth: 460, margin: "1.5rem auto 0" }}>
+            <p className="alert alert-info pricing-note" role="status">
               Checkout was canceled. You haven't been charged.
             </p>
           )}

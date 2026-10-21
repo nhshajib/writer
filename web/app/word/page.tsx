@@ -77,7 +77,7 @@ export default function WordPane() {
     );
   } else if (!env.documentUrl) {
     body = (
-      <div className="alert alert-info" role="status" style={{ display: "block" }}>
+      <div className="alert alert-info alert-block" role="status">
         Save this document first (to OneDrive, SharePoint or your computer). TypeWit ties each session to one saved
         document, so it can never write into another one.
       </div>
@@ -143,7 +143,7 @@ function SignIn() {
         <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         <button type="button" className="link-btn" onClick={forgot}>Forgot password?</button>
       </div>
-      <ul className="hint" style={{ marginTop: "0.75rem", paddingLeft: "1.1rem" }}>
+      <ul className="hint mt-3 pane-list">
         <li>No account yet? <a href="/signup/" target="_blank" rel="noopener">Create one on typewit.com</a> (opens in your browser).</li>
         <li>
           You sign in with Google? Word can&apos;t open Google&apos;s sign-in here. On typewit.com, go to{" "}
@@ -375,7 +375,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           )}
       </div>
 
-      <dl className="summary-list" aria-label="Session summary" style={{ marginTop: "1rem" }}>
+      <dl className="summary-list mt-4" aria-label="Session summary">
         <dt>Document</dt><dd>{title}</dd>
         <dt>Location</dt><dd>At the end of the document</dd>
         <dt>Length</dt><dd>{words.toLocaleString()} words</dd>
@@ -384,14 +384,14 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         <dt>Duration</dt><dd>{current && plan.ok ? span(plan.duration_seconds * 1000) : "—"}</dd>
       </dl>
 
-      <div className="row" style={{ marginTop: "1rem" }}>
+      <div className="row mt-4">
         <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking}>
           {checking ? "Testing…" : "Test connection"}
         </button>
       </div>
       <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
 
-      <label className="check" style={{ marginTop: "1rem" }}>
+      <label className="check mt-4">
         <input type="checkbox" checked={approved} disabled={!text.trim()} onChange={(e) => setApproved(e.target.checked)} />
         <span>I&apos;ve read this exact text and approve TypeWit entering it into this document.{simulatedDrafting && " I also approve the enabled simulated mistakes and corrections; pausing or stopping can leave temporary text in the document."}</span>
       </label>
@@ -399,7 +399,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         Each insertion is a real automated edit through Word, made at its planned time. Enabled drafting simulations make temporary mistakes and correct them; completed text matches your approval. Keep this document and the TypeWit pane open while it runs.
       </p>
       {error && <p className="alert alert-error" role="alert">{error}</p>}
-      <button type="submit" className="btn btn-primary" disabled={busy} style={{ width: "100%", marginTop: "0.5rem" }}>
+      <button type="submit" className="btn btn-primary btn-block btn-lg mt-2" disabled={busy}>
         {busy ? "Starting…" : "Start session"}
       </button>
     </form>
@@ -486,19 +486,19 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
       </div>
       <p className="sr-only" aria-live="polite">{announcement}</p>
 
-      <div style={{ marginTop: "0.75rem" }}>
+      <div className="mt-3">
         <div className="progress lg" role="progressbar" aria-label="Text confirmed in the document" aria-valuemin={0}
           aria-valuemax={100} aria-valuenow={p.percent}>
           <span style={{ width: `${p.percent}%` }} />
         </div>
-        <p className="small" style={{ marginTop: "0.4rem" }}>
+        <p className="small mt-2">
           {p.percent}% confirmed: {p.chunks_written.toLocaleString()} of {p.chunks_total.toLocaleString()} parts,{" "}
           {(p.chars_total ?? 0) - (p.chars_written ?? 0)} characters to go.
         </p>
       </div>
 
       {p.temporary_edit_active && <p className="alert alert-info" role="status">Automated simulated drafting active. Temporary text is awaiting correction; pausing or stopping can leave it in the document.</p>}
-      <dl className="summary-list" style={{ marginTop: "0.75rem" }}>
+      <dl className="summary-list mt-3">
         <dt>Now</dt><dd>{p.activity ? ACTIVITY_LABEL[p.activity] : STATE_LABEL[state]}</dd>
         {p.current_break && <><dt>Break until</dt><dd>{when(p.current_break.end, true)}</dd></>}
         {p.next_chunk_at && <><dt>Next insertion</dt><dd>{when(p.next_chunk_at, true)}</dd></>}
@@ -507,9 +507,9 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
       </dl>
 
       {drip.status === "paused" && drip.attention && (
-        <div className="alert alert-error" role="alert" style={{ display: "block", marginTop: "0.75rem" }}>
+        <div className="alert alert-error alert-block mt-3" role="alert">
           <p>{drip.last_error}</p>
-          <div className="row" style={{ marginTop: "0.5rem", gap: "0.5rem", flexWrap: "wrap" }}>
+          <div className="row row-wrap mt-2">
             {drip.attention === "document_changed" && (
               <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => act("resume", { continue_from_current_end: true })}>
                 Continue after the current end
@@ -530,14 +530,14 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
       )}
 
       {!finished && (
-        <p className="hint" style={{ marginTop: "0.75rem" }}>
+        <p className="hint mt-3">
           Text is entered only while this document and the TypeWit pane are open. If you close them, nothing is entered and
           the rest moves later when you come back.
         </p>
       )}
       {error && <p className="alert alert-error" role="alert">{error}</p>}
 
-      <div className="row" style={{ marginTop: "0.75rem", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="row row-wrap mt-3">
         {(drip.status === "scheduled" || drip.status === "running") && (
           <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => act("pause")}>Pause</button>
         )}
@@ -556,21 +556,21 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
         {finished && <button type="button" className="btn btn-primary" onClick={onDone}>Start another session</button>}
       </div>
       {confirmStop && (
-        <div className="confirm" role="alertdialog" aria-labelledby="pane-stop-title" aria-describedby="pane-stop-desc"
-          onKeyDown={(e) => e.key === "Escape" && setConfirmStop(false)} style={{ marginTop: "0.75rem" }}>
+        <div className="confirm mt-3" role="alertdialog" aria-labelledby="pane-stop-title" aria-describedby="pane-stop-desc"
+          onKeyDown={(e) => e.key === "Escape" && setConfirmStop(false)}>
           <p id="pane-stop-title"><strong>Stop this session?</strong></p>
           <p id="pane-stop-desc" className="small">
             Everything still planned is cancelled. Text already entered stays in your document, and the session can&apos;t be
             resumed. Temporary text may remain if a simulated correction was in progress; review the document.
           </p>
-          <div className="row" style={{ gap: "0.5rem" }}>
+          <div className="row row-wrap">
             <button type="button" className="btn btn-danger-solid btn-sm" disabled={busy} onClick={() => act("cancel")} autoFocus>Stop session</button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmStop(false)}>Keep going</button>
           </div>
         </div>
       )}
       <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
-      <p className="hint" style={{ marginTop: "1rem" }}>
+      <p className="hint mt-4">
         <a href={`/app/session?id=${drip.id}`} target="_blank" rel="noopener">Open the activity log on the website</a>
       </p>
     </section>
