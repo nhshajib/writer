@@ -22,7 +22,7 @@ import {
   type SessionStore,
 } from "../_shared/session.ts";
 
-/** The claimed row is a full `drips` row; these are the fields beyond what the engine needs. */
+/** The worker RPC projects only engine state and the metadata needed for notifications. */
 type ClaimedDrip = SessionRow & {
   connection_id: string;
   lease_id: string;
@@ -32,7 +32,7 @@ type ClaimedDrip = SessionRow & {
   insert_target: InsertTarget | null;
 };
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 10;
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -47,7 +47,7 @@ serve(async (req) => {
 
   const started = Date.now();
   const db = adminClient();
-  const { data, error } = await db.rpc("claim_due_drips", {
+  const { data, error } = await db.rpc("claim_due_worker_drips", {
     max_rows: BATCH_SIZE,
     lease_seconds: LEASE_SECONDS,
     lookahead_seconds: CLAIM_LOOKAHEAD_SECONDS,
@@ -71,7 +71,7 @@ serve(async (req) => {
 
 async function processDrip(drip: ClaimedDrip, connection: ConnectionRow | undefined, deadline: number) {
   let outcome: Outcome;
-  const store = dbStore();
+  const store = dbStore(deadline);
   try {
     if (!connection) throw new Error("The document account was disconnected.");
     outcome = await runSession(normalize(drip), drip.lease_id, {
@@ -82,10 +82,13 @@ async function processDrip(drip: ClaimedDrip, connection: ConnectionRow | undefi
       deadline,
     });
   } catch (error) {
-    // Setup failed (account gone, unsupported provider) or the database did:
-    // pause with a reason rather than leave the session claimed.
+    // Missing connections need attention; database/setup outages leave the
+    // write-ahead record for lease recovery rather than blaming the document.
     const message = error instanceof Error ? error.message : String(error);
     console.error("Session run failed", drip.id, message);
+    // A store outage is not a rejected document insertion. Keep the write-ahead
+    // record and let the lease expire; the next tick reconciles it safely.
+    if (connection) return { id: drip.id, outcome: "lost" as Outcome };
     const paused = await store.update(drip.id, drip.lease_id, {
       status: "paused",
       paused_at: new Date().toISOString(),
@@ -125,23 +128,25 @@ function normalize(drip: ClaimedDrip): SessionRow {
   };
 }
 
-function dbStore(): SessionStore {
+function dbStore(deadline: number): SessionStore {
+  const signal = () => AbortSignal.timeout(Math.max(1, Math.min(15_000, deadline - Date.now())));
   const db = adminClient();
   return {
     async control(id) {
-      const { data, error } = await db.from("drips").select("status, lease_id").eq("id", id).maybeSingle();
+      const { data, error } = await db.from("drips").select("status, lease_id, chunks_written").eq("id", id)
+        .abortSignal(signal()).maybeSingle();
       if (error) throw new Error(error.message);
       return data;
     },
     async update(id, lease, patch: SessionPatch) {
       const { data, error } = await db.from("drips").update(patch).eq("id", id).eq("lease_id", lease)
-        .eq("status", "running").select("id");
+        .eq("status", "running").select("id").abortSignal(signal());
       if (error) throw new Error(error.message);
       return (data ?? []).length > 0;
     },
     async confirm(id, expectedWritten, patch: SessionPatch) {
       const { data, error } = await db.from("drips").update(patch).eq("id", id)
-        .eq("chunks_written", expectedWritten).select("id");
+        .eq("chunks_written", expectedWritten).in("status", ["running", "paused"]).select("id").abortSignal(signal());
       if (error) throw new Error(error.message);
       return (data ?? []).length > 0;
     },
@@ -149,7 +154,7 @@ function dbStore(): SessionStore {
       if (events.length === 0) return;
       const { error } = await db.from("drip_events").insert(
         events.map((e) => ({ drip_id: row.id, user_id: row.user_id, kind: e.kind, detail: e.detail })),
-      );
+      ).abortSignal(signal());
       if (error) console.error("Failed to log session events", row.id, error.message);
     },
   };
@@ -166,17 +171,9 @@ async function health(): Promise<Response> {
   const ageSeconds = lastTick === null ? null : Math.round((Date.now() - lastTick) / 1000);
   // pg_cron calls every 60 s; allow for a slow run before calling it stalled.
   const workerOk = !error && ageSeconds !== null && ageSeconds < 180;
-  const has = (name: string) => Boolean(Deno.env.get(name));
   return json({
     ok: workerOk,
     worker: { last_tick_at: data?.last_tick_at ?? null, seconds_since_tick: ageSeconds },
     last_cleanup_at: data?.last_cleanup_at ?? null,
-    configured: {
-      google: has("GOOGLE_CLIENT_ID") && has("GOOGLE_CLIENT_SECRET"),
-      google_picker_key: has("GOOGLE_API_KEY"),
-      email: has("RESEND_API_KEY"),
-      billing: has("STRIPE_SECRET_KEY") && has("STRIPE_WEBHOOK_SECRET"),
-      test_provider_enabled: Deno.env.get("ENABLE_TEST_PROVIDER") === "true",
-    },
   }, workerOk ? 200 : 503);
 }

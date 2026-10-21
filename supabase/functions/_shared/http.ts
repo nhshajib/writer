@@ -53,7 +53,11 @@ export function errorResponse(error: unknown): Response {
     return json({ error: error.message }, error.status);
   }
   console.error(error);
-  return json({ error: "Internal error" }, 500);
+  const limit = /active_drip_limit:(\d+)/.exec(error instanceof Error ? error.message : "");
+  if (limit) {
+    return json({ error: `Your plan allows ${limit[1]} active session${limit[1] === "1" ? "" : "s"} at a time.` }, 422);
+  }
+  return json({ error: "TypeWit could not complete this request. Please try again." }, 500);
 }
 
 export async function readJson<T>(req: Request): Promise<T> {

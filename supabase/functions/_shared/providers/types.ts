@@ -47,6 +47,12 @@ export interface DocProvider {
   readonly name: "google" | "microsoft" | "test";
   /** Optional provider-wide bound, shared by retries and auxiliary reads. */
   setRunBudget?(deadline: number, maxRequests: number): void;
+  finishPendingFormatting?(
+    documentId: string,
+    text: string,
+    format: ChunkFormat,
+    revision: string,
+  ): Promise<{ revisionId: string | null }>;
   createDoc(title: string): Promise<DocInfo>;
   getDoc(documentId: string): Promise<DocInfo>;
   readDocument(documentId: string): Promise<DocState>;

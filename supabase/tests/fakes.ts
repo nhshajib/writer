@@ -141,7 +141,11 @@ export class FakeStore implements SessionStore {
   constructor(public row: Row, private clock: Clock) {}
 
   control() {
-    return Promise.resolve({ status: this.row.status, lease_id: this.row.lease_id });
+    return Promise.resolve({
+      status: this.row.status,
+      lease_id: this.row.lease_id,
+      chunks_written: this.row.chunks_written,
+    });
   }
   update(_id: string, lease: string, patch: SessionPatch) {
     if (this.row.lease_id !== lease || this.row.status !== "running") return Promise.resolve(false);
@@ -153,7 +157,9 @@ export class FakeStore implements SessionStore {
       this.failConfirms--;
       return Promise.reject(new Error("worker crashed"));
     }
-    if (this.row.chunks_written !== expected) return Promise.resolve(false);
+    if (this.row.chunks_written !== expected || !["running", "paused"].includes(this.row.status)) {
+      return Promise.resolve(false);
+    }
     Object.assign(this.row, patch);
     return Promise.resolve(true);
   }

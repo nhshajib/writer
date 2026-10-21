@@ -84,6 +84,7 @@ export class TestDocProvider implements DocProvider {
   async insertAtEnd(documentId: string, text: string, requiredRevisionId?: string) {
     const { data, error } = await this.db.rpc("append_test_document_checked", {
       doc_id: documentId,
+      owner_id: this.userId,
       chunk: text,
       required_revision: requiredRevisionId === undefined ? null : Number(requiredRevisionId),
     });

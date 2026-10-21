@@ -9,9 +9,11 @@ export interface WordHost {
   /** The text of each paragraph, in order, without paragraph marks. */
   readParagraphs(): Promise<string[]>;
   /**
-   * In one batch: reads the paragraphs, and only if `check` accepts them,
+   * Office.js is not an atomic compare-and-swap: reads the paragraphs and,
+   * only if `check` accepts them,
    * appends `lines[0]` to the last paragraph and each further line as a new
-   * paragraph. Returns the paragraphs afterwards, or null if `check` refused.
+   * paragraph, then verifies the resulting text. Returns paragraphs afterwards,
+   * or null if `check` refused; a post-write mismatch is an uncertain conflict.
    * With `format` (offsets into the lines joined by "\n"), sets bold, italic
    * and paragraph styles as it goes.
    */
@@ -97,6 +99,9 @@ export class WordDocProvider implements DocProvider {
 
   async insertAtEnd(documentId: string, text: string, requiredRevisionId?: string, format?: ChunkFormat | null) {
     this.ensure(documentId);
+    if (text.includes("\v")) {
+      throw new ProviderError("permanent", "Replace manual line breaks with paragraph breaks for Word.", 422);
+    }
     const after = await this.host.appendIf(
       (paragraphs) => requiredRevisionId === undefined || textRevision(wordText(paragraphs)) === requiredRevisionId,
       text.split("\n"),
@@ -114,6 +119,9 @@ export class WordDocProvider implements DocProvider {
     format?: ChunkFormat | null,
   ) {
     this.ensure(documentId);
+    if (text.includes("\v")) {
+      throw new ProviderError("permanent", "Replace manual line breaks with paragraph breaks for Word.", 422);
+    }
     if (!Number.isSafeInteger(deleteCount) || deleteCount <= 0 || !requiredRevisionId) {
       throw new ProviderError("permanent", "Invalid tail correction.");
     }

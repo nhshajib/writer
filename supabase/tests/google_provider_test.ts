@@ -1,5 +1,10 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
-import { extractText, GoogleDocsProvider, revokeGoogleToken } from "../functions/_shared/providers/google.ts";
+import {
+  DOCUMENT_FIELDS,
+  extractText,
+  GoogleDocsProvider,
+  revokeGoogleToken,
+} from "../functions/_shared/providers/google.ts";
 import { Clock, makeSession } from "./fakes.ts";
 import { planResume } from "../functions/_shared/session.ts";
 import { OBJECT_PLACEHOLDER, ProviderError } from "../functions/_shared/providers/types.ts";
@@ -78,7 +83,7 @@ Deno.test("readDocument returns the exact body text and marks non-text elements"
   const provider = new GoogleDocsProvider(() => Promise.resolve("tok"), fakeFetch([jsonRes(body)], calls));
   const doc = await provider.readDocument("abc");
   assertEquals(doc, { revisionId: "rev-9", text: "Intro\n\uFFFCcell\nTab\there, \uFFFCemoji 👨‍👩‍👧\n" });
-  assertEquals(calls[0].url, "https://docs.googleapis.com/v1/documents/abc?fields=revisionId,body");
+  assertEquals(calls[0].url, `https://docs.googleapis.com/v1/documents/abc?fields=${DOCUMENT_FIELDS}`);
   assertEquals(extractText([]), "");
 });
 

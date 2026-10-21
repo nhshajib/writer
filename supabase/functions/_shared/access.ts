@@ -62,6 +62,7 @@ export const ACCESS_MESSAGE: Record<AccessProblem, string> = {
 function classify(error: unknown, step: "account" | "document" | "editable"): AccessProblem {
   if (!(error instanceof ProviderError)) return "connection_interrupted";
   if (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE) return "heading_missing";
+  if (error.code === "not_editable") return "not_editable";
   if (error.kind === "auth") return "permission_missing";
   if (error.status === 404) return "not_found";
   if (error.status === 403) return step === "editable" ? "not_editable" : "permission_missing";

@@ -4,6 +4,14 @@ import { HttpError } from "./http.ts";
 /** Per-user request budgets: [max requests, window in seconds]. */
 export const RATE_LIMITS = {
   start: [30, 3600],
+  pause: [120, 60],
+  resume: [120, 60],
+  cancel: [120, 60],
+  engine: [2000, 60],
+  clear: [30, 60],
+  delete: [120, 60],
+  disconnect: [30, 60],
+  microsoft: [120, 60],
   document: [20, 3600],
   plan: [600, 3600],
   check: [60, 3600],

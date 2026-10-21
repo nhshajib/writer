@@ -228,3 +228,24 @@ test("Free Word offers the same Natural and Steady rhythms", async ({ page, requ
   expect(steady.plan.ok).toBe(true);
   expect(steady.plan.pacing.drafting.sentence_pause_seconds).toBe(0);
 });
+
+test("Word detects a concurrent edit after its write and recovers without a duplicate", async ({ page }) => {
+  const body = fakeOfficeJs({ host: "Word", url: "https://example.invalid/fixture.docx" }).replace(
+    "pending.splice(0).forEach((f) => f());",
+    `const writes = pending.splice(0); writes.forEach((f) => f());
+     if (writes.length && !window.__concurrentFixture) {
+       window.__concurrentFixture = true;
+       window.__paras[window.__paras.length - 1] += " Concurrent testing note.";
+     }`,
+  );
+  await page.route("https://appsforoffice.microsoft.com/**", route => route.fulfill({ contentType: "text/javascript", body }));
+  await page.goto("/word/");
+  await page.getByLabel("Text to enter").fill("Approved testing text.");
+  await page.getByRole("radio", { name: "All at once" }).check();
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await expect(page.getByText("State: Paused")).toBeVisible({ timeout: 20000 });
+  const text = await page.evaluate(() => (window as unknown as { __paras: string[] }).__paras.join("\n"));
+  expect(text.split("Approved testing text.").length - 1).toBe(1);
+  expect(text).toContain("Concurrent testing note.");
+});

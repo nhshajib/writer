@@ -1,3 +1,5 @@
+import { customerSubscriptions, subscriptionHasNotEnded } from "../_shared/stripe.ts";
+import { validateConfirmPatch, validateEngineEvents } from "../_shared/engineProtocol.ts";
 import { parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
 // User-facing API for drips, document connections and documents.
 //
@@ -77,6 +79,27 @@ serve(async (req) => {
   const user = await requireUser(req);
   const parts = routeParts(req);
   const method = req.method;
+  if (method === "POST") {
+    const operation = parts.at(-1);
+    const bucket = operation === "engine"
+      ? "engine"
+      : operation === "microsoft"
+      ? "microsoft"
+      : operation === "disconnect"
+      ? "disconnect"
+      : operation === "clear"
+      ? "clear"
+      : operation === "delete"
+      ? "delete"
+      : operation === "pause"
+      ? "pause"
+      : operation === "resume"
+      ? "resume"
+      : operation === "cancel"
+      ? "cancel"
+      : null;
+    if (bucket) await rateLimit(user.id, bucket);
+  }
 
   if (parts.length === 0) {
     if (method === "GET") return await listDrips(user.id, new URL(req.url).searchParams.get("before"));
@@ -314,6 +337,9 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (body.approval.text_sha256 !== textHash) {
     throw new HttpError(409, "The text changed after you approved it. Review it again and confirm.");
   }
+  for (const key of ["document_title", "new_document_title"] as const) {
+    if (body[key] !== undefined && typeof body[key] !== "string") throw new HttpError(400, `${key} must be text.`);
+  }
   if (!body.document_id && !body.new_document_title) {
     throw new HttpError(400, "Provide document_id or new_document_title.");
   }
@@ -335,6 +361,9 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (!connection) throw new HttpError(404, "Connection not found.");
   if (connection.provider === "microsoft" && !body.document_id) {
     throw new HttpError(400, "Open the Word document in Word and start the session from the TypeWit add-in.");
+  }
+  if (connection.provider === "microsoft" && (parseFormatted(text, input.format)?.plain ?? text).includes("\v")) {
+    throw new HttpError(400, "Replace manual line breaks with paragraph breaks for Word.");
   }
   if (target && connection.provider === "microsoft") {
     throw new HttpError(400, "Adding text under a heading works with Google Docs for now.");
@@ -423,20 +452,22 @@ async function startSession(
   // Resolve the target document before reserving quota, so a bad document id
   // doesn't use up the day's words.
   // A Word document is identified by its address in Word; only the add-in running in it can write to it.
-  const doc = connection.provider === "microsoft"
-    ? {
-      id: body.document_id!,
-      title: (body.document_title?.trim() || wordTitle(body.document_id!)).slice(0, 200),
-      url: /^https?:\/\//.test(body.document_id!) ? body.document_id! : null,
-    }
-    : await withProviderErrors(async () => {
-      const provider = providerFor(connection, target);
-      if (!body.document_id) return await provider.createDoc(body.new_document_title!.slice(0, 200));
-      const info = await provider.getDoc(body.document_id);
-      // Check the heading is there with room under it before anything is reserved.
-      if (target) await provider.readDocument(body.document_id);
-      return info;
-    });
+  const resolveDoc = async () =>
+    connection.provider === "microsoft"
+      ? {
+        id: body.document_id!,
+        title: (body.document_title?.trim() || wordTitle(body.document_id!)).slice(0, 200),
+        url: /^https?:\/\//.test(body.document_id!) ? body.document_id! : null,
+      }
+      : await withProviderErrors(async () => {
+        const provider = providerFor(connection, target);
+        if (!body.document_id) return await provider.createDoc(body.new_document_title!.slice(0, 200));
+        const info = await provider.getDoc(body.document_id);
+        // Check the heading is there with room under it before anything is reserved.
+        if (target) await provider.readDocument(body.document_id);
+        return info;
+      });
+  let doc = body.document_id ? await resolveDoc() : null;
 
   const { data: reserved, error: reserveError } = await db.rpc("reserve_words", {
     target_user: userId,
@@ -446,6 +477,12 @@ async function startSession(
   if (reserveError) throw new Error(reserveError.message);
   if (!reserved) throw new HttpError(422, `Your plan allows ${PLAN_LIMITS[tier].dailyWords} words per day.`);
 
+  try {
+    doc ??= await resolveDoc();
+  } catch (error) {
+    await db.rpc("release_words", { target_user: userId, words: plan.words });
+    throw error;
+  }
   const approvedAt = new Date();
   const started = readStartAt(body.start_at) ?? approvedAt;
   const lastOffset = plan.schedule[plan.schedule.length - 1];
@@ -670,8 +707,9 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   if (updateError) throw new Error(updateError.message);
   if (!updated) throw new HttpError(409, "The session changed while resuming. Try again.");
 
-  // A later attention pause should notify again.
-  await db.from("notifications").delete().eq("drip_id", id).eq("kind", "drip_attention");
+  // A later attention pause may notify again after a cooldown, never on rapid toggles.
+  await db.from("notifications").delete().eq("drip_id", id).eq("kind", "drip_attention")
+    .lt("created_at", new Date(Date.now() - 60 * 60_000).toISOString());
   await logEvent(id, userId, "resumed", result.detail);
   await kickWorkerIfDue(Date.parse(String(result.patch.next_run_at)));
   return json({ drip: updated });
@@ -823,7 +861,9 @@ async function checkConnection(userId: string, req: Request): Promise<Response> 
 /** Test connection for a session, including whether the document still ends with TypeWit's text. */
 async function checkSession(userId: string, id: string): Promise<Response> {
   const { data, error } = await adminClient().from("drips")
-    .select("connection_id, document_id, status, chunks, chunks_written, resync_index, resync_tail, insert_target")
+    .select(
+      "connection_id, document_id, status, chunks, chunk_deletions, chunks_written, resync_index, resync_tail, insert_target",
+    )
     .eq("id", id).eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new HttpError(404, "Drip not found.");
@@ -907,7 +947,10 @@ async function disconnectConnection(userId: string, id: string): Promise<Respons
     await logEvent(drip.id, userId, "canceled", { reason: "account_disconnected" });
   }
 
-  if (connection.provider === "google" && connection.refresh_token_enc) {
+  if (
+    connection.provider === "google" && connection.refresh_token_enc &&
+    !(await hasOtherGoogleGrant(connection.id, connection.account_email))
+  ) {
     try {
       await revokeGoogleToken(await decrypt(connection.refresh_token_enc, await encryptionKey()));
     } catch (error) {
@@ -937,8 +980,20 @@ async function deleteAccount(userId: string, email: string | null, req: Request)
     throw new HttpError(400, "Type your account's email address to confirm.");
   }
   const db = adminClient();
-  const { data: profile } = await db.from("profiles").select("subscription_status").eq("user_id", userId).maybeSingle();
-  if (["active", "trialing", "past_due"].includes(profile?.subscription_status ?? "")) {
+  const { data: profile, error: profileError } = await db.from("profiles").select(
+    "subscription_status, stripe_customer_id",
+  ).eq(
+    "user_id",
+    userId,
+  ).maybeSingle();
+  if (profileError || !profile) throw new HttpError(503, "Your billing status could not be checked. Please try again.");
+  const subscriptions = profile?.stripe_customer_id
+    ? await customerSubscriptions(requireEnv("STRIPE_SECRET_KEY"), profile.stripe_customer_id)
+    : [];
+  if (
+    subscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
+    (!profile?.stripe_customer_id && subscriptionHasNotEnded(profile?.subscription_status))
+  ) {
     throw new HttpError(409, "Cancel Pro in Plan & billing first, so you aren't charged again.");
   }
 
@@ -946,10 +1001,15 @@ async function deleteAccount(userId: string, email: string | null, req: Request)
     .eq("user_id", userId).in("status", ACTIVE_STATUSES);
   if (stopError) throw new Error(stopError.message);
 
-  const { data: connections } = await db.from("provider_connections").select("id, provider, refresh_token_enc")
+  const { data: connections } = await db.from("provider_connections").select(
+    "id, provider, account_email, refresh_token_enc",
+  )
     .eq("user_id", userId);
   for (const connection of connections ?? []) {
-    if (connection.provider !== "google" || !connection.refresh_token_enc) continue;
+    if (
+      connection.provider !== "google" || !connection.refresh_token_enc ||
+      await hasOtherGoogleGrant(connection.id, connection.account_email, userId)
+    ) continue;
     try {
       await revokeGoogleToken(await decrypt(connection.refresh_token_enc, await encryptionKey()));
     } catch (error) {
@@ -1038,6 +1098,7 @@ const ENGINE_FIELDS = new Set([
   "chunks_written",
   "schedule_shift_seconds",
   "attempts",
+  "conflict_runs",
   "pending_index",
   "pending_revision",
   "pending_doc_length",
@@ -1050,16 +1111,6 @@ const ENGINE_FIELDS = new Set([
   "preflight_at",
 ]);
 const ENGINE_STATUSES = new Set(["running", "paused", "completed"]);
-const ENGINE_EVENTS = new Set([
-  "chunk_written",
-  "schedule_shifted",
-  "retry_scheduled",
-  "attention",
-  "paused",
-  "completed",
-  "connection_checked",
-  "insertion_uncertain",
-]);
 
 function enginePatch(raw: unknown): Record<string, unknown> {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
@@ -1136,11 +1187,13 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
         if (typeof body.lease !== "string" || !UUID_RE.test(body.lease)) throw new HttpError(400, "lease is required.");
         query = query.eq("lease_id", body.lease).eq("status", "running");
       } else {
-        if (!Number.isInteger(body.expected)) throw new HttpError(400, "expected is required.");
-        query = query.eq("chunks_written", body.expected!);
+        validateConfirmPatch(patch, body.expected, row.total_chunks);
+        query = query.eq("chunks_written", body.expected!).in("status", ["running", "paused"]);
       }
       const { data, error: updateError } = await query.select("id");
-      if (updateError) throw new HttpError(400, updateError.message);
+      if (updateError) {
+        throw new HttpError(400, "The session changed or the update was not valid. Refresh and try again.");
+      }
       const ok = (data ?? []).length > 0;
       if (ok && body.op === "update" && (patch.status === "completed" || patch.status === "paused")) {
         await notifyUser(row, patch.status === "completed" ? "drip_completed" : "drip_attention");
@@ -1148,9 +1201,7 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
       return json({ ok });
     }
     case "log": {
-      const events = (Array.isArray(body.events) ? body.events : []).filter((e) =>
-        ENGINE_EVENTS.has(String(e?.kind)) && typeof e.detail === "object" && e.detail !== null
-      );
+      const events = validateEngineEvents(body.events ?? []);
       if (events.length) {
         const { error: logError } = await db.from("drip_events").insert(
           events.slice(0, 20).map((e) => ({ drip_id: id, user_id: userId, kind: String(e.kind), detail: e.detail })),
@@ -1190,6 +1241,7 @@ async function createDocument(userId: string, req: Request): Promise<Response> {
   const connection = await loadConnection(body.connection_id, userId);
   if (!connection) throw new HttpError(404, "Connection not found.");
 
+  if (body.title !== undefined && typeof body.title !== "string") throw new HttpError(400, "title must be text.");
   const title = (body.title ?? "Untitled document").slice(0, 200);
   const doc = await withProviderErrors(() => providerFor(connection).createDoc(title));
   return json({ document: doc }, 201);
@@ -1203,10 +1255,10 @@ async function withProviderErrors<T>(fn: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof ProviderError) {
       if (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE) throw new HttpError(422, error.message);
-      if (error.kind === "auth") throw new HttpError(401, `Reconnect your account: ${error.message}`);
+      if (error.kind === "auth") throw new HttpError(401, "Reconnect your Google account, then try again.");
       if (error.status === 404) throw new HttpError(404, "Document not found or not shared with TypeWit.");
       if (error.status === 403) throw new HttpError(403, "TypeWit doesn't have access to that document.");
-      throw new HttpError(502, error.message);
+      throw new HttpError(502, "The document provider could not complete this request. Please try again.");
     }
     throw error;
   }
@@ -1217,8 +1269,26 @@ async function withProviderErrors<T>(fn: () => Promise<T>): Promise<T> {
  * insertion is due before the next tick, start a worker run now so it isn't
  * late. Best effort: the next tick picks the session up anyway.
  */
+let workerKick: Promise<void> | null = null;
+let kickAgain = false;
 async function kickWorkerIfDue(dueAt: number): Promise<void> {
   if (!(dueAt < nextTickAfter(Date.now()))) return;
+  if (workerKick) {
+    kickAgain = true;
+    return await workerKick;
+  }
+  workerKick = (async () => {
+    do {
+      kickAgain = false;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await sendWorkerKick();
+    } while (kickAgain);
+  })().finally(() => {
+    workerKick = null;
+  });
+  return await workerKick;
+}
+async function sendWorkerKick(): Promise<void> {
   try {
     const res = await fetch(`${requireEnv("SUPABASE_URL")}/functions/v1/drip-tick`, {
       method: "POST",
@@ -1235,4 +1305,18 @@ async function kickWorkerIfDue(dueAt: number): Promise<void> {
 async function logEvent(dripId: string, userId: string, kind: string, detail: Record<string, unknown>) {
   const { error } = await adminClient().from("drip_events").insert({ drip_id: dripId, user_id: userId, kind, detail });
   if (error) console.error("Failed to log event", error.message);
+}
+
+/** Revoking a Google grant affects every TypeWit account using that identity.
+ * Unknown legacy identities are conservatively forgotten without revocation.
+ */
+async function hasOtherGoogleGrant(id: string, email: string | null, excludingUser?: string): Promise<boolean> {
+  if (!email) return true;
+  let query = adminClient().from("provider_connections").select("id", { count: "exact", head: true })
+    .eq("provider", "google").ilike("account_email", email.replace(/[\\%_]/g, "\\$&"))
+    .neq("id", id).or("refresh_token_enc.not.is.null,access_token_enc.not.is.null");
+  if (excludingUser) query = query.neq("user_id", excludingUser);
+  const { count, error } = await query;
+  if (error) return true; // A failed lookup must never revoke someone else's working grant.
+  return (count ?? 0) > 0;
 }

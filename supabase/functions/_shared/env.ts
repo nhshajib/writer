@@ -12,6 +12,15 @@ let serviceClient: SupabaseClient | null = null;
 export function adminClient(): SupabaseClient {
   serviceClient ??= createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          signal: init?.signal
+            ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)])
+            : AbortSignal.timeout(15_000),
+        }),
+    },
   });
   return serviceClient;
 }

@@ -21,6 +21,12 @@ const DOCS_API = "https://docs.googleapis.com/v1/documents";
 const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 /** A request that takes longer than this is treated as a network failure. */
 const REQUEST_TIMEOUT_MS = 15_000;
+// Keep text and structural sentinels exactly; exclude document styles, fonts,
+// suggestions and other metadata the insertion engine never reads. Nested
+// table/TOC content is retained so extractText remains byte-identical.
+export const DOCUMENT_FIELDS =
+  "revisionId,body(content(startIndex,endIndex,paragraph(elements(textRun(content)),paragraphStyle(headingId,namedStyleType)),table(tableRows(tableCells(content))),tableOfContents(content),sectionBreak))";
+export const FORMAT_BATCH_SIZE = 400;
 
 /**
  * `drive.file` only grants access to files this app creates or that the user
@@ -48,9 +54,11 @@ export async function exchangeCode(
   redirectUri: string,
   config: GoogleClientConfig,
   fetchFn: Fetch = fetch,
+  verifier?: string,
 ): Promise<GoogleTokens> {
   return await tokenRequest({
     code,
+    ...(verifier ? { code_verifier: verifier } : {}),
     client_id: config.clientId,
     client_secret: config.clientSecret,
     redirect_uri: redirectUri,
@@ -78,9 +86,10 @@ async function tokenRequest(params: Record<string, string>, fetchFn: Fetch): Pro
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams(params),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch (error) {
-    throw new ProviderError("transient", `Google token request failed: ${String(error)}`);
+  } catch {
+    throw new ProviderError("transient", "Google access could not be refreshed. Please try again.");
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -88,7 +97,9 @@ async function tokenRequest(params: Record<string, string>, fetchFn: Fetch): Pro
     const kind = body?.error === "invalid_grant" ? "auth" : classifyHttpStatus(res.status);
     throw new ProviderError(
       kind,
-      `Google token error: ${body?.error_description ?? body?.error ?? res.status}`,
+      kind === "auth"
+        ? "Google access expired. Reconnect your account."
+        : "Google access is temporarily unavailable. Please try again.",
       res.status,
     );
   }
@@ -111,7 +122,10 @@ export async function revokeGoogleToken(token: string, fetchFn: Fetch = fetch): 
 }
 
 export async function fetchGoogleEmail(accessToken: string, fetchFn: Fetch = fetch): Promise<string | null> {
-  const res = await fetchFn(GOOGLE_USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetchFn(GOOGLE_USERINFO_URL, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
   if (!res.ok) return null;
   const body = await res.json().catch(() => ({}));
   return typeof body.email === "string" ? body.email : null;
@@ -123,6 +137,12 @@ export async function fetchGoogleEmail(accessToken: string, fetchFn: Fetch = fet
  */
 export class GoogleDocsProvider implements DocProvider {
   readonly name = "google" as const;
+  private deadline = Infinity;
+  private requestsLeft = Infinity;
+  setRunBudget(deadline: number, maxRequests: number): void {
+    this.deadline = deadline;
+    this.requestsLeft = maxRequests;
+  }
 
   /** Where the last read put the insertion point, so a write at that revision goes to the same place. */
   private lastRead: {
@@ -139,6 +159,7 @@ export class GoogleDocsProvider implements DocProvider {
     private readonly fetchFn: Fetch = fetch,
     /** Pro: add text at the end of this heading's section instead of the end of the document. */
     private readonly target: InsertTarget | null = null,
+    private readonly admitWrite?: () => Promise<boolean>,
   ) {}
 
   async createDoc(title: string): Promise<DocInfo> {
@@ -159,9 +180,17 @@ export class GoogleDocsProvider implements DocProvider {
 
   async readDocument(documentId: string): Promise<DocState> {
     const body = await this.request<{ revisionId: string; body?: { content?: StructuralElement[] } }>(
-      `${DOCS_API}/${encodeURIComponent(documentId)}?fields=revisionId,body`,
+      `${DOCS_API}/${encodeURIComponent(documentId)}?fields=${DOCUMENT_FIELDS}`,
       { method: "GET" },
     );
+    if (!body.revisionId || typeof body.revisionId !== "string") {
+      throw new ProviderError(
+        "permanent",
+        "This account cannot edit this document. Check edit access and retry.",
+        422,
+        "not_editable",
+      );
+    }
     const content = body.body?.content ?? [];
     const section = this.target ? sectionEnd(content, this.target) : content.length - 1;
     const last = content[section];
@@ -183,7 +212,7 @@ export class GoogleDocsProvider implements DocProvider {
 
   async listHeadings(documentId: string): Promise<DocHeading[]> {
     const body = await this.request<{ body?: { content?: StructuralElement[] } }>(
-      `${DOCS_API}/${encodeURIComponent(documentId)}?fields=body`,
+      `${DOCS_API}/${encodeURIComponent(documentId)}?fields=${DOCUMENT_FIELDS}`,
       { method: "GET" },
     );
     const headings: DocHeading[] = [];
@@ -245,20 +274,51 @@ export class GoogleDocsProvider implements DocProvider {
     if (!point) throw new ProviderError("permanent", "TypeWit couldn't find where to add the text.", 400);
     const requests: unknown[] = [{ insertText: { text, location: { index: point.index } } }];
     if (format) requests.push(...formatRequests(format, point.index, text.length, point.atParagraphStart));
-    const body = await this.request<{ writeControl?: { requiredRevisionId?: string } }>(
-      `${DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          requests,
-          ...(requiredRevisionId ? { writeControl: { requiredRevisionId } } : {}),
-        }),
-      },
-      false,
-      Boolean(requiredRevisionId),
-    );
     this.lastRead = null;
-    return { revisionId: body.writeControl?.requiredRevisionId ?? null };
+    return await this.writeBatches(documentId, requests, requiredRevisionId);
+  }
+
+  /** Complete/re-apply formatting after an interrupted multi-batch edit.
+   * Styles and bullet creation are idempotent, and text is never inserted here.
+   */
+  async finishPendingFormatting(documentId: string, text: string, format: ChunkFormat, revision: string) {
+    const doc = await this.readDocument(documentId);
+    if (doc.revisionId !== revision) throw new ProviderError("conflict", "The document changed.", 400);
+    const point = this.lastRead;
+    if (!point || !doc.text.endsWith(text + "\n")) {
+      throw new ProviderError("conflict", "The insertion point changed.", 400);
+    }
+    const prefix = doc.text.slice(0, -(text.length + 1));
+    const requests = formatRequests(format, point.index - text.length, text.length, !prefix || prefix.endsWith("\n"));
+    return await this.writeBatches(documentId, requests, revision);
+  }
+
+  private async writeBatches(documentId: string, requests: unknown[], revision?: string) {
+    let current: string | null = revision ?? null;
+    for (let i = 0; i < requests.length; i += FORMAT_BATCH_SIZE) {
+      try {
+        if (i > 0 && !current) current = (await this.readDocument(documentId)).revisionId;
+        const body = await this.request<{ writeControl?: { requiredRevisionId?: string } }>(
+          `${DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              requests: requests.slice(i, i + FORMAT_BATCH_SIZE),
+              ...(current ? { writeControl: { requiredRevisionId: current } } : {}),
+            }),
+          },
+          false,
+          Boolean(current),
+        );
+        current = body.writeControl?.requiredRevisionId ?? null;
+      } catch (error) {
+        if (i > 0 && error instanceof ProviderError) {
+          throw new ProviderError(error.kind, error.message, error.status, "write_uncertain");
+        }
+        throw error;
+      }
+    }
+    return { revisionId: current };
   }
 
   async replaceTail(
@@ -292,14 +352,8 @@ export class GoogleDocsProvider implements DocProvider {
     if (format && text) {
       requests.push(...formatRequests(format, index, text.length, index === point.paragraphStart));
     }
-    const body = await this.request<{ writeControl?: { requiredRevisionId?: string } }>(
-      `${DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`,
-      { method: "POST", body: JSON.stringify({ requests, writeControl: { requiredRevisionId } }) },
-      false,
-      true,
-    );
     this.lastRead = null;
-    return { revisionId: body.writeControl?.requiredRevisionId ?? null };
+    return await this.writeBatches(documentId, requests, requiredRevisionId);
   }
 
   async verifyAccount(): Promise<void> {
@@ -331,41 +385,58 @@ export class GoogleDocsProvider implements DocProvider {
    * the Google Cloud project; otherwise this throws and the log says so.
    */
   async summarizeRevisions(documentId: string, from: string, to: string): Promise<RevisionSummary> {
-    const times: string[] = [];
-    let pageToken = "";
-    for (let page = 0; page < 10; page++) {
-      const query = new URLSearchParams({ fields: "nextPageToken,revisions(modifiedTime)", pageSize: "200" });
-      if (pageToken) query.set("pageToken", pageToken);
-      const body = await this.request<{ nextPageToken?: string; revisions?: { modifiedTime?: string }[] }>(
-        `${DRIVE_API}/${encodeURIComponent(documentId)}/revisions?${query}`,
-        { method: "GET" },
-      );
-      for (const r of body.revisions ?? []) if (r.modifiedTime) times.push(r.modifiedTime);
-      if (!body.nextPageToken) break;
-      pageToken = body.nextPageToken;
+    const runDeadline = this.deadline;
+    this.deadline = Math.min(runDeadline, Date.now() + 15_000);
+    try {
+      const times: string[] = [];
+      let pageToken = "";
+      for (let page = 0; page < 10; page++) {
+        const query = new URLSearchParams({ fields: "nextPageToken,revisions(modifiedTime)", pageSize: "200" });
+        if (pageToken) query.set("pageToken", pageToken);
+        const body = await this.request<{ nextPageToken?: string; revisions?: { modifiedTime?: string }[] }>(
+          `${DRIVE_API}/${encodeURIComponent(documentId)}/revisions?${query}`,
+          { method: "GET" },
+        );
+        for (const r of body.revisions ?? []) if (r.modifiedTime) times.push(r.modifiedTime);
+        if (!body.nextPageToken) break;
+        pageToken = body.nextPageToken;
+      }
+      times.sort();
+      const start = Date.parse(from);
+      const end = Date.parse(to);
+      return {
+        count: times.length,
+        in_window: times.filter((t) => Date.parse(t) >= start && Date.parse(t) <= end).length,
+        first_modified: times[0] ?? null,
+        last_modified: times[times.length - 1] ?? null,
+      };
+    } finally {
+      this.deadline = runDeadline;
     }
-    times.sort();
-    const start = Date.parse(from);
-    const end = Date.parse(to);
-    return {
-      count: times.length,
-      in_window: times.filter((t) => Date.parse(t) >= start && Date.parse(t) <= end).length,
-      first_modified: times[0] ?? null,
-      last_modified: times[times.length - 1] ?? null,
-    };
   }
 
   private async request<T>(url: string, init: RequestInit, retried = false, conditional = false): Promise<T> {
+    if (Date.now() >= this.deadline || --this.requestsLeft < 0) {
+      throw new ProviderError("transient", "This worker window has ended. It will retry shortly.");
+    }
+    if (init.method === "POST" && url.startsWith(DOCS_API) && this.admitWrite && !(await this.admitWrite())) {
+      throw new ProviderError(
+        "transient",
+        "Google Docs is busy. The session will continue when capacity is available.",
+        429,
+      );
+    }
     const token = await this.getAccessToken(retried);
+    if (Date.now() >= this.deadline) throw new ProviderError("transient", "This worker window has ended.");
     let res: Response;
     try {
       res = await this.fetchFn(url, {
         ...init,
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.max(1, Math.min(REQUEST_TIMEOUT_MS, this.deadline - Date.now()))),
       });
-    } catch (error) {
-      throw new ProviderError("transient", `Google request failed: ${String(error)}`);
+    } catch {
+      throw new ProviderError("transient", "Google Docs could not be reached. TypeWit will retry.");
     }
 
     if (res.status === 401 && !retried) {
@@ -381,7 +452,23 @@ export class GoogleDocsProvider implements DocProvider {
       const conflict = conditional && res.status === 400 &&
         (body?.error?.status === "FAILED_PRECONDITION" || /revision/i.test(message));
       const kind = conflict ? "conflict" : classifyHttpStatus(res.status);
-      throw new ProviderError(kind, `Google: ${message}`, res.status);
+      throw new ProviderError(
+        kind,
+        kind === "conflict"
+          ? "The document changed while entering this part."
+          : res.status === 429
+          ? "Google Docs is busy. TypeWit will retry."
+          : res.status === 401
+          ? "Google access expired. Reconnect your account."
+          : res.status === 403
+          ? "This Google account does not have permission to edit the document."
+          : res.status === 404
+          ? "The document could not be found."
+          : kind === "transient"
+          ? "Google Docs is temporarily unavailable. TypeWit will retry."
+          : "Google Docs could not accept this edit. Check the document and try again.",
+        res.status,
+      );
     }
     return body as T;
   }

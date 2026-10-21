@@ -252,7 +252,13 @@ export function judgePending(
     return withUnit || withoutUnit ? "ambiguous" : "changed";
   }
   if (withUnit && !withoutUnit) return "written";
-  if (withoutUnit && !withUnit) return "not_written";
+  if (withoutUnit && !withUnit) {
+    if (
+      !expectedTail(row, index) && row.pending_doc_length !== null &&
+      bodyContent(doc.text).length !== row.pending_doc_length
+    ) return "changed";
+    return "not_written";
+  }
   if (withUnit && withoutUnit) {
     // Both fit (always true before the first unit, or when a unit repeats
     // the text before it). The length decides unless something else changed too.
@@ -307,7 +313,7 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
     const ok = await store.update(row.id, lease, { next_run_at: iso(next), lease_id: null });
     return ok ? "waiting" : "lost";
   };
-  provider.setRunBudget?.(deps.deadline, 128);
+  provider.setRunBudget?.(deps.deadline, 512);
   if (exhausted()) return await yieldRun();
 
   const log = (...events: SessionEvent[]) => store.log(row, events);
@@ -336,6 +342,7 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
   const fail = async (error: unknown): Promise<Outcome> => {
     const kind = error instanceof RangeError ? "permanent" : error instanceof ProviderError ? error.kind : "transient";
     const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof ProviderError && error.code === "not_editable") return await pause("not_editable");
     if (kind === "auth") return await pause("reconnect", message);
     if (error instanceof ProviderError && (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE)) {
       return await pause("heading_missing");
@@ -412,6 +419,19 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
         if (verdict === "changed") return await pause("document_changed");
         const now = deps.now();
         if (verdict === "written") {
+          if (provider.finishPendingFormatting && row.chunk_formats?.[index]) {
+            try {
+              const formatted = await provider.finishPendingFormatting(
+                row.document_id,
+                row.chunks[index],
+                row.chunk_formats[index],
+                doc.revisionId,
+              );
+              if (formatted.revisionId) doc.revisionId = formatted.revisionId;
+            } catch (error) {
+              return await fail(error);
+            }
+          }
           const patch: SessionPatch = {
             chunks_written: index + 1,
             pending_index: null,

@@ -37,6 +37,8 @@ async function cleanupOldData(now: number): Promise<void> {
   const db = adminClient();
   const before = (days: number) => new Date(now - days * DAY_MS).toISOString();
   const results = await Promise.all([
+    db.from("google_oauth_nonces").delete().lt("expires_at", new Date(now).toISOString()),
+    db.from("google_write_windows").delete().lt("window_start", before(RETENTION.rateLimitsDays)),
     db.from("start_requests").delete().lt("created_at", before(RETENTION.startRequestsDays)),
     db.from("rate_limits").delete().lt("window_start", before(RETENTION.rateLimitsDays)),
     db.from("stripe_events").delete().lt("received_at", before(RETENTION.stripeEventsDays)),

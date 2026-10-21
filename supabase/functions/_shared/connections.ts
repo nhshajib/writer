@@ -43,7 +43,11 @@ export async function loadConnectionsByIds(ids: string[]): Promise<Map<string, C
 export function providerFor(connection: ConnectionRow, target: InsertTarget | null = null): DocProvider {
   switch (connection.provider) {
     case "google":
-      return new GoogleDocsProvider((force) => googleAccessToken(connection, force), fetch, target);
+      return new GoogleDocsProvider((force) => googleAccessToken(connection, force), fetch, target, async () => {
+        const { data, error } = await adminClient().rpc("admit_google_write");
+        if (error) throw new Error("Write capacity could not be checked. Please retry.");
+        return data === true;
+      });
     case "test":
       return new TestDocProvider(adminClient(), connection.user_id);
     case "microsoft":

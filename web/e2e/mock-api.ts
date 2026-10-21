@@ -78,7 +78,7 @@ const ENGINE_FIELDS = new Set([
   "status", "next_run_at", "lease_id", "paused_at", "completed_at", "attention", "last_error", "deadline_at",
   "chunks_written", "schedule_shift_seconds", "attempts", "pending_index", "pending_revision", "pending_doc_length",
   "retry_at", "last_revision_id", "last_written_at", "resync_index", "resync_tail", "document_baseline_length",
-  "preflight_at",
+  "preflight_at", "conflict_runs",
 ]);
 
 const drips = new Map<string, Row>();
@@ -485,7 +485,7 @@ function engine(res: ServerResponse, row: Row, body: Record<string, unknown>) {
     }
     case "confirm": {
       const patch = patchOf(body.patch);
-      const ok = row.chunks_written === body.expected;
+      const ok = row.chunks_written === body.expected && ["running", "paused"].includes(row.status);
       if (ok) Object.assign(row, patch);
       return send(res, 200, { ok });
     }

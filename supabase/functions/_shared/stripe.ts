@@ -25,6 +25,7 @@ export async function stripeRequest<T>(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams(params),
+    signal: AbortSignal.timeout(15_000),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -43,6 +44,7 @@ export async function stripeGet<T>(
   const query = new URLSearchParams(params).toString();
   const res = await fetchFn(`https://api.stripe.com/v1/${path}${query ? `?${query}` : ""}`, {
     headers: { Authorization: `Bearer ${secretKey}` },
+    signal: AbortSignal.timeout(15_000),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -93,4 +95,46 @@ function timingSafeEqualHex(a: string, b: string): boolean {
 /** Subscription statuses that give the user Pro features. */
 export function planForSubscriptionStatus(status: string | null | undefined): "pro" | "free" {
   return status === "trialing" || status === "active" || status === "past_due" ? "pro" : "free";
+}
+
+export interface CustomerSubscription {
+  id: string;
+  status: string;
+  customer?: string;
+  trial_end?: number | null;
+  metadata?: { user_id?: string };
+}
+export function subscriptionHasNotEnded(status: string | null | undefined): boolean {
+  return Boolean(status && status !== "canceled" && status !== "incomplete_expired");
+}
+/** Prefer a paying/trial subscription, then another non-ended subscription. */
+export function preferredSubscription<T extends CustomerSubscription>(subscriptions: T[]): T | null {
+  return subscriptions.find((s) => planForSubscriptionStatus(s.status) === "pro") ??
+    subscriptions.find((s) => subscriptionHasNotEnded(s.status)) ?? subscriptions[0] ?? null;
+}
+/** Read every page; a canceled newest subscription must not hide a live older one. */
+export async function customerSubscriptions<T extends CustomerSubscription>(
+  secret: string,
+  customer: string,
+  expandPaymentMethod = false,
+  fetchFn: typeof fetch = fetch,
+): Promise<T[]> {
+  const subscriptions: T[] = [];
+  let cursor = "";
+  for (let page = 0; page < 100; page++) {
+    const list = await stripeGet<{ data: T[]; has_more?: boolean }>(secret, "subscriptions", {
+      customer,
+      status: "all",
+      limit: "100",
+      ...(cursor ? { starting_after: cursor } : {}),
+      ...(expandPaymentMethod ? { "expand[]": "data.default_payment_method" } : {}),
+    }, fetchFn);
+    subscriptions.push(...list.data);
+    if (!list.has_more) return subscriptions;
+    const next = list.data.at(-1)?.id;
+    if (!next || next === cursor) throw new StripeError(502, "Subscription list could not be completed.");
+    cursor = next;
+  }
+  // Never infer Free from a partial list.
+  throw new StripeError(502, "Subscription list could not be completed.");
 }

@@ -129,9 +129,12 @@ export function parseRichText(source: string): ParsedMarkdown {
     !Array.isArray(doc.paragraphs) || !Array.isArray(doc.spans) ||
     doc.paragraphs.length > 50000 || doc.spans.length > 50000
   ) throw new Error("Invalid formatted text.");
+  const splitsPair = (at: number) =>
+    at > 0 && at < doc.plain.length &&
+    /[\uD800-\uDBFF]/u.test(doc.plain[at - 1]) && /[\uDC00-\uDFFF]/u.test(doc.plain[at]);
   const range = (r: { start: number; end: number }) =>
     Number.isInteger(r.start) && Number.isInteger(r.end) &&
-    r.start >= 0 && r.end > r.start && r.end <= doc.plain.length;
+    r.start >= 0 && r.end > r.start && r.end <= doc.plain.length && !splitsPair(r.start) && !splitsPair(r.end);
   let end = 0;
   const paragraphs: ParagraphRange[] = doc.paragraphs.map((p: ParagraphRange) => {
     if (

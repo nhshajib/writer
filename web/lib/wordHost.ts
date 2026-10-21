@@ -105,6 +105,10 @@ export const officeWordHost: WordHost = {
       paragraphs.load("items/text");
       await context.sync();
       if (!check(paragraphs.items.map((p) => p.text))) return null;
+      const before = paragraphs.items.map(p => p.text);
+      const expected = [...before];
+      expected[expected.length - 1] += lines[0];
+      expected.push(...lines.slice(1));
       const last = paragraphs.items[paragraphs.items.length - 1];
       if (!format) {
         // The first line continues the last paragraph; each line break starts a new one.
@@ -129,7 +133,11 @@ export const officeWordHost: WordHost = {
         });
       }
       await context.sync();
-      return await paragraphTexts(context);
+      const after = await paragraphTexts(context);
+      if (after.length !== expected.length || after.some((p, i) => p !== expected[i])) {
+        throw new ProviderError("conflict", "The document changed during the edit. TypeWit will check whether it landed.", 409, "write_uncertain");
+      }
+      return after;
     }),
 
   replaceTailIf: (check, deleteCount, text, format) =>
@@ -159,6 +167,9 @@ export const officeWordHost: WordHost = {
       // Search needs its own sync. Check again immediately before queuing the
       // edit, and mutate only the final exact suffix match in this paragraph.
       if (!check(paragraphs.items.map((p) => p.text)) || paragraphs.items.at(-1)?.text.slice(-deleteCount) !== suffix) return null;
+      const expected = paragraphs.items.map(p => p.text);
+      expected[expected.length - 1] = expected.at(-1)!.slice(0, -deleteCount) + text;
+      const expectedParagraphs = expected.join("\n").split("\n");
       const range = matches.items.at(-1);
       if (!range) return null;
       range.delete();
@@ -184,7 +195,11 @@ export const officeWordHost: WordHost = {
         });
       }
       await context.sync();
-      return await paragraphTexts(context);
+      const after = await paragraphTexts(context);
+      if (after.length !== expectedParagraphs.length || after.some((p, i) => p !== expectedParagraphs[i])) {
+        throw new ProviderError("conflict", "The document changed during the edit. TypeWit will check whether it landed.", 409, "write_uncertain");
+      }
+      return after;
     }),
 
   isEditable: () => Promise.resolve(window.Office?.context.document.mode !== "readOnly"),
