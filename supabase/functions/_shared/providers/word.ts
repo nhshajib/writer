@@ -20,6 +20,13 @@ export interface WordHost {
     lines: string[],
     format?: ChunkFormat | null,
   ): Promise<string[] | null>;
+  /** Revision-checked replacement of a session-owned temporary suffix. */
+  replaceTailIf?(
+    check: (paragraphs: string[]) => boolean,
+    deleteCount: number,
+    text: string,
+    format?: ChunkFormat | null,
+  ): Promise<string[] | null>;
   /** False when the document is open read-only. */
   isEditable(): Promise<boolean>;
 }
@@ -93,6 +100,30 @@ export class WordDocProvider implements DocProvider {
     const after = await this.host.appendIf(
       (paragraphs) => requiredRevisionId === undefined || textRevision(wordText(paragraphs)) === requiredRevisionId,
       text.split("\n"),
+      format,
+    );
+    if (after === null) throw new ProviderError("conflict", "The document changed.", 400);
+    return { revisionId: textRevision(wordText(after)) };
+  }
+
+  async replaceTail(
+    documentId: string,
+    deleteCount: number,
+    text: string,
+    requiredRevisionId: string,
+    format?: ChunkFormat | null,
+  ) {
+    this.ensure(documentId);
+    if (!Number.isSafeInteger(deleteCount) || deleteCount <= 0 || !requiredRevisionId) {
+      throw new ProviderError("permanent", "Invalid tail correction.");
+    }
+    if (!this.host.replaceTailIf) {
+      throw new ProviderError("permanent", "This Word host does not support simulated drafting corrections.", 422);
+    }
+    const after = await this.host.replaceTailIf(
+      (paragraphs) => textRevision(wordText(paragraphs)) === requiredRevisionId,
+      deleteCount,
+      text,
       format,
     );
     if (after === null) throw new ProviderError("conflict", "The document changed.", 400);

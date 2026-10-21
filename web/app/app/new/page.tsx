@@ -8,7 +8,7 @@ import { Sheet } from "@/components/app/mobile/Sheet";
 import { useIsMobile } from "@/lib/useMediaQuery";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
-import { DEFAULT_PACE, PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
+import { DEFAULT_PACE, PaceControls, paceFromSettings, pacingFor, usePace } from "@/components/app/PaceControls";
 import { api, ApiError, sha256Hex } from "@/lib/api";
 import { ACTIVE_STATUSES, type PacePreset, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 import { PacePresets } from "@/components/app/PacePresets";
@@ -220,16 +220,7 @@ export default function NewSessionPage() {
               setCustomMinutes(String(mins));
             }
           }
-          updatePace({
-            ...(pacing.wpm ? { wpm: pacing.wpm } : {}),
-            variation: pacing.variation_pct,
-            breaksOn: pacing.breaks.enabled,
-            everyMinutes: Math.round(pacing.breaks.every_seconds / 60),
-            everyVariation: pacing.breaks.every_variation_pct,
-            minBreakSeconds: pacing.breaks.min_seconds,
-            maxBreakSeconds: pacing.breaks.max_seconds,
-            align: pacing.breaks.align,
-          });
+          updatePace(paceFromSettings(pacing));
         }
         const doc = source ? pastDocs.find((d) => d.key === `${source.connection_id}:${source.document_id}`) : undefined;
         if (doc && !doc.busy && connections.some((c) => c.id === doc.connectionId)) {
@@ -262,7 +253,7 @@ export default function NewSessionPage() {
         setCustomMinutes(String(p.minutes));
       }
     }
-    updatePace(p.pace as Partial<typeof pace>);
+    updatePace({ ...DEFAULT_PACE, ...p.pace as Partial<typeof pace> });
   }
 
   // Keep the unsent text in this browser while it's being written.
@@ -290,6 +281,8 @@ export default function NewSessionPage() {
 
   // Free sessions use the standard pace (the server does the same); custom timing is Pro.
   const effectivePace = isPro ? pace : DEFAULT_PACE;
+  const simulatedDrafting = timing !== "asap" && isPro && (pace.typoRate > 0 || pace.falseStartRate > 0);
+  useEffect(() => setApproved(false), [pace.typoRate, pace.falseStartRate, simulatedDrafting]);
   const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const pacingKey = JSON.stringify(pacing);
   const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, seed ?? null]);
@@ -599,7 +592,7 @@ export default function NewSessionPage() {
   }
 
   const optionFor = (u: InsertionUnit) => (current ? preview.options.find((o) => o.unit === u) : undefined);
-  const steps = current && preview.ok ? preview.unit_count : 0;
+  const steps = current && preview.ok ? preview.source_unit_count ?? preview.unit_count : 0;
   const plannedDuration = current && preview.ok
     ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
     : timing === "asap" ? "All at once" : "—";
@@ -880,7 +873,7 @@ export default function NewSessionPage() {
             <div className="pro-note">
               <p>
                 <strong>Standard pacing.</strong> A little natural variation between parts, and short breaks about every 8
-                minutes. <Link href="/app/billing/">Pro</Link> adds typing speed, custom timing and saved presets.
+                minutes. <Link href="/app/billing/">Pro</Link> adds 20–150 WPM cadence, simulated typos and false starts, sentence pauses, custom timing and saved presets.
               </p>
             </div>
           )}
@@ -928,12 +921,13 @@ export default function NewSessionPage() {
             <dt>Text length</dt><dd>{words.toLocaleString()} words, {plainText.length.toLocaleString()} characters</dd>
             <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
             <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
+            {simulatedDrafting && <><dt>Automated simulated edits</dt><dd>Neighbor-key typos {pace.typoRate}%, false starts {pace.falseStartRate}% per eligible English word; temporary text is deleted and corrected.</dd></>}
             <dt>Planned duration</dt>
             <dd>{plannedDuration}</dd>
           </dl>
           <label className="check approve-check" htmlFor="approve">
             <input id="approve" type="checkbox" checked={approved} disabled={words === 0} onChange={(e) => setApproved(e.target.checked)} />
-            <span>I&apos;ve read this exact text and approve TypeWit entering it into my document.</span>
+            <span>I&apos;ve read this exact text and approve TypeWit entering it into my document.{simulatedDrafting && " I also approve the enabled simulated mistakes and corrections; pausing or stopping can leave temporary text in the document."}</span>
           </label>
           {error && (
             <div className="alert alert-error" role="alert" tabIndex={-1} ref={errorRef} style={{ marginTop: "1rem", display: "block" }}>
@@ -943,7 +937,7 @@ export default function NewSessionPage() {
           )}
           <p className="hint">
             Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
-            account. TypeWit never adds typos, false starts or fake corrections, and it runs on TypeWit&apos;s servers, so
+            account. Enabled drafting simulations make temporary edits and correct them; they are automated, and Google controls version-history grouping. It runs on TypeWit&apos;s servers, so
             you can close this page. Your text and its schedule are stored with TypeWit until you delete the session
             (Settings → Your data); the activity log records times and counts, not your text.
           </p>
@@ -999,7 +993,7 @@ export default function NewSessionPage() {
       <Sheet open={leaving} onClose={() => setLeaving(false)} title="Leave without starting?" dismissible={false}>
         <p className="sheet-text">
           {text.trim()
-            ? "Your text stays saved as a draft in this browser, so you can pick up where you left off. Your approval and settings aren't kept."
+            ? "Your text stays saved as a draft in this browser, so you can pick up where you left off. Pacing settings are remembered; approval must be given again."
             : "Nothing has been started."}
         </p>
         <div className="stack-4">
@@ -1034,11 +1028,13 @@ function PlanSummary({ plan, error, hasText, timing, onReshuffle }: {
   }
 
   const { stats } = plan;
-  const n = plan.unit_count;
+  const n = plan.source_unit_count ?? plan.unit_count;
+  const edits = plan.unit_count;
+  const simulated = edits !== n;
   const label = UNIT_LABEL[plan.unit][n === 1 ? "one" : "many"];
   const total = span(plan.duration_seconds * 1000);
   const breaks = plan.breaks.length;
-  const summary = `${n.toLocaleString()} ${label}, one insertion each, ${timing === "speed" ? "estimated to take" : "over"} ${total}` +
+  const summary = `${n.toLocaleString()} ${label}, ${simulated ? `${edits.toLocaleString()} automated edits including simulated corrections` : "one insertion each"}, ${timing === "speed" ? "estimated to take" : "over"} ${total}` +
     (breaks ? ` with ${breaks} break${breaks === 1 ? "" : "s"} (${span(plan.break_seconds * 1000)} in all)` : "") +
     `. The first after about ${span(stats.first_offset_ms)}; the last at the ${total} mark.`;
 
@@ -1046,7 +1042,7 @@ function PlanSummary({ plan, error, hasText, timing, onReshuffle }: {
     <div className="plan-box">
       <p className="small" role="status" aria-live="polite" aria-atomic="true" style={{ marginBottom: "0.75rem" }}>{summary}</p>
       <dl>
-        <div><dt>Insertions</dt><dd>{n.toLocaleString()}</dd></div>
+        <div><dt>{simulated ? "Document edits" : "Insertions"}</dt><dd>{edits.toLocaleString()}</dd></div>
         <div><dt>{timing === "speed" ? "Estimated time" : "Total time"}</dt><dd>{total}</dd></div>
         <div><dt>Breaks</dt><dd>{breaks ? `${breaks}, ${span(plan.break_seconds * 1000)}` : "None"}</dd></div>
         <div><dt>Typical gap</dt><dd>{span(stats.median_gap_ms)}</dd></div>
@@ -1064,33 +1060,36 @@ function PlanSummary({ plan, error, hasText, timing, onReshuffle }: {
 
 /** Every step, with its planned offset, so the split can be checked before approving. */
 function StepList({ text, plan }: { text: string; plan: SessionPlan }) {
-  const shown = Math.min(plan.unit_count, 500);
+  const count = plan.source_unit_count ?? plan.unit_count;
+  const lengths = plan.source_unit_lengths ?? plan.unit_lengths;
+  const endAt = (i: number) => (plan.source_unit_ends?.[i] ?? i + 1) - 1;
+  const shown = Math.min(count, 500);
   const parts: string[] = [];
   let at = 0;
   for (let i = 0; i < shown; i++) {
-    parts.push(text.slice(at, at + plan.unit_lengths[i]));
-    at += plan.unit_lengths[i];
+    parts.push(text.slice(at, at + lengths[i]));
+    at += lengths[i];
   }
   const breakAfter = new Map(plan.breaks.map((b) => [b.after_index, b]));
-  const label = UNIT_LABEL[plan.unit][plan.unit_count === 1 ? "one" : "many"];
+  const label = UNIT_LABEL[plan.unit][count === 1 ? "one" : "many"];
   return (
     <details className="more" style={{ marginTop: "0.5rem" }}>
-      <summary>See the {plan.unit_count.toLocaleString()} {label} as they will be entered</summary>
+      <summary>See the {count.toLocaleString()} {label} in order</summary>
       <ol className="steps-list" tabIndex={0} aria-label="Steps in order">
         {parts.map((part, i) => (
           <li key={i}>
             <span className="n">{i + 1}.</span>
-            <time>+{span(plan.schedule[i] ?? 0)}</time>
+            <time>+{span(plan.schedule[endAt(i)] ?? 0)}</time>
             <span className="t">
               {part.split("\n").map((line, k) => (
                 <span key={k}>{k > 0 && <><mark aria-hidden="true">↵</mark>{"\n"}</>}{line}</span>
               ))}
-              {breakAfter.has(i) && <em className="muted"> Then a {span(breakAfter.get(i)!.duration_ms)} break.</em>}
+              {breakAfter.has(endAt(i)) && <em className="muted"> Then a {span(breakAfter.get(endAt(i))!.duration_ms)} break.</em>}
             </span>
           </li>
         ))}
       </ol>
-      {plan.unit_count > shown && <p className="hint">Showing the first {shown}.</p>}
+      {count > shown && <p className="hint">Showing the first {shown}.</p>}
     </details>
   );
 }

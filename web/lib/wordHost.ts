@@ -5,10 +5,15 @@ import type { ChunkFormat, ParagraphKind } from "../../supabase/functions/_share
 /* Word's JavaScript API (Office.js, WordApi 1.1; styleBuiltIn needs 1.3), only the parts TypeWit uses. */
 interface WordRange {
   font: { bold: boolean; italic: boolean };
+  delete(): void;
 }
 interface WordParagraph {
   text: string;
   styleBuiltIn?: string;
+  search(text: string, options: { matchCase: boolean; matchWildcards: boolean; ignoreSpace: boolean; ignorePunct: boolean }): {
+    items: WordRange[];
+    load(properties: string): void;
+  };
   insertText(text: string, location: "End"): WordRange;
 }
 interface WordContext {
@@ -68,6 +73,7 @@ export function loadWord(): Promise<{ inWord: boolean; documentUrl: string | nul
 
 /** Word errors as the session engine understands them. */
 function asProviderError(error: unknown): ProviderError {
+  if (error instanceof ProviderError) return error;
   const code = (error as { code?: string })?.code ?? "";
   const message = error instanceof Error ? error.message : String(error);
   if (code === "AccessDenied" || code === "NotAllowed") return new ProviderError("permanent", `Word: ${message}`, 403);
@@ -116,6 +122,60 @@ export const officeWordHost: WordHost = {
             range.font.italic = segment.italic;
           }
           // The person's own paragraph keeps its style; new paragraphs get theirs.
+          const style = format.paragraphs.find((p) => p.start === offset);
+          if (style && styles && (i > 0 || lastWasEmpty)) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
+          offset += line.length + 1;
+        });
+      }
+      await context.sync();
+      return await paragraphTexts(context);
+    }),
+
+  replaceTailIf: (check, deleteCount, text, format) =>
+    run(async (context) => {
+      if (!Number.isSafeInteger(deleteCount) || deleteCount <= 0) {
+        throw new ProviderError("permanent", "Invalid temporary-text correction.", 422);
+      }
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items/text");
+      await context.sync();
+      if (!check(paragraphs.items.map((p) => p.text))) return null;
+      const last = paragraphs.items.at(-1);
+      if (!last || deleteCount > last.text.length) {
+        throw new ProviderError("permanent", "The temporary text is no longer at the insertion point.", 422);
+      }
+      const suffix = last.text.slice(-deleteCount);
+      if (/[\r\n\v]/u.test(suffix) || /^[\uDC00-\uDFFF]/u.test(suffix)) {
+        throw new ProviderError("permanent", "A correction cannot cross a paragraph or split a character.", 422);
+      }
+      if (typeof last.search !== "function") {
+        throw new ProviderError("permanent", "This Word host cannot correct temporary text.", 422);
+      }
+      const matches = last.search(suffix, { matchCase: true, matchWildcards: false, ignoreSpace: false, ignorePunct: false });
+      matches.load("items");
+      paragraphs.load("items/text");
+      await context.sync();
+      // Search needs its own sync. Check again immediately before queuing the
+      // edit, and mutate only the final exact suffix match in this paragraph.
+      if (!check(paragraphs.items.map((p) => p.text)) || paragraphs.items.at(-1)?.text.slice(-deleteCount) !== suffix) return null;
+      const range = matches.items.at(-1);
+      if (!range) return null;
+      range.delete();
+      const lines = text.split("\n");
+      if (!format) {
+        if (lines[0]) last.insertText(lines[0], "End");
+        for (const line of lines.slice(1)) context.document.body.insertParagraph(line, "End");
+      } else {
+        const styles = headingStylesSupported();
+        const lastWasEmpty = last.text.length === deleteCount;
+        let offset = 0;
+        lines.forEach((line, i) => {
+          const paragraph = i === 0 ? last : context.document.body.insertParagraph("", "End");
+          for (const segment of segments(line, offset, format)) {
+            const inserted = paragraph.insertText(segment.text, "End");
+            inserted.font.bold = segment.bold;
+            inserted.font.italic = segment.italic;
+          }
           const style = format.paragraphs.find((p) => p.start === offset);
           if (style && styles && (i > 0 || lastWasEmpty)) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
           offset += line.length + 1;

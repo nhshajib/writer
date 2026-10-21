@@ -1,3 +1,4 @@
+import { compileDrafting, type DraftActionKind, draftingEnabled, validateDrafting } from "./drafting.ts";
 import {
   countWords,
   findUnsupportedCharacters,
@@ -8,7 +9,7 @@ import {
   unitSize,
 } from "./chunker.ts";
 import { MAX_TEXT_CHARS, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "./limits.ts";
-import { type ChunkFormat, formatsForUnits, parseMarkdown, type TextFormat } from "./markdown.ts";
+import { type ChunkFormat, parseMarkdown, type TextFormat } from "./markdown.ts";
 import { buildPacing, CHARS_PER_WORD, type PacingSettings, type PlannedBreak } from "./pacing.ts";
 import {
   formatSeconds,
@@ -70,6 +71,13 @@ export interface SessionPlan {
   words: number;
   chars: number;
   units: string[];
+  /** Complete, immutable execution script. Empty insertion strings represent backspaces. */
+  chunk_deletions: number[];
+  action_kinds: DraftActionKind[];
+  /** Approved source units, independent of temporary simulated edits. */
+  source_chunks: string[];
+  source_unit_ends: number[];
+  drafting_stats: { typos: number; false_starts: number; sentence_pauses: number; extra_edits: number };
   text_format: TextFormat;
   /** Markdown: the formatting of each unit. */
   chunk_formats: ChunkFormat[] | null;
@@ -144,6 +152,17 @@ export function planSession(req: PlanRequest): SessionPlan {
   const limits = PLAN_LIMITS[req.plan];
   const words = countWords(text);
   const problems: PlanProblem[] = [];
+  const suppliedDrafting = req.pacing?.drafting;
+  const draftingProblem = validateDrafting(suppliedDrafting);
+  if (draftingProblem) problems.push({ code: "invalid_settings", message: draftingProblem });
+  const hasDrafting = !draftingProblem && draftingEnabled(suppliedDrafting);
+  if (hasDrafting && req.plan === "free") problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.drafting });
+  if (hasDrafting && asap) {
+    problems.push({
+      code: "invalid_settings",
+      message: "Simulated drafting needs a scheduled session. Turn it off for All at once.",
+    });
+  }
   if (freeSpeed) problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.speed });
   if (format === "markdown" && req.plan === "free") {
     problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.formatting });
@@ -157,6 +176,14 @@ export function planSession(req: PlanRequest): SessionPlan {
     units = groupEvenly(units, Math.max(1, Math.floor(minutes)));
   }
   if (asap && units.length > 0) units = [text];
+  const sourceChunks = units;
+  const script = compileDrafting(
+    sourceChunks,
+    req.plan === "pro" && !asap && !draftingProblem ? suppliedDrafting : undefined,
+    seed,
+    parsed,
+  );
+  units = script.chunks;
 
   if (!text.trim()) problems.push({ code: "empty", message: "Add the text you want entered." });
   if (source.length > MAX_TEXT_CHARS) {
@@ -188,7 +215,8 @@ export function planSession(req: PlanRequest): SessionPlan {
     });
   }
 
-  const minimum = minimumDurationSeconds(units.length);
+  const minimum = minimumDurationSeconds(units.length) +
+    Math.ceil(script.sentence_pauses_ms.reduce((sum, ms) => sum + ms, 0) / 1000);
   const targetSeconds = pacing?.timing === "duration" ? pacing.duration_seconds ?? 0 : null;
   if (
     pacing && targetSeconds !== null && units.length > 0 && units.length <= MAX_UNITS && targetSeconds >= 60 &&
@@ -197,10 +225,14 @@ export function planSession(req: PlanRequest): SessionPlan {
     problems.push({
       code: "duration_too_short",
       message:
-        `${units.length.toLocaleString("en-US")} ${unitLabel(unit, units.length)} need at least ${
+        `${units.length.toLocaleString("en-US")} ${
+          script.stats.extra_edits > 0 ? "scheduled edits" : unitLabel(unit, units.length)
+        } need at least ${
           formatSeconds(minimum)
         }: TypeWit leaves at least ${MIN_GAP_SECONDS} seconds between insertions to stay within Google Docs' ` +
-        `limit of 60 edits a minute. Choose a longer duration or a larger step.`,
+        `limit of 60 edits a minute. Choose a longer duration or a larger step${
+          hasDrafting ? ", or lower the simulated-error rates" : ""
+        }.`,
     });
   }
 
@@ -218,7 +250,13 @@ export function planSession(req: PlanRequest): SessionPlan {
       schedule = [1000];
     } else {
       try {
-        const result = buildPacing(units, units.map(unitSize), pacing!, seed);
+        const result = buildPacing(
+          units,
+          units.map((u, i) => Math.max(unitSize(u), script.chunk_deletions[i])),
+          pacing!,
+          seed,
+          script.sentence_pauses_ms,
+        );
         schedule = result.offsets;
         breaks = result.breaks;
         totalMs = result.total_ms;
@@ -272,8 +310,14 @@ export function planSession(req: PlanRequest): SessionPlan {
   }
 
   const options: UnitOption[] = INSERTION_UNITS.filter((u) => u !== "chunk").map((u) => {
-    const count = u === unit ? units.length : splitText(text, u).length;
-    const min = minimumDurationSeconds(count);
+    const alternative = u === unit ? script : compileDrafting(
+      splitText(text, u),
+      req.plan === "pro" && !asap && !draftingProblem ? suppliedDrafting : undefined,
+      seed,
+    );
+    const count = alternative.chunks.length;
+    const min = minimumDurationSeconds(count) +
+      Math.ceil(alternative.sentence_pauses_ms.reduce((sum, ms) => sum + ms, 0) / 1000);
     return {
       unit: u,
       units: count,
@@ -285,7 +329,12 @@ export function planSession(req: PlanRequest): SessionPlan {
   const ok = problems.length === 0;
   return {
     text_format: format,
-    chunk_formats: parsed ? formatsForUnits(parsed, units) : null,
+    chunk_formats: script.chunk_formats,
+    chunk_deletions: script.chunk_deletions,
+    action_kinds: script.action_kinds,
+    source_chunks: sourceChunks,
+    source_unit_ends: script.source_unit_ends,
+    drafting_stats: script.stats,
     ok,
     problems,
     warnings,

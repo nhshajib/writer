@@ -63,8 +63,9 @@ const DRIP_COLUMNS =
   "timing_mode, pacing, breaks, retry_at, preflight_at, text_format, insert_target";
 
 /** Everything the resume checks need on top of DRIP_COLUMNS. */
+const EXECUTION_COLUMNS = "chunks, chunk_deletions, action_kinds, source_chunks, source_unit_ends";
 const RESUME_COLUMNS =
-  `${DRIP_COLUMNS}, chunks, chunk_formats, pending_revision, pending_doc_length, resync_index, resync_tail, last_revision_id`;
+  `${DRIP_COLUMNS}, ${EXECUTION_COLUMNS}, chunk_formats, pending_revision, pending_doc_length, resync_index, resync_tail, last_revision_id`;
 
 const WORD_ONLY_IN_ADDIN =
   "TypeWit's servers can't open Word documents. Run Test connection from the TypeWit add-in in Word.";
@@ -190,6 +191,7 @@ function readPacing(raw: unknown): PacingSettings {
     duration_seconds: timing === "duration" ? num(p.duration_seconds) : undefined,
     wpm: timing === "speed" ? num(p.wpm) : undefined,
     variation_pct: num(p.variation_pct),
+    ...(p.drafting === undefined ? {} : { drafting: p.drafting as PacingSettings["drafting"] }),
     breaks: {
       enabled: b.enabled === true,
       every_seconds: num(b.every_seconds ?? 600),
@@ -212,7 +214,7 @@ function readPlanInput(body: PlanBody) {
   if (mode !== "scheduled" && mode !== "as_soon_as_possible") {
     throw new HttpError(400, "mode must be scheduled or as_soon_as_possible.");
   }
-  const pacing = mode === "scheduled" && body.pacing !== undefined ? readPacing(body.pacing) : undefined;
+  const pacing = body.pacing !== undefined ? readPacing(body.pacing) : undefined;
   if (mode === "scheduled" && !pacing && (!Number.isFinite(durationMinutes) || durationMinutes < 1)) {
     throw new HttpError(400, "duration_minutes must be a number of at least 1.");
   }
@@ -259,8 +261,14 @@ async function userPlan(userId: string): Promise<{ plan: PlanTier; agreed: boole
 
 /** The plan as the client sees it: unit lengths instead of the units, so the response stays small. */
 function planResponse(plan: SessionPlan) {
-  const { units, chunk_formats: _formats, ...rest } = plan;
-  return { ...rest, unit_count: units.length, unit_lengths: units.map((u) => u.length) };
+  const { units, source_chunks, chunk_formats: _formats, ...rest } = plan;
+  return {
+    ...rest,
+    unit_count: units.length,
+    unit_lengths: units.map((u) => u.length),
+    source_unit_count: source_chunks.length,
+    source_unit_lengths: source_chunks.map((u) => u.length),
+  };
 }
 
 async function previewPlan(userId: string, req: Request): Promise<Response> {
@@ -434,6 +442,10 @@ async function startSession(
       document_url: doc.url,
       text,
       chunks: plan.units,
+      chunk_deletions: plan.chunk_deletions,
+      action_kinds: plan.action_kinds,
+      source_chunks: plan.source_chunks,
+      source_unit_ends: plan.source_unit_ends,
       text_format: plan.text_format,
       chunk_formats: plan.chunk_formats,
       insert_target: target,
@@ -483,6 +495,7 @@ async function startSession(
     mode: input.mode,
     text_format: plan.text_format,
     under_heading: target?.heading_text ?? null,
+    simulated_drafting: plan.pacing?.drafting ?? null,
   });
   await logEvent(dripId, userId, "created", {
     starts_at: started > approvedAt ? started.toISOString() : null,
@@ -497,6 +510,10 @@ async function startSession(
     schedule_seed: plan.seed,
     first_at: new Date(started.getTime() + plan.schedule[0]).toISOString(),
     finish_at: new Date(started.getTime() + lastOffset).toISOString(),
+    source_units: plan.source_chunks.length,
+    simulated_drafting: plan.pacing?.drafting ?? null,
+    simulated_typos: plan.action_kinds.filter((k) => k === "typo").length,
+    simulated_false_starts: plan.action_kinds.filter((k) => k === "false_start").length,
     min_gap_seconds: (plan.stats?.min_gap_ms ?? 0) / 1000,
     max_gap_seconds: (plan.stats?.max_gap_ms ?? 0) / 1000,
   });
@@ -508,7 +525,15 @@ async function startSession(
 type DripWithChunks = ProgressInput & Record<string, unknown>;
 
 function withProgress(row: DripWithChunks, includeText: boolean) {
-  const { chunks: _chunks, schedule, ...drip } = row;
+  const {
+    chunks: _chunks,
+    chunk_deletions: _deletions,
+    action_kinds: _actions,
+    source_chunks: _source,
+    source_unit_ends: _ends,
+    schedule,
+    ...drip
+  } = row;
   const { written_text, remaining_text, next_part, ...progress } = computeProgress(row, new Date());
   return includeText
     ? { ...drip, schedule, progress: { ...progress, written_text, remaining_text, next_part } }
@@ -521,7 +546,7 @@ const PAGE_SIZE = 100;
 async function listDrips(userId: string, before: string | null): Promise<Response> {
   let query = adminClient()
     .from("drips")
-    .select(`${DRIP_COLUMNS}, chunks`)
+    .select(`${DRIP_COLUMNS}, ${EXECUTION_COLUMNS}`)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(PAGE_SIZE + 1);
@@ -542,7 +567,7 @@ async function getDrip(userId: string, id: string): Promise<Response> {
   const db = adminClient();
   const { data: row, error } = await db
     .from("drips")
-    .select(`${DRIP_COLUMNS}, chunks`)
+    .select(`${DRIP_COLUMNS}, ${EXECUTION_COLUMNS}`)
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle();

@@ -64,6 +64,18 @@ export interface DocProvider {
     requiredRevisionId?: string,
     format?: ChunkFormat | null,
   ): Promise<{ revisionId: string | null }>;
+  /**
+   * Replaces exactly `deleteCount` UTF-16 units at the insertion point. Used
+   * only for session-owned temporary drafting text, never to edit source text
+   * the person already had in the document. The revision guard is mandatory.
+   */
+  replaceTail?(
+    documentId: string,
+    deleteCount: number,
+    text: string,
+    requiredRevisionId: string,
+    format?: ChunkFormat | null,
+  ): Promise<{ revisionId: string | null }>;
   /** Confirms the account's access works (refreshes tokens), without touching any document. */
   verifyAccount(): Promise<void>;
   /**

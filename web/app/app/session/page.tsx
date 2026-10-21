@@ -311,11 +311,12 @@ function SessionView() {
       {/* Polite live region: status changes and progress milestones only. */}
       <p id="session-announcer" className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
 
+      {progress.temporary_edit_active && paused && <p className="alert alert-info" role="status">Paused during a simulated edit. Temporary text remains in the document until correction resumes; review it before sharing.</p>}
       <div className="stack-4 mb-6" hidden={!(confirmStop || error || offline || attention || drip.status === "failed" || report)}>
         {confirmStop && (
           <div className="confirm" role="alertdialog" aria-modal="false" aria-labelledby="stop-title" aria-describedby="stop-desc" onKeyDown={onConfirmKey} style={{ marginTop: 0 }}>
             <p id="stop-title">Stop this session?</p>
-            <p id="stop-desc" className="small muted">Stopping cancels every insertion still planned. Text already entered stays in your document, and the session can&apos;t be resumed.</p>
+            <p id="stop-desc" className="small muted">Stopping cancels every insertion still planned. Text already entered stays in your document, and the session can&apos;t be resumed. If a simulated correction is in progress, temporary words or mistakes may remain; review the document.</p>
             <div className="row">
               <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => control("cancel")} autoFocus>Stop session</button>
               <button type="button" className="btn btn-ghost btn-sm" onClick={closeStop}>Keep going</button>
@@ -354,13 +355,14 @@ function SessionView() {
               <div className="hero-main">
                 <p className="activity">
                   <span className="sr-only">Current activity: </span>
-                  <strong>{ACTIVITY_LABEL[activity]}</strong>
+                  <strong>{progress.temporary_edit_active ? "Automated simulated drafting active" : ACTIVITY_LABEL[activity]}</strong>
+                  {progress.temporary_edit_active && <span className="muted">A temporary edit is awaiting correction. Pausing or stopping can leave it in the document.</span>}
                   {activity === "on_break" && progress.current_break && <span className="muted">until {when(progress.current_break.end, true)}</span>}
                   {activity === "waiting" && progress.next_chunk_at && <span className="muted">next insertion at {when(progress.next_chunk_at, true)}</span>}
                 </p>
                 {progress.next_chunk_at && countdown !== null && (
                   <p className="countdown" aria-hidden="true">
-                    {activity === "on_break" ? "Back from break" : `Part ${progress.chunks_written + 1} planned`} {countdown === 0 ? "any moment" : <>in <strong>{clock(countdown)}</strong></>}
+                    {activity === "on_break" ? "Back from break" : (progress.edits_total ?? progress.chunks_total) !== progress.chunks_total ? "Next automated edit planned" : `Part ${progress.chunks_written + 1} planned`} {countdown === 0 ? "any moment" : <>in <strong>{clock(countdown)}</strong></>}
                   </p>
                 )}
                 <div className="progress lg" role="progressbar" aria-label="Text confirmed in the document" aria-valuemin={0} aria-valuemax={100}
@@ -382,8 +384,8 @@ function SessionView() {
               </div>
             </div>
             {drip.schedule && drip.schedule.length > 1 && (
-              <ScheduleStrip offsets={drip.schedule} breaks={drip.breaks} startMs={startMs} done={progress.chunks_written} nowMs={active ? now : undefined}
-                label={`Schedule: ${progress.chunks_total} insertions and ${drip.breaks?.length ?? 0} breaks; ${progress.chunks_written} entered.`} />
+              <ScheduleStrip offsets={drip.schedule} breaks={drip.breaks} startMs={startMs} done={progress.edits_written ?? progress.chunks_written} nowMs={active ? now : undefined}
+                label={`Schedule: ${progress.edits_total ?? progress.chunks_total} document edits and ${drip.breaks?.length ?? 0} breaks; ${progress.edits_written ?? progress.chunks_written} confirmed.`} />
             )}
             {progress.next_break && (
               <p className="hint">Next break: after part {progress.next_break.after_part}, about {when(progress.next_break.start)} to {when(progress.next_break.end)}.</p>

@@ -9,6 +9,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { checkAge } from "../lib/age.ts";
+import { executionText } from "../../supabase/functions/_shared/drafting.ts";
 import { planSession } from "../../supabase/functions/_shared/plan.ts";
 import { computeProgress } from "../../supabase/functions/_shared/progress.ts";
 import { planResume } from "../../supabase/functions/_shared/session.ts";
@@ -32,6 +33,10 @@ interface Row {
   total_chunks: number;
   duration_seconds: number;
   chunks: string[];
+  chunk_deletions?: number[] | null;
+  action_kinds?: ("insert" | "typo" | "false_start" | "backspace" | "correction")[] | null;
+  source_chunks?: string[] | null;
+  source_unit_ends?: number[] | null;
   chunks_written: number;
   schedule: number[];
   session_started_at: string;
@@ -82,7 +87,7 @@ function log(id: string, kind: string, detail: Record<string, unknown> = {}) {
 }
 
 function view(row: Row, includeText: boolean) {
-  const { chunks: _c, schedule, ...rest } = row;
+  const { chunks: _c, source_chunks: _s, chunk_deletions: _d, action_kinds: _a, source_unit_ends: _e, schedule, ...rest } = row;
   const { written_text, remaining_text, next_part, ...progress } = computeProgress(row, new Date());
   return includeText
     ? { ...rest, schedule, progress: { ...progress, written_text, remaining_text, next_part } }
@@ -256,8 +261,8 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   }
   if (parts[0] === "plan") {
     const plan = planFrom(body, typeof body.schedule_seed === "number" ? body.schedule_seed : Math.floor(Math.random() * 2 ** 32));
-    const { units, chunk_formats: _f, ...rest } = plan;
-    return send(res, 200, { plan: { ...rest, unit_count: units.length, unit_lengths: units.map((u) => u.length) } });
+    const { units, source_chunks, chunk_formats: _f, ...rest } = plan;
+    return send(res, 200, { plan: { ...rest, unit_count: units.length, unit_lengths: units.map((u) => u.length), source_unit_count: source_chunks.length, source_unit_lengths: source_chunks.map((u) => u.length) } });
   }
   if (parts[0] === "check") {
     const report = {
@@ -315,6 +320,10 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       total_chunks: plan.units.length,
       duration_seconds: plan.duration_seconds,
       chunks: plan.units,
+      chunk_deletions: plan.chunk_deletions,
+      action_kinds: plan.action_kinds,
+      source_chunks: plan.source_chunks,
+      source_unit_ends: plan.source_unit_ends,
       chunks_written: 0,
       schedule: plan.schedule,
       session_started_at: startAt ?? now,
@@ -363,7 +372,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       return send(res, 200, { drip: view(row, false) });
     case "check": {
       // Like the server: the document must still end with the text TypeWit entered.
-      const expected = row.chunks.slice(0, row.chunks_written).join("");
+      const expected = executionText(row.chunks, row.chunk_deletions, 0, row.chunks_written);
       if (!row.doc.endsWith(expected)) {
         const message = "The end of the document no longer matches what TypeWit entered, so the insertion point is uncertain.";
         return send(res, 200, {
@@ -502,7 +511,7 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
         late_seconds: 0,
       });
     }
-    Object.assign(row, { chunks_written: to, doc: row.chunks.slice(0, to).join(""), status: to >= row.total_chunks ? "completed" : "running", last_written_at: new Date().toISOString() });
+    Object.assign(row, { chunks_written: to, doc: executionText(row.chunks, row.chunk_deletions, 0, to), status: to >= row.total_chunks ? "completed" : "running", last_written_at: new Date().toISOString() });
     if (row.status === "completed") {
       row.completed_at = new Date().toISOString();
       log(row.id, "completed", { text_at_end_matches: true, provider_revisions: { count: 4, in_window: 3 } });

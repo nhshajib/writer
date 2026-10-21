@@ -20,6 +20,7 @@
  */
 
 import { type AccessProblem, checkAccess } from "./access.ts";
+import { type DraftActionKind, executionText } from "./drafting.ts";
 import { bodyContent, endsWithTail } from "./doctext.ts";
 import {
   type DocProvider,
@@ -105,6 +106,11 @@ export interface SessionRow {
   user_id: string;
   document_id: string;
   chunks: string[];
+  /** Execution metadata for optional Pro simulated drafting. Legacy rows omit it. */
+  chunk_deletions?: number[] | null;
+  action_kinds?: DraftActionKind[] | null;
+  source_chunks?: string[] | null;
+  source_unit_ends?: number[] | null;
   total_chunks: number;
   chunks_written: number;
   schedule: number[];
@@ -127,7 +133,20 @@ export interface SessionRow {
 }
 
 export type SessionPatch = Partial<
-  Omit<SessionRow, "id" | "user_id" | "document_id" | "chunks" | "total_chunks" | "schedule" | "chunk_formats"> & {
+  Omit<
+    SessionRow,
+    | "id"
+    | "user_id"
+    | "document_id"
+    | "chunks"
+    | "total_chunks"
+    | "schedule"
+    | "chunk_formats"
+    | "chunk_deletions"
+    | "action_kinds"
+    | "source_chunks"
+    | "source_unit_ends"
+  > & {
     status: "running" | "paused" | "completed";
     next_run_at: string | null;
     lease_id: string | null;
@@ -179,15 +198,41 @@ export interface EngineDeps {
 export type Outcome = "waiting" | "retrying" | "paused" | "completed" | "lost";
 
 /** The text the document must end with before unit `upTo` is inserted. */
-export function expectedTail(row: Pick<SessionRow, "chunks" | "resync_index" | "resync_tail">, upTo: number): string {
-  return row.resync_tail + row.chunks.slice(row.resync_index, upTo).join("");
+export function expectedTail(
+  row: Pick<SessionRow, "chunks" | "chunk_deletions" | "resync_index" | "resync_tail">,
+  upTo: number,
+): string {
+  return executionText(row.chunks, row.chunk_deletions, row.resync_index, upTo, row.resync_tail);
+}
+
+/** A correction may only remove transient text since the last fully confirmed source unit. */
+export function correctionDeleteCount(
+  row: Pick<SessionRow, "chunks" | "chunk_deletions" | "source_unit_ends" | "resync_index">,
+  index: number,
+): number {
+  const count = row.chunk_deletions?.[index] ?? 0;
+  if (!Number.isInteger(count) || count < 0) throw new ProviderError("permanent", "Invalid correction length.");
+  if (count === 0) return 0;
+  const boundary = Math.max(row.resync_index, ...(row.source_unit_ends ?? []).filter((end) => end <= index), 0);
+  const owned = executionText(row.chunks, row.chunk_deletions, boundary, index);
+  if (count > owned.length) {
+    throw new ProviderError("permanent", "A correction cannot remove confirmed or pre-existing text.");
+  }
+  const removed = owned.slice(-count);
+  if (/[\r\n]/u.test(removed)) {
+    throw new ProviderError("permanent", "A simulated correction cannot cross paragraph boundaries.");
+  }
+  return count;
 }
 
 export type PendingVerdict = "written" | "not_written" | "ambiguous" | "changed";
 
 /** Works out from the document whether an interrupted insertion landed. */
 export function judgePending(
-  row: Pick<SessionRow, "chunks" | "resync_index" | "resync_tail" | "pending_revision" | "pending_doc_length">,
+  row: Pick<
+    SessionRow,
+    "chunks" | "chunk_deletions" | "resync_index" | "resync_tail" | "pending_revision" | "pending_doc_length"
+  >,
   index: number,
   doc: { revisionId: string; text: string },
 ): PendingVerdict {
@@ -195,6 +240,16 @@ export function judgePending(
   if (row.pending_revision !== null && doc.revisionId === row.pending_revision) return "not_written";
   const withUnit = endsWithTail(doc.text, expectedTail(row, index + 1));
   const withoutUnit = endsWithTail(doc.text, expectedTail(row, index));
+  const removed = row.chunk_deletions?.[index] ?? 0;
+  if (removed > 0) {
+    // A backspace can leave an empty expected suffix. Do not treat that vacuous
+    // tail match as proof that the deletion landed after an unrelated edit.
+    const length = bodyContent(doc.text).length;
+    if (row.pending_doc_length === null) return "ambiguous";
+    if (withUnit && length === row.pending_doc_length + row.chunks[index].length - removed) return "written";
+    if (withoutUnit && length === row.pending_doc_length) return "not_written";
+    return withUnit || withoutUnit ? "ambiguous" : "changed";
+  }
   if (withUnit && !withoutUnit) return "written";
   if (withoutUnit && !withUnit) return "not_written";
   if (withUnit && withoutUnit) {
@@ -202,7 +257,9 @@ export function judgePending(
     // the text before it). The length decides unless something else changed too.
     const length = bodyContent(doc.text).length;
     if (row.pending_doc_length !== null) {
-      if (length === row.pending_doc_length + row.chunks[index].length) return "written";
+      if (length === row.pending_doc_length + row.chunks[index].length - (row.chunk_deletions?.[index] ?? 0)) {
+        return "written";
+      }
       if (length === row.pending_doc_length) return "not_written";
     }
     return "ambiguous";
@@ -340,6 +397,9 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
               written: index + 1,
               total,
               chars: row.chunks[index].length,
+              deleted_chars: row.chunk_deletions?.[index] ?? 0,
+              action_kind: row.action_kinds?.[index] ?? "insert",
+              simulated: (row.action_kinds?.[index] ?? "insert") !== "insert",
               planned_at: iso(plannedAt(row, index)),
               actual_at: null,
               confirmed_at: iso(now),
@@ -380,12 +440,17 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
     // the text TypeWit entered.
     let revisionId: string;
     let docLength: number;
+    let deleteCount = 0;
     let baseline: number | null = row.document_baseline_length;
     try {
       const doc = await provider.readDocument(row.document_id);
       revisionId = doc.revisionId;
       docLength = bodyContent(doc.text).length;
       if (!endsWithTail(doc.text, expectedTail(row, index))) return await pause("document_changed");
+      deleteCount = correctionDeleteCount(row, index);
+      if (deleteCount > 0 && !provider.replaceTail) {
+        throw new ProviderError("permanent", "This document integration does not support simulated corrections.");
+      }
       if (index === 0 && row.resync_index === 0 && baseline === null) baseline = docLength;
     } catch (error) {
       return await fail(error);
@@ -419,7 +484,15 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
 
     let result: { revisionId: string | null };
     try {
-      result = await provider.insertAtEnd(row.document_id, row.chunks[index], revisionId, row.chunk_formats?.[index]);
+      result = deleteCount > 0
+        ? await provider.replaceTail!(
+          row.document_id,
+          deleteCount,
+          row.chunks[index],
+          revisionId,
+          row.chunk_formats?.[index],
+        )
+        : await provider.insertAtEnd(row.document_id, row.chunks[index], revisionId, row.chunk_formats?.[index]);
     } catch (error) {
       if (error instanceof ProviderError && error.kind !== "transient") {
         // Google refused it outright, so the unit is certainly not in the document.
@@ -441,7 +514,13 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
       // may or may not have landed, and the next run checks the document.
       await log({
         kind: "insertion_uncertain",
-        detail: { index, written: index, total, error: error instanceof Error ? error.message : String(error) },
+        detail: {
+          index,
+          written: index,
+          total,
+          action_kind: row.action_kinds?.[index] ?? "insert",
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
       return await fail(error);
     }
@@ -468,6 +547,9 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
         written: index + 1,
         total,
         chars: row.chunks[index].length,
+        deleted_chars: row.chunk_deletions?.[index] ?? 0,
+        action_kind: row.action_kinds?.[index] ?? "insert",
+        simulated: (row.action_kinds?.[index] ?? "insert") !== "insert",
         planned_at: iso(plannedAt(row, index)),
         actual_at: iso(actual),
         late_seconds: Math.round((actual - due) / 100) / 10,
@@ -482,10 +564,19 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
 async function complete(row: SessionRow, lease: string, deps: EngineDeps): Promise<Outcome> {
   const fullTail = expectedTail(row, row.total_chunks);
   const detail: Record<string, unknown> = {};
+  let verificationAttention: Attention | null = null;
+  if (
+    row.source_chunks &&
+    executionText(row.chunks, row.chunk_deletions, 0, row.total_chunks) !== row.source_chunks.join("")
+  ) {
+    verificationAttention = "insert_rejected";
+    detail.verify_error = "The completed execution does not match the approved source.";
+  }
   try {
     const doc = await deps.provider.readDocument(row.document_id);
     const content = bodyContent(doc.text);
     detail.text_at_end_matches = content.endsWith(fullTail);
+    if (!detail.text_at_end_matches) verificationAttention = "document_changed";
     // Exactly what was there before plus exactly the approved text, nothing else.
     if (row.resync_index === 0 && row.document_baseline_length !== null) {
       detail.document_is_baseline_plus_text = content.length === row.document_baseline_length + fullTail.length &&
@@ -494,6 +585,29 @@ async function complete(row: SessionRow, lease: string, deps: EngineDeps): Promi
   } catch (error) {
     detail.text_at_end_matches = null;
     detail.verify_error = error instanceof Error ? error.message : String(error);
+    verificationAttention = error instanceof ProviderError && error.kind === "auth"
+      ? "reconnect"
+      : error instanceof ProviderError && error.kind === "permanent" && (error.status === 403 || error.status === 404)
+      ? "document_unavailable"
+      : "unreachable";
+  }
+
+  if (verificationAttention) {
+    const message = `${ATTENTION_MESSAGE[verificationAttention]} Completion has not been confirmed.`;
+    const paused = await deps.store.update(row.id, lease, {
+      status: "paused",
+      paused_at: iso(deps.now()),
+      next_run_at: null,
+      lease_id: null,
+      attention: verificationAttention,
+      last_error: message,
+    });
+    if (!paused) return "lost";
+    await deps.store.log(row, [{
+      kind: "attention",
+      detail: { reason: verificationAttention, completion_unverified: true, ...detail },
+    }, { kind: "paused", detail: { by: "system", reason: verificationAttention } }]);
+    return "paused";
   }
 
   const finished = deps.now();
@@ -543,6 +657,10 @@ export type ResumableRow =
   & Pick<
     SessionRow,
     | "chunks"
+    | "chunk_deletions"
+    | "action_kinds"
+    | "source_chunks"
+    | "source_unit_ends"
     | "total_chunks"
     | "chunks_written"
     | "schedule"
@@ -583,6 +701,17 @@ export function planResume(row: ResumableRow, now: number, doc: DocState | null,
     if (row.pending_index !== null) {
       const verdict = row.pending_index === written ? judgePending(row, row.pending_index, doc) : "not_written";
       const answer = options.last_part;
+      if (
+        row.chunk_deletions?.some((n) => n > 0) && answer &&
+        ((answer === "present" && verdict !== "written") || (answer === "absent" && verdict !== "not_written"))
+      ) {
+        return {
+          ok: false,
+          attention: "confirm_last_part",
+          message:
+            "A simulated edit cannot be forced present or absent while its result is uncertain. Restore the document to the expected insertion point and retry so Writer can verify it before deleting anything.",
+        };
+      }
       if (answer === "present" || (answer === undefined && verdict === "written")) {
         written = row.pending_index + 1;
       } else if (answer === undefined && verdict !== "not_written") {
@@ -597,6 +726,17 @@ export function planResume(row: ResumableRow, now: number, doc: DocState | null,
       });
     }
 
+    if (
+      options.continue_from_current_end && row.chunk_deletions?.some((n) => n > 0) && row.source_unit_ends &&
+      written !== 0 && !row.source_unit_ends.includes(written)
+    ) {
+      return {
+        ok: false,
+        attention: "document_changed",
+        message:
+          "A simulated correction is unfinished. Restore the temporary text at the insertion point before resuming; continuing at another location could remove text you wrote.",
+      };
+    }
     if (options.continue_from_current_end) {
       Object.assign(patch, { resync_index: written, resync_tail: bodyContent(doc.text).slice(-RESYNC_TAIL_CHARS) });
       detail.continued_from_current_end = true;

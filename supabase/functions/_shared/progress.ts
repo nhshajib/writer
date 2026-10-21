@@ -1,3 +1,4 @@
+import { type DraftActionKind, executionText } from "./drafting.ts";
 import { countWords } from "./chunker.ts";
 import type { PlannedBreak } from "./pacing.ts";
 import { MIN_GAP_SECONDS, plannedAt } from "./schedule.ts";
@@ -23,6 +24,10 @@ const ENTERING_WINDOW_MS = 5_000;
 export interface ProgressInput {
   status: string;
   chunks: string[];
+  chunk_deletions?: number[] | null;
+  action_kinds?: DraftActionKind[] | null;
+  source_chunks?: string[] | null;
+  source_unit_ends?: number[] | null;
   chunks_written: number;
   total_chunks: number;
   word_count: number;
@@ -66,6 +71,12 @@ export interface Progress {
   remaining_text: string;
   /** The next unit to be entered (or the one an interrupted insertion was entering). */
   next_part: string | null;
+  /** A simulated wrong character/word may currently be visible; approved progress excludes it. */
+  temporary_edit_active: boolean;
+  edit_action: DraftActionKind | null;
+  /** Execution edit cursor, distinct from fully confirmed source units. */
+  edits_written: number;
+  edits_total: number;
 }
 
 const ACTIVE = new Set(["scheduled", "running"]);
@@ -73,8 +84,18 @@ const ACTIVE = new Set(["scheduled", "running"]);
 /** Derives everything a progress view needs from a drip row. */
 export function computeProgress(drip: ProgressInput, now: Date): Progress {
   const written = Math.min(drip.chunks_written, drip.chunks.length);
-  const writtenText = drip.chunks.slice(0, written).join("");
-  const remainingText = drip.chunks.slice(written).join("");
+  const source = drip.source_chunks ?? drip.chunks;
+  const sourceWritten = drip.source_unit_ends ? drip.source_unit_ends.filter((end) => end <= written).length : written;
+  const writtenText = source.slice(0, sourceWritten).join("");
+  const remainingText = source.slice(sourceWritten).join("");
+  const completedSourceBoundary = drip.source_unit_ends?.[sourceWritten - 1] ?? 0;
+  const draftTail = drip.chunk_deletions && written > completedSourceBoundary
+    ? executionText(drip.chunks, drip.chunk_deletions, completedSourceBoundary, written)
+    : "";
+  const withinSource = written > completedSourceBoundary && written < drip.total_chunks;
+  const temporary = withinSource && draftTail.length > 0 && !(source[sourceWritten] ?? "").startsWith(draftTail);
+  const sourceAt = (executionCount: number) =>
+    drip.source_unit_ends ? drip.source_unit_ends.filter((end) => end <= executionCount).length : executionCount;
   const charsTotal = writtenText.length + remainingText.length;
   const remaining = drip.total_chunks - written;
   const scheduled = drip.session_started_at !== null && drip.schedule.length === drip.total_chunks;
@@ -114,7 +135,11 @@ export function computeProgress(drip: ProgressInput, now: Date): Progress {
   }));
   const fmt = (b: { after_part: number; startMs: number; endMs: number } | undefined) =>
     b
-      ? { after_part: b.after_part, start: new Date(b.startMs).toISOString(), end: new Date(b.endMs).toISOString() }
+      ? {
+        after_part: sourceAt(b.after_part),
+        start: new Date(b.startMs).toISOString(),
+        end: new Date(b.endMs).toISOString(),
+      }
       : null;
   // Only breaks after units already entered can be in progress; later ones are upcoming.
   const current = active
@@ -152,14 +177,18 @@ export function computeProgress(drip: ProgressInput, now: Date): Progress {
     words_total: drip.word_count,
     chars_written: writtenText.length,
     chars_total: charsTotal,
-    chunks_written: written,
-    chunks_total: drip.total_chunks,
+    chunks_written: sourceWritten,
+    chunks_total: source.length,
     next_chunk_at: nextAt === null ? null : new Date(nextAt).toISOString(),
     seconds_until_next_chunk: nextAt === null ? null : Math.max(0, Math.ceil((nextAt - now.getTime()) / 1000)),
     finish_at: finishAt,
     finish_if_resumed_now: finishIfResumed,
     written_text: writtenText,
     remaining_text: remainingText,
-    next_part: written < drip.chunks.length ? drip.chunks[written] : null,
+    next_part: sourceWritten < source.length ? source[sourceWritten] : null,
+    temporary_edit_active: temporary,
+    edit_action: drip.action_kinds?.[Math.min(written, drip.total_chunks - 1)] ?? null,
+    edits_written: written,
+    edits_total: drip.total_chunks,
   };
 }

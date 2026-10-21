@@ -36,6 +36,10 @@ export interface Progress {
   written_text?: string;
   remaining_text?: string;
   next_part?: string | null;
+  temporary_edit_active?: boolean;
+  edit_action?: DraftActionKind | null;
+  edits_written?: number;
+  edits_total?: number;
 }
 
 export type DripStatus = "scheduled" | "running" | "paused" | "completed" | "failed" | "canceled";
@@ -90,11 +94,20 @@ export interface DripEvent {
 export type TimingMode = "duration" | "speed";
 export type BreakAlignment = "any" | "sentence" | "paragraph";
 
+export type DraftActionKind = "insert" | "typo" | "false_start" | "backspace" | "correction";
+export interface DraftingSettings {
+  typo_rate_pct: number;
+  false_start_rate_pct: number;
+  sentence_pause_seconds: number;
+  sentence_pause_variation_pct: number;
+}
+
 export interface PacingSettings {
   timing: TimingMode;
   duration_seconds?: number;
   wpm?: number;
   variation_pct: number;
+  drafting?: DraftingSettings;
   breaks: {
     enabled: boolean;
     every_seconds: number;
@@ -135,6 +148,9 @@ export interface SessionPlan {
   words: number;
   chars: number;
   unit_count: number;
+  source_unit_count?: number;
+  source_unit_lengths?: number[];
+  source_unit_ends?: number[];
   unit_lengths: number[];
   schedule: number[];
   breaks: PlannedBreak[];

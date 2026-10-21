@@ -1,4 +1,4 @@
-import { type ChunkFormat, hasFormatting, type ParagraphKind } from "../markdown.ts";
+import { type ChunkFormat, type ParagraphKind } from "../markdown.ts";
 import {
   classifyHttpStatus,
   type DocHeading,
@@ -125,7 +125,14 @@ export class GoogleDocsProvider implements DocProvider {
   readonly name = "google" as const;
 
   /** Where the last read put the insertion point, so a write at that revision goes to the same place. */
-  private lastRead: { documentId: string; revisionId: string; index: number; atParagraphStart: boolean } | null = null;
+  private lastRead: {
+    documentId: string;
+    revisionId: string;
+    index: number;
+    paragraphStart: number;
+    paragraphText: string;
+    atParagraphStart: boolean;
+  } | null = null;
 
   constructor(
     private readonly getAccessToken: (forceRefresh: boolean) => Promise<string>,
@@ -163,6 +170,8 @@ export class GoogleDocsProvider implements DocProvider {
         documentId,
         revisionId: body.revisionId,
         index: last.endIndex - 1,
+        paragraphStart: last.startIndex ?? last.endIndex - 1,
+        paragraphText: extractText([last]).replace(/\n$/, ""),
         atParagraphStart: last.startIndex === last.endIndex - 1,
       };
     } else {
@@ -194,8 +203,8 @@ export class GoogleDocsProvider implements DocProvider {
     requiredRevisionId?: string,
     format?: ChunkFormat | null,
   ): Promise<{ revisionId: string | null }> {
-    if (this.target || hasFormatting(format)) {
-      return await this.insertAt(documentId, text, requiredRevisionId, hasFormatting(format) ? format : null);
+    if (this.target || format != null) {
+      return await this.insertAt(documentId, text, requiredRevisionId, format ?? null);
     }
     // endOfSegmentLocation appends at the end of the body, so anything the user
     // typed elsewhere is left in place. requiredRevisionId makes Google refuse
@@ -247,6 +256,47 @@ export class GoogleDocsProvider implements DocProvider {
       },
       false,
       Boolean(requiredRevisionId),
+    );
+    this.lastRead = null;
+    return { revisionId: body.writeControl?.requiredRevisionId ?? null };
+  }
+
+  async replaceTail(
+    documentId: string,
+    deleteCount: number,
+    text: string,
+    requiredRevisionId: string,
+    format?: ChunkFormat | null,
+  ): Promise<{ revisionId: string | null }> {
+    if (!Number.isSafeInteger(deleteCount) || deleteCount <= 0 || !requiredRevisionId) {
+      throw new ProviderError("permanent", "A tail correction needs a positive character count and document revision.");
+    }
+    let point = this.lastRead;
+    if (!point || point.documentId !== documentId || point.revisionId !== requiredRevisionId) {
+      const doc = await this.readDocument(documentId);
+      if (doc.revisionId !== requiredRevisionId) throw new ProviderError("conflict", "The document changed.", 400);
+      point = this.lastRead;
+    }
+    // Drafting detours contain no line breaks. Restrict deletion to this last
+    // paragraph; this also prevents crossing a heading, table or section edge.
+    if (!point || deleteCount > point.index - point.paragraphStart) {
+      throw new ProviderError("permanent", "The temporary text is no longer at the insertion point.", 422);
+    }
+    const suffix = point.paragraphText.slice(-deleteCount);
+    if (/^[\uDC00-\uDFFF]/u.test(suffix) || suffix.includes(OBJECT_PLACEHOLDER) || /[\r\n]/u.test(suffix)) {
+      throw new ProviderError("permanent", "A correction cannot split a character or cross a document object.", 422);
+    }
+    const index = point.index - deleteCount;
+    const requests: unknown[] = [{ deleteContentRange: { range: { startIndex: index, endIndex: point.index } } }];
+    if (text) requests.push({ insertText: { text, location: { index } } });
+    if (format && text) {
+      requests.push(...formatRequests(format, index, text.length, index === point.paragraphStart));
+    }
+    const body = await this.request<{ writeControl?: { requiredRevisionId?: string } }>(
+      `${DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`,
+      { method: "POST", body: JSON.stringify({ requests, writeControl: { requiredRevisionId } }) },
+      false,
+      true,
     );
     this.lastRead = null;
     return { revisionId: body.writeControl?.requiredRevisionId ?? null };

@@ -12,7 +12,7 @@
   <ProviderName>TypeWit</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="TypeWit" />
-  <Description DefaultValue="Enters text you approve into this document step by step, at the pace you choose. Automated text entry; no typos or fake corrections." />
+  <Description DefaultValue="Enters text you approve into this document step by step, at the pace you choose. Automated text entry with optional Pro simulated drafting and corrections." />
   <IconUrl DefaultValue="https://typewit.com/word/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://typewit.com/word/icon-64.png" />
   <SupportUrl DefaultValue="https://typewit.com/support/" />

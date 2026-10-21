@@ -11,6 +11,12 @@ export function describe(event: DripEvent): { text: string; sub?: string; late?:
   const label = EVENT_LABEL[event.kind] ?? event.kind;
   switch (event.kind) {
     case "chunk_written": {
+      const action = str(d.action_kind);
+      const names: Record<string, string> = { typo: "Simulated neighbor-key typo entered", false_start: "Simulated false start entered", backspace: "Simulated backspace confirmed", correction: "Correction confirmed" };
+      if (action && names[action]) return {
+        text: names[action],
+        sub: d.recovered ? "Confirmed from the document after an interruption." : "Automated drafting edit; final approved text is unchanged.",
+      };
       const part = `Part ${num(d.written)} of ${num(d.total)} entered (${num(d.chars)} characters)`;
       if (d.recovered) return { text: `${part}, confirmed from the document after an interruption`, sub: `Planned ${when(str(d.planned_at)!, true)}` };
       const late = num(d.late_seconds) ?? 0;

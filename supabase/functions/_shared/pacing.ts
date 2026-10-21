@@ -19,6 +19,7 @@
  * affects timing; units are never changed or reordered.
  */
 
+import { type DraftingSettings, validateDrafting } from "./drafting.ts";
 import { MIN_GAP_SECONDS, seededRandom, SIZE_CLAMP } from "./schedule.ts";
 
 export type TimingMode = "duration" | "speed";
@@ -45,10 +46,12 @@ export interface PacingSettings {
   /** Each wait varies within ±this percent of its baseline. */
   variation_pct: number;
   breaks: BreakSettings;
+  /** Pro: opt-in temporary edits and sentence-boundary pauses. */
+  drafting?: DraftingSettings;
 }
 
 export const LIMITS = {
-  wpm: { min: 5, max: 200 },
+  wpm: { min: 20, max: 150 },
   variation_pct: { min: 0, max: 50 },
   every_seconds: { min: 60, max: 12 * 3600 },
   every_variation_pct: { min: 0, max: 50 },
@@ -96,9 +99,15 @@ export class PacingError extends Error {
 
 /** Returns a reason the settings are out of range, or null. */
 export function validatePacing(p: PacingSettings): string | null {
-  const within = (v: number | undefined, lo: number, hi: number) => typeof v === "number" && v >= lo && v <= hi;
+  const within = (v: number | undefined, lo: number, hi: number) =>
+    typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi;
+  const draftingProblem = validateDrafting(p.drafting);
+  if (draftingProblem) return draftingProblem;
   if (p.timing !== "duration" && p.timing !== "speed") return "Choose a timing mode.";
-  if (p.timing === "duration" && !(typeof p.duration_seconds === "number" && p.duration_seconds >= 60)) {
+  if (
+    p.timing === "duration" &&
+    !(typeof p.duration_seconds === "number" && Number.isFinite(p.duration_seconds) && p.duration_seconds >= 60)
+  ) {
     return "Choose a duration of at least 1 minute.";
   }
   if (p.timing === "speed" && !within(p.wpm, LIMITS.wpm.min, LIMITS.wpm.max)) {
@@ -108,6 +117,7 @@ export function validatePacing(p: PacingSettings): string | null {
     return `Timing variation must be between 0 and ${LIMITS.variation_pct.max}%.`;
   }
   const b = p.breaks;
+  if (typeof b !== "object" || b === null || Array.isArray(b)) return "Break settings must be an object.";
   if (b.enabled) {
     if (!within(b.every_seconds, LIMITS.every_seconds.min, LIMITS.every_seconds.max)) {
       return "Active time between breaks must be between 1 minute and 12 hours.";
@@ -219,7 +229,13 @@ function assemble(active: number[], breakAfter: number[], lengths: number[]): Pi
  * in user-perceived characters. Throws PacingError when the settings are out
  * of range or the duration can't hold the units.
  */
-export function buildPacing(units: string[], sizes: number[], settings: PacingSettings, seed: number): Pacing {
+export function buildPacing(
+  units: string[],
+  sizes: number[],
+  settings: PacingSettings,
+  seed: number,
+  sentencePauses: number[] = [],
+): Pacing {
   const invalid = validatePacing(settings);
   if (invalid) throw new PacingError("invalid_settings", invalid);
   const n = units.length;
@@ -227,6 +243,15 @@ export function buildPacing(units: string[], sizes: number[], settings: PacingSe
   if (n === 0) return empty;
 
   const minGap = MIN_GAP_SECONDS * 1000;
+  const naturalAfter = sentencePauses.flatMap((ms, i) => ms > 0 && i < n - 1 ? [i] : []);
+  const naturalMs = naturalAfter.reduce((sum, i) => sum + sentencePauses[i], 0);
+  const withNatural = (active: number[], after: number[], lengths: number[]) => {
+    const merged = new Map<number, number>();
+    after.forEach((i, j) => merged.set(i, lengths[j]));
+    naturalAfter.forEach((i) => merged.set(i, (merged.get(i) ?? 0) + sentencePauses[i]));
+    const positions = [...merged.keys()].sort((a, b) => a - b);
+    return assemble(active, positions, positions.map((i) => merged.get(i)!));
+  };
   const random = seededRandom(seed);
   const b = settings.breaks;
   // Draw the break intervals and lengths first so they don't depend on the mode.
@@ -248,8 +273,8 @@ export function buildPacing(units: string[], sizes: number[], settings: PacingSe
     const draws = b.enabled ? drawBreaks(Math.ceil(activeMs / (b.every_seconds * 1000 * 0.5)) + 1) : [];
     const after = b.enabled ? placeBreaks(active, units, draws.map((d) => d.every), b.align) : [];
     const lengths = draws.slice(0, after.length).map((d) => d.length);
-    const { offsets, breaks } = assemble(active, after, lengths);
-    const breakMs = lengths.reduce((a, c) => a + c, 0);
+    const { offsets, breaks } = withNatural(active, after, lengths);
+    const breakMs = lengths.reduce((a, c) => a + c, 0) + naturalMs;
     return {
       offsets,
       breaks,
@@ -263,12 +288,13 @@ export function buildPacing(units: string[], sizes: number[], settings: PacingSe
 
   // Duration mode.
   const totalMs = Math.round(settings.duration_seconds! * 1000);
-  if (n * minGap > totalMs) {
+  const availableMs = totalMs - naturalMs;
+  if (n * minGap > availableMs) {
     throw new PacingError(
       "duration_too_short",
       `${n} insertions need at least ${
-        Math.ceil((n * minGap) / 60_000)
-      } minutes (one every ${MIN_GAP_SECONDS} seconds at most).`,
+        Math.ceil((n * minGap + naturalMs) / 60_000)
+      } minutes including sentence pauses (one edit every ${MIN_GAP_SECONDS} seconds at most).`,
     );
   }
 
@@ -282,30 +308,30 @@ export function buildPacing(units: string[], sizes: number[], settings: PacingSe
   let wanted = 0;
   if (b.enabled) {
     // The most breaks whose thresholds fall inside the active time left after them.
-    const draws = drawBreaks(Math.ceil(totalMs / (b.every_seconds * 1000 * 0.5)) + 1);
+    const draws = drawBreaks(Math.ceil(availableMs / (b.every_seconds * 1000 * 0.5)) + 1);
     let k = 0;
     let thresholdSum = 0;
     let lengthSum = 0;
     while (k < draws.length) {
       const nextThreshold = thresholdSum + draws[k].every;
       const nextLengths = lengthSum + draws[k].length;
-      const activeLeft = totalMs - nextLengths;
+      const activeLeft = availableMs - nextLengths;
       if (activeLeft < n * minGap || nextThreshold >= activeLeft - minGap) break;
       thresholdSum = nextThreshold;
       lengthSum = nextLengths;
       k++;
     }
     wanted = k;
-    const trial = distribute(weights, totalMs - lengthSum, minGap);
+    const trial = distribute(weights, availableMs - lengthSum, minGap);
     after = placeBreaks(trial, units, draws.slice(0, k).map((d) => d.every), b.align);
     lengths = draws.slice(0, after.length).map((d) => d.length);
   }
 
   // Breaks that couldn't be placed give their time back to the units, so the
   // schedule still fills the duration exactly.
-  const breakMs = lengths.reduce((a, c) => a + c, 0);
+  const breakMs = lengths.reduce((a, c) => a + c, 0) + naturalMs;
   const active = distribute(weights, totalMs - breakMs, minGap);
-  const { offsets, breaks } = assemble(active, after, lengths);
+  const { offsets, breaks } = withNatural(active, after, lengths);
   return {
     offsets,
     breaks,

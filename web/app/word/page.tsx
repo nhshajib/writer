@@ -3,7 +3,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
-import { PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
+import { DEFAULT_PACE, PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { api, ApiError, sha256Hex } from "@/lib/api";
@@ -81,7 +81,7 @@ export default function WordPane() {
     );
   } else if (session === undefined) body = <p role="status">Checking your TypeWit account…</p>;
   else if (session === null) body = <SignIn />;
-  else body = <WordSession documentUrl={env.documentUrl} />;
+  else body = <WordSession documentUrl={env.documentUrl} userId={session.user.id} />;
 
   return (
     <main id="main" className="pane">
@@ -151,16 +151,20 @@ function SignIn() {
   );
 }
 
-function WordSession({ documentUrl }: { documentUrl: string }) {
+function WordSession({ documentUrl, userId }: { documentUrl: string; userId: string }) {
   const title = titleFromUrl(documentUrl);
   const provider = useMemo(() => new WordDocProvider(officeWordHost, documentUrl, title), [documentUrl, title]);
   const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [tier, setTier] = useState<"free" | "pro" | null>(null);
   const [dripId, setDripId] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
+        const { data: profile, error: profileError } = await supabase().from("profiles").select("plan").eq("user_id", userId).maybeSingle();
+        if (profileError) throw new Error(profileError.message);
+        setTier(profile?.plan === "pro" ? "pro" : "free");
         const { connection } = await api<{ connection: { id: string } }>("drips/connections/microsoft", { method: "POST" });
         setConnectionId(connection.id);
         const { drips } = await api<{ drips: Drip[] }>("drips");
@@ -170,23 +174,24 @@ function WordSession({ documentUrl }: { documentUrl: string }) {
         setError(e instanceof Error ? e.message : "TypeWit couldn't be reached.");
       }
     })();
-  }, [documentUrl]);
+  }, [documentUrl, userId]);
 
   if (error) return <p className="alert alert-error" role="alert">{error}</p>;
-  if (dripId === undefined || !connectionId) return <p role="status">Loading…</p>;
+  if (dripId === undefined || !connectionId || tier === null) return <p role="status">Loading…</p>;
   return (
     <>
       <p className="small muted" style={{ marginTop: 0 }}>Document: <strong>{title}</strong></p>
       {dripId
         ? <WordProgress key={dripId} dripId={dripId} documentUrl={documentUrl} provider={provider} onDone={() => setDripId(null)} />
-        : <WordStart connectionId={connectionId} documentUrl={documentUrl} title={title} provider={provider} onStarted={setDripId} />}
+        : <WordStart tier={tier} connectionId={connectionId} documentUrl={documentUrl} title={title} provider={provider} onStarted={setDripId} />}
     </>
   );
 }
 
 type Timing = "duration" | "speed" | "asap";
 
-function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
+function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier }: {
+  tier: "free" | "pro";
   connectionId: string;
   documentUrl: string;
   title: string;
@@ -196,7 +201,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
   const [text, setText] = useState("");
   const [unit, setUnit] = useState<InsertionUnit>("sentence");
   const [timing, setTiming] = useState<Timing>("duration");
-  const [minutes, setMinutes] = useState(60);
+  const [minutes, setMinutes] = useState(tier === "pro" ? 60 : 30);
   const [pace, updatePace] = usePace();
   const [approved, setApproved] = useState(false);
   const [plan, setPlan] = useState<SessionPlan | null>(null);
@@ -209,7 +214,11 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
   const requestId = useRef(crypto.randomUUID());
   const starting = useRef(false);
 
-  const pacing = timing === "asap" ? null : pacingFor(timing, minutes, pace);
+  const isPro = tier === "pro";
+  const effectivePace = isPro ? pace : DEFAULT_PACE;
+  const simulatedDrafting = isPro && timing !== "asap" && (pace.typoRate > 0 || pace.falseStartRate > 0);
+  useEffect(() => setApproved(false), [pace.typoRate, pace.falseStartRate, simulatedDrafting]);
+  const pacing = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const key = JSON.stringify([text, unit, timing, pacing, seed ?? null]);
   const current = plan !== null && planKey === key;
 
@@ -286,7 +295,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
     }
   }
 
-  const steps = current && plan.ok ? plan.unit_count : 0;
+  const steps = current && plan.ok ? plan.source_unit_count ?? plan.unit_count : 0;
   const words = (text.match(/\S+/g) ?? []).length;
 
   return (
@@ -312,8 +321,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
         <legend className="label">Timing</legend>
         {([["duration", "Target duration"], ["speed", "Typing speed"], ["asap", "All at once"]] as const).map(([value, label]) => (
           <label key={value} className="check">
-            <input type="radio" name="pane-timing" value={value} checked={timing === value} onChange={() => setTiming(value)} />
-            <span>{label}</span>
+            <input type="radio" name="pane-timing" value={value} checked={timing === value} disabled={value === "speed" && !isPro} onChange={() => setTiming(value)} />
+            <span>{label}{value === "speed" && !isPro && " (Pro)"}</span>
           </label>
         ))}
       </fieldset>
@@ -322,7 +331,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
         <div className="field">
           <label className="label" htmlFor="pane-duration">Total duration</label>
           <select id="pane-duration" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} aria-describedby="pane-duration-hint">
-            {DURATIONS.map((m) => <option key={m} value={m}>{span(m * 60_000)}</option>)}
+            {DURATIONS.map((m) => <option key={m} value={m} disabled={!isPro && m > 30}>{span(m * 60_000)}</option>)}
           </select>
           <span id="pane-duration-hint" className="hint">
             Breaks are included and the last insertion is planned for the end. It&apos;s a target: closing this document or
@@ -330,7 +339,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
           </span>
         </div>
       )}
-      {timing !== "asap" && <PaceControls timing={timing} pace={pace} onChange={updatePace} />}
+      {timing !== "asap" && isPro && <PaceControls timing={timing} pace={pace} onChange={updatePace} />}
+      {timing !== "asap" && !isPro && <p className="hint">Standard pacing is included. Pro adds 20–150 WPM cadence, simulated typos and false starts, and configurable sentence pauses.</p>}
 
       <div className="plan-box" role="status" aria-live="polite">
         {!text.trim() ? "Add text to see the schedule." : !current ? "Checking the schedule…" : !plan.ok
@@ -338,7 +348,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
           : (
             <>
               <p className="small" style={{ marginTop: 0 }}>
-                {steps.toLocaleString()} {UNIT_LABEL[plan.unit][steps === 1 ? "one" : "many"]},{" "}
+                {steps.toLocaleString()} {UNIT_LABEL[plan.unit][steps === 1 ? "one" : "many"]}{plan.unit_count !== steps ? `, ${plan.unit_count} automated edits including simulated corrections` : ""},{" "}
                 {timing === "speed" ? "estimated" : "planned"} {span(plan.duration_seconds * 1000)}
                 {plan.breaks.length ? `, with ${plan.breaks.length} break${plan.breaks.length === 1 ? "" : "s"}` : ""}.
               </p>
@@ -367,11 +377,10 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted }: {
 
       <label className="check" style={{ marginTop: "1rem" }}>
         <input type="checkbox" checked={approved} disabled={!text.trim()} onChange={(e) => setApproved(e.target.checked)} />
-        <span>I&apos;ve read this exact text and approve TypeWit entering it into this document.</span>
+        <span>I&apos;ve read this exact text and approve TypeWit entering it into this document.{simulatedDrafting && " I also approve the enabled simulated mistakes and corrections; pausing or stopping can leave temporary text in the document."}</span>
       </label>
       <p className="hint">
-        Each insertion is a real edit through Word, made at its planned time. TypeWit never adds typos or fake
-        corrections. Keep this document and the TypeWit pane open while it runs.
+        Each insertion is a real automated edit through Word, made at its planned time. Enabled drafting simulations make temporary mistakes and correct them; completed text matches your approval. Keep this document and the TypeWit pane open while it runs.
       </p>
       {error && <p className="alert alert-error" role="alert">{error}</p>}
       <button type="submit" className="btn btn-primary" disabled={busy} style={{ width: "100%", marginTop: "0.5rem" }}>
@@ -472,6 +481,7 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
         </p>
       </div>
 
+      {p.temporary_edit_active && <p className="alert alert-info" role="status">Automated simulated drafting active. Temporary text is awaiting correction; pausing or stopping can leave it in the document.</p>}
       <dl className="summary-list" style={{ marginTop: "0.75rem" }}>
         <dt>Now</dt><dd>{p.activity ? ACTIVITY_LABEL[p.activity] : STATE_LABEL[state]}</dd>
         {p.current_break && <><dt>Break until</dt><dd>{when(p.current_break.end, true)}</dd></>}
@@ -535,7 +545,7 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
           <p id="pane-stop-title"><strong>Stop this session?</strong></p>
           <p id="pane-stop-desc" className="small">
             Everything still planned is cancelled. Text already entered stays in your document, and the session can&apos;t be
-            resumed.
+            resumed. Temporary text may remain if a simulated correction was in progress; review the document.
           </p>
           <div className="row" style={{ gap: "0.5rem" }}>
             <button type="button" className="btn btn-danger-solid btn-sm" disabled={busy} onClick={() => act("cancel")} autoFocus>Stop session</button>

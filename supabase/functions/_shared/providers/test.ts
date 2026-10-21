@@ -57,6 +57,30 @@ export class TestDocProvider implements DocProvider {
     return { revisionId: doc.revisionId };
   }
 
+  async replaceTail(documentId: string, deleteCount: number, text: string, requiredRevisionId: string) {
+    if (
+      !Number.isSafeInteger(deleteCount) || deleteCount <= 0 || !/^\d+$/.test(requiredRevisionId) ||
+      !Number.isSafeInteger(Number(requiredRevisionId))
+    ) {
+      throw new ProviderError("permanent", "Invalid tail correction.");
+    }
+    const { data, error } = await this.db.rpc("replace_test_document_tail_checked", {
+      doc_id: documentId,
+      owner_id: this.userId,
+      delete_utf16: deleteCount,
+      replacement: text,
+      required_revision: Number(requiredRevisionId),
+    });
+    if (error) {
+      if (/revision_mismatch/.test(error.message)) throw new ProviderError("conflict", "The document changed.", 400);
+      if (/tail_out_of_range|document_not_found/.test(error.message)) {
+        throw new ProviderError("permanent", "The temporary text is no longer at the insertion point.", 422);
+      }
+      throw new ProviderError("transient", error.message);
+    }
+    return { revisionId: String(data) };
+  }
+
   async insertAtEnd(documentId: string, text: string, requiredRevisionId?: string) {
     const { data, error } = await this.db.rpc("append_test_document_checked", {
       doc_id: documentId,

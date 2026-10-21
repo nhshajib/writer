@@ -21,6 +21,10 @@ export interface Pace {
   minBreakSeconds: number;
   maxBreakSeconds: number;
   align: BreakAlignment;
+  typoRate: number;
+  falseStartRate: number;
+  sentencePauseSeconds: number;
+  sentencePauseVariation: number;
 }
 
 export const DEFAULT_PACE: Pace = {
@@ -32,8 +36,44 @@ export const DEFAULT_PACE: Pace = {
   minBreakSeconds: 20,
   maxBreakSeconds: 120,
   align: "sentence",
+  typoRate: 0,
+  falseStartRate: 0,
+  sentencePauseSeconds: 0,
+  sentencePauseVariation: 0,
 };
 const PACE_KEY = "typewit.pace";
+
+/** Browser storage and older presets are untrusted; keep every knob within supported bounds. */
+export function sanitizePace(raw: unknown): Pace {
+  const p = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const number = (key: keyof Pace, min: number, max: number): number => {
+    const v = p[key];
+    return typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : DEFAULT_PACE[key] as number;
+  };
+  const next: Pace = {
+    wpm: number("wpm", 20, 150), variation: number("variation", 0, 50),
+    breaksOn: typeof p.breaksOn === "boolean" ? p.breaksOn : DEFAULT_PACE.breaksOn,
+    everyMinutes: number("everyMinutes", 1, 720), everyVariation: number("everyVariation", 0, 50),
+    minBreakSeconds: number("minBreakSeconds", 5, 28800), maxBreakSeconds: number("maxBreakSeconds", 5, 28800),
+    align: ALIGN.some((a) => a.value === p.align) ? p.align as BreakAlignment : DEFAULT_PACE.align,
+    typoRate: number("typoRate", 0, 20), falseStartRate: number("falseStartRate", 0, 20),
+    sentencePauseSeconds: number("sentencePauseSeconds", 0, 30), sentencePauseVariation: number("sentencePauseVariation", 0, 50),
+  };
+  next.maxBreakSeconds = Math.max(next.minBreakSeconds, next.maxBreakSeconds);
+  return next;
+}
+
+export function paceFromSettings(pacing: PacingSettings): Partial<Pace> {
+  return {
+    ...(pacing.wpm ? { wpm: pacing.wpm } : {}), variation: pacing.variation_pct,
+    breaksOn: pacing.breaks.enabled, everyMinutes: pacing.breaks.every_seconds / 60,
+    everyVariation: pacing.breaks.every_variation_pct, minBreakSeconds: pacing.breaks.min_seconds,
+    maxBreakSeconds: pacing.breaks.max_seconds, align: pacing.breaks.align,
+    typoRate: pacing.drafting?.typo_rate_pct ?? 0, falseStartRate: pacing.drafting?.false_start_rate_pct ?? 0,
+    sentencePauseSeconds: pacing.drafting?.sentence_pause_seconds ?? 0,
+    sentencePauseVariation: pacing.drafting?.sentence_pause_variation_pct ?? 0,
+  };
+}
 
 /** The pace, loaded from and saved to this browser. The shortest break never exceeds the longest. */
 export function usePace(): [Pace, (change: Partial<Pace>) => void] {
@@ -42,17 +82,18 @@ export function usePace(): [Pace, (change: Partial<Pace>) => void] {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(PACE_KEY);
-      if (saved) setPace({ ...DEFAULT_PACE, ...JSON.parse(saved) });
+      if (saved) setPace(sanitizePace(JSON.parse(saved)));
     } catch { /* storage unavailable: defaults */ }
   }, []);
 
   function updatePace(change: Partial<Pace>) {
     setPace((p) => {
-      const next = { ...p, ...change };
-      if (next.maxBreakSeconds < next.minBreakSeconds) {
-        if ("minBreakSeconds" in change) next.maxBreakSeconds = next.minBreakSeconds;
-        else next.minBreakSeconds = next.maxBreakSeconds;
+      const merged = { ...p, ...change };
+      if (merged.maxBreakSeconds < merged.minBreakSeconds) {
+        if ("minBreakSeconds" in change) merged.maxBreakSeconds = merged.minBreakSeconds;
+        else merged.minBreakSeconds = merged.maxBreakSeconds;
       }
+      const next = sanitizePace(merged);
       try {
         localStorage.setItem(PACE_KEY, JSON.stringify(next));
       } catch { /* storage unavailable */ }
@@ -69,6 +110,12 @@ export function pacingFor(timing: TimingMode, minutes: number, pace: Pace): Paci
     timing,
     ...(timing === "duration" ? { duration_seconds: Math.round(minutes * 60) } : { wpm: pace.wpm }),
     variation_pct: pace.variation,
+    drafting: {
+      typo_rate_pct: pace.typoRate,
+      false_start_rate_pct: pace.falseStartRate,
+      sentence_pause_seconds: pace.sentencePauseSeconds,
+      sentence_pause_variation_pct: pace.sentencePauseVariation,
+    },
     breaks: {
       enabled: pace.breaksOn,
       every_seconds: Math.round(pace.everyMinutes * 60),
@@ -92,31 +139,44 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
 }) {
   return (
     <>
-      {timing === "speed" && (
+      <details className="advanced-timing" open={!collapsed}>
+        <summary>
+          Drafting rhythm <span className="badge badge-blue pro-badge">Pro</span>
+          <span className="hint"> · remembered in this browser</span>
+        </summary>
+        <p className="hint">Automated simulated drafting. The six settings below change the pace and temporary edits; completed text still matches the text you approve.</p>
         <fieldset className="settings-group">
-          <legend>Speed</legend>
+          <legend>Cadence</legend>
           <div className="slider-grid">
-            <SliderField label="Typing speed" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={5} max={200}
+            {timing === "speed" ? <SliderField label="Typing speed" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={20} max={150}
               onChange={(v) => onChange({ wpm: v })}
-              hint={'A "word" is 5 characters, including spaces and punctuation (the standard typing measure). At 40 WPM, 200 characters take 1 minute.'} />
+              hint={'20–150 WPM. A "word" is 5 characters; temporary edits and API limits can increase completion time.'} />
+              : <p className="hint">Choose Typing speed above to use the remembered {pace.wpm} WPM setting. Target duration uses your selected finish time.</p>}
+            <SliderField label="Timing variation" unit="%" unitLabel="percent" value={pace.variation} min={0} max={50}
+              onChange={(v) => onChange({ variation: v })}
+              hint={`Each wait varies within ${pace.variation}% of its baseline. 0% means even spacing.`} />
+            <SliderField label="Neighbor-key typo rate" unit="%" unitLabel="percent of eligible words" value={pace.typoRate} min={0} max={20}
+              onChange={(v) => onChange({ typoRate: v })}
+              hint="Chance per eligible word using A–Z letters of a neighboring QWERTY key slip, followed by a visible deletion and correction. 0% is off." />
+            <SliderField label="False-start rate" unit="%" unitLabel="percent of eligible words" value={pace.falseStartRate} min={0} max={20}
+              onChange={(v) => onChange({ falseStartRate: v })}
+              hint="Chance per eligible word using A–Z letters of entering a temporary nearby word, pausing and deleting it before the approved word. 0% is off." />
+            <SliderField label="Sentence-boundary pause" unit="s" unitLabel="seconds" value={pace.sentencePauseSeconds} min={0} max={30}
+              onChange={(v) => onChange({ sentencePauseSeconds: v })}
+              hint="Extra pause after completed sentences. 0 seconds is off; these pauses are included in the saved plan." />
+            <SliderField label="Sentence-pause variation" unit="%" unitLabel="percent" value={pace.sentencePauseVariation} min={0} max={50}
+              onChange={(v) => onChange({ sentencePauseVariation: v })}
+              hint={`Sentence pauses vary within ${pace.sentencePauseVariation}% of the chosen length.`} />
           </div>
+          {(pace.typoRate > 0 || pace.falseStartRate > 0) && <p className="alert alert-info small" role="status">Temporary words and mistakes appear in the real document before correction. Pausing or stopping mid-correction can leave temporary text there. Review it before sharing. Google decides how these automated edits appear in version history.</p>}
         </fieldset>
-      )}
+      </details>
 
       <details className="advanced-timing" open={!collapsed}>
         <summary>
           Advanced timing
-          <span className="hint"> · variation {pace.variation}% · {pace.breaksOn ? `breaks every ${pace.everyMinutes} min` : "no breaks"}</span>
+          <span className="hint"> · {pace.breaksOn ? `breaks every ${pace.everyMinutes} min` : "no longer breaks"}</span>
         </summary>
-        <fieldset className="settings-group">
-          <legend>Variation</legend>
-          <div className="slider-grid">
-            <SliderField label="Timing variation" unit="%" unitLabel="percent" value={pace.variation} min={0} max={50}
-              onChange={(v) => onChange({ variation: v })}
-              hint={`Each wait varies within ${pace.variation}% of its baseline. 0% means even spacing.`} />
-          </div>
-        </fieldset>
-
         <fieldset className="settings-group">
           <legend>Breaks</legend>
           <label className="check">

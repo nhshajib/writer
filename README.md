@@ -6,8 +6,9 @@ Google Doc step by step (one sentence at a time by default) at varied,
 pre-planned times. Each step is a real Docs API edit made at its scheduled time.
 Writing happens on the server, so the browser can be closed and the computer can
 sleep. Sessions can be paused, resumed and stopped, and every insertion is
-logged. TypeWit never adds typos, corrections or backdated edits, and it is
-labelled as automated text entry throughout.
+logged. Optional Pro drafting simulation can temporarily add a keyboard slip or
+false start, visibly remove it, and restore the approved text. Sessions stay
+labelled as automated text entry; TypeWit never backdates edits.
 
 This repo holds the backend (Supabase, `supabase/`) and the frontend (Next.js, `web/`).
 
@@ -388,10 +389,11 @@ Other options on `POST /drips`:
 (after an interrupted insertion the document can't settle) or
 `{ "continue_from_current_end": true }` (after text was added at the end).
 
-TypeWit inserts only the approved text, in order, at planned times. It never
-adds typos, corrections or backdated edits, and sessions are labelled as
-automated text entry. The session log (`drip_events`) records planned and
-actual times, pauses, retries and problems; it is separate from Google Docs
+By default TypeWit inserts only the approved text, in order, at planned times.
+Pro users can opt into simulated temporary typos and false starts, followed by
+visible deletion and correction. Completed content matches the approved text;
+sessions remain labelled as automated text entry and edits are never backdated.
+The session log (`drip_events`) records planned and actual times, pauses, retries and problems; it is separate from Google Docs
 version history, which Google groups on its own.
 
 ### Plan limits (`_shared/limits.ts`)
@@ -409,6 +411,76 @@ Free sessions are planned with the standard pace (`standardPacing` in `_shared/p
 session always match. Plans are set in `profiles.plan` by the Stripe webhook. Keep `web/lib/plans.ts` and
 `PLAN_LIMITS` in `web/lib/dashboard.tsx` in step with these values.
 
+## Pro drafting rhythm
+
+The New Session and Word add-in pacing panels expose six remembered controls:
+
+| Control | Range | Meaning |
+|---|---|---|
+| Typing speed | 20–150 WPM | Speed-mode target; one word is five characters |
+| Timing variation | 0–50% | Seeded variance around each planned interval |
+| Neighbor-key typo rate | 0–20% | Chance per eligible ASCII word of one QWERTY-neighbor slip |
+| False-start rate | 0–20% | Chance per eligible ASCII word of a different nearby word before the approved word |
+| Sentence pause | 0–30 seconds | Extra wait at each sentence/line boundary except the final one |
+| Sentence-pause variation | 0–50% | Variance around that extra wait |
+
+Typos, false starts, and sentence pauses default to zero. Preferences are
+sanitized and remembered in `typewit.pace` local storage, and saved Pro presets
+include them. All custom controls require Pro, with independent server checks on
+both preview and Start; Free keeps its existing standard duration pace. Word
+also hides these controls until the account's plan is known.
+
+`pacing.drafting` contains `typo_rate_pct`, `false_start_rate_pct`,
+`sentence_pause_seconds`, and `sentence_pause_variation_pct`. The seed and all
+execution steps are persisted before starting. The source units are separate
+from append/backspace/correction actions (`source_chunks`, `source_unit_ends`,
+`chunk_deletions`, `action_kinds`). Temporary text does not consume daily word
+quota or count as confirmed source progress. Zero rates preserve the ordinary
+insertion behavior. These are API edits, not literal keyboard events, and do not
+claim to represent manual authorship or guarantee version-history grouping.
+
+Each edit remains at least four seconds apart, including visible deletion and
+correction steps. This keeps the three-session Pro maximum within the per-user
+write budget under normal operation. Tiny units or high simulated-error rates
+can make the requested WPM impractical; the preview includes extra edits and
+warns when the minimum gap limits the speed. Duration-mode pauses and corrections
+fit inside the chosen duration or return a clear conflict. Outages can still
+move completion later. An incorrect temporary word can therefore remain visible
+for several seconds; this deliberately does not imitate subsecond keystrokes.
+
+Before any deletion, Writer checks the revision/text fingerprint and insertion
+point and proves that the suffix belongs to its current generated unit. It never deletes across
+paragraph boundaries. Google and the test provider use atomic revision guards;
+Office.js offers no server-side compare-and-swap, so Word rechecks its text
+fingerprint immediately before a supported range deletion, as with normal Word
+insertions. Concurrent real Word edits still need staging validation. A lost
+response is reconciled using the durable pending edit, expected text, revision and length before retrying. If the outcome is
+ambiguous, the session pauses; arbitrary "present/absent" overrides and moving
+an unfinished correction to a new insertion point are refused. Completion
+requires a successful final content check.
+
+Pausing or stopping between simulated steps can leave temporary text in the
+document. Pause preserves the correction for a verified resume. Stop sends no
+new cleanup edits; review that temporary text manually. An already dispatched
+API request can still settle. Do not enable simulation when temporary incorrect
+text would be inappropriate.
+
+Apply `supabase/migrations/20261023000001_premium_drafting.sql` before deploying
+the updated `drips` and `drip-tick` functions and the static frontend. The migration
+adds execution metadata and a revision-checked test-provider tail-edit RPC;
+existing sessions retain their original behavior. No live database migration or
+Edge Function deployment is implied by a Git push.
+
+Drafting regression coverage lives in `supabase/tests/drafting_*_test.ts`,
+`supabase/tests/drafting_database_test.sql`, and `web/e2e/drafting.spec.ts`. Run
+`deno task test`, `deno task check`, and
+`cd web && CHROMIUM_PATH=/path/to/chromium npm run test:e2e`. For an isolated
+PostgreSQL database with migrations applied, run
+`psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/drafting_database_test.sql`;
+its fixtures roll back. Browser tests use a mock API and Office environment;
+real Google/Word concurrency and real account permissions still need staging
+smoke tests after the migration and function deployment.
+
 ## Why there is no browser extension
 
 TypeWit writes through the Google Docs API (`documents.batchUpdate` →
@@ -422,8 +494,9 @@ itself. The cost: TypeWit appends at the end of the document; it doesn't
 follow the user's cursor.
 
 Reference projects: WriterDrip (MIT) and dripwriter-origin (noncommercial-only
-license). Both were read for ideas; no code was copied from either. Their
-typo, false-start and "detour" features were deliberately left out.
+license). Both were read for interaction ideas; no code was copied from either.
+The opt-in simulated drafting implementation is independent and uses Writer's
+revision-guarded document APIs, rather than browser keystrokes.
 
 ## Privacy and permissions
 
