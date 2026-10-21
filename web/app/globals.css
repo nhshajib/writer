@@ -2634,3 +2634,24 @@ button.mk-pause:active { transform: scale(0.98); }
 .alert-block { display: block; }
 .row-wrap { flex-wrap: wrap; gap: 0.5rem; }
 .pane-list { padding-left: 1.1rem; }
+/* Public discovery pages share the product's typography and mobile touch targets. */
+.seo-breadcrumbs { margin:1.25rem 0 2rem; color:var(--muted); font-size:.85rem; }
+.seo-breadcrumbs ol { display:flex; flex-wrap:wrap; gap:.4rem; list-style:none; padding:0; margin:0; }
+.seo-breadcrumbs li { margin:0; }
+.seo-breadcrumbs li + li::before { content:"/"; padding-right:.4rem; color:var(--muted); }
+.seo-breadcrumbs a { color:var(--text-2); }
+.seo-summary { font-size:1.15rem; line-height:1.7; color:var(--text-2); }
+.seo-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:1rem; margin:2rem 0; }
+.seo-cards > a { display:block; padding:1.5rem; border:1px solid var(--border); border-radius:var(--r-lg); text-decoration:none; color:var(--text); background:var(--raised); }
+.seo-cards > a:hover { border-color:var(--accent); }
+.seo-cards h2,.seo-cards h3 { margin:0 0 .75rem; font-size:1.15rem; }
+.seo-cards p { font-size:.95rem; color:var(--text-2); }
+.seo-toc,.seo-related { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; margin:2rem 0; }
+.seo-toc ul { margin-bottom:0; }
+.seo-article h2 { scroll-margin-top:6rem; }
+.seo-landing .row { flex-wrap:wrap; margin:1.5rem 0; }
+@media(max-width:640px) {
+  .seo-breadcrumbs { font-size:.8rem; margin-top:.75rem; }
+  .seo-landing .row .btn { width:100%; min-height:44px; }
+  .seo-toc a { display:inline-block; padding:.25rem 0; }
+}

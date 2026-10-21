@@ -1,16 +1,9 @@
 import type { MetadataRoute } from "next";
 import { INDEXABLE, SITE_URL } from "@/lib/seo";
-
+import { PUBLIC_PAGES, CONTENT_UPDATED } from "@/lib/search-content";
 export const dynamic = "force-static";
-
-/** Only the public pages meant to be found in search. */
-const PAGES = ["", "pricing", "support", "responsible-use", "privacy", "terms"];
-
+/** Canonical public pages only. No fake build-time freshness or ignored priority/changefreq values. */
 export default function sitemap(): MetadataRoute.Sitemap {
   if (!INDEXABLE) return [];
-  return PAGES.map((page) => ({
-    url: `${SITE_URL}/${page ? `${page}/` : ""}`,
-    changeFrequency: page === "" || page === "pricing" ? "weekly" : "monthly",
-    priority: page === "" ? 1 : 0.6,
-  }));
+  return PUBLIC_PAGES.map(path => ({ url: `${SITE_URL}${path}`, lastModified: CONTENT_UPDATED }));
 }

@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import type { Metadata } from "next";
 import { pageMeta } from "@/lib/seo";
 import { TermsBody } from "@/components/legal/Terms";
@@ -8,7 +9,7 @@ export const metadata: Metadata = pageMeta("/terms/", "Terms of Service", "The t
 
 export default function TermsPage() {
   return (
-    <article className="prose">
+    <article className="prose"><Breadcrumbs items={[{ name: "Terms of Service", path: "/terms/" }]} />
       <h1>Terms of Service</h1>
       <p className="updated">Last updated {LEGAL_UPDATED}</p>
       <OnThisPage />

@@ -2,27 +2,28 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
-import { INDEXABLE, SITE_URL } from "@/lib/seo";
+import { PUBLIC_ROBOTS, SITE_URL } from "@/lib/seo";
 import { THEME_SCRIPT } from "@/lib/themeScript";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  ...(INDEXABLE ? {} : { robots: { index: false, follow: false } }),
+  robots: PUBLIC_ROBOTS,
   appleWebApp: { capable: true, title: "TypeWit", statusBarStyle: "default" },
   title: {
-    default: "TypeWit · Your words in Google Docs and Word, without typing",
+    default: "Auto Typer for Google Docs & Word · TypeWit",
     template: "%s · TypeWit",
   },
   description:
-    "TypeWit enters text you approve into your Google Docs or Word documents, step by step, for people who find typing difficult, slow or painful.",
+    "Schedule approved text entry into Google Docs and Microsoft Word. Preserve supported formatting and control pacing for authorized testing. Start free.",
   // Google Search Console ownership check: set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION to the code from its
   // "HTML tag" method (the content="…" value) in the hosting settings, then rebuild.
   ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
     ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
     : {}),
+  twitter: { card: "summary_large_image", images: [`${SITE_URL}/twitter-image.png`] },
   openGraph: {
     title: "TypeWit",
-    description: "Your words in Google Docs and Word, without typing.",
+    description: "Scheduled, formatted text entry for Google Docs and Word.",
     url: SITE_URL,
     siteName: "TypeWit",
     type: "website",

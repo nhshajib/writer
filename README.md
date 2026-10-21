@@ -648,3 +648,12 @@ Not tested live:
   the change check.
 - The Picker and the Word add-in were tested with browser fakes of Google's and
   Microsoft's scripts, not against real Google Picker or real Word.
+
+
+## Public-site SEO
+
+Production is **Netlify at https://typewit.com**. Vercel is a test deployment and is always `noindex`, including its production alias. Netlify deploy previews and branch deployments are also excluded. Public canonicals always point to typewit.com; authentication, dashboard, legacy account and Word add-in routes stay out of the sitemap and carry noindex rules.
+
+`web/netlify.toml` sets the production canonical URL, preview safeguards, private-route robot headers and the www-to-apex redirect. Keep `NEXT_PUBLIC_NOINDEX=true` and `NEXT_PUBLIC_ALLOW_INDEXING=false` out of the main production context unless intentionally pausing indexing. `NEXT_PUBLIC_ALLOW_INDEXING=true` never overrides test-host safeguards.
+
+After a production-context build, run `npm run seo:check` in `web/`. The checker also supports a non-indexable build when run under the same environment as that build. See [the SEO audit and keyword plan](docs/seo-audit.md) for keyword ownership, sources, Search Console setup and release checks. No Search Console ownership or indexing submission happens automatically.

@@ -1,13 +1,14 @@
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import type { Metadata } from "next";
 import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
-export const metadata: Metadata = pageMeta("/support/", "Support", "Get help with TypeWit: email a real person, and quick answers about Google Docs access, stopped sessions, billing and deleting your account.");
+export const metadata: Metadata = pageMeta("/support/", "Support for Google Docs, Word & Billing", "Get help with TypeWit: email a real person, and quick answers about Google Docs access, stopped sessions, billing and deleting your account.");
 
 export default function SupportPage() {
   return (
-    <article className="prose">
+    <article className="prose"><Breadcrumbs items={[{ name: "Support", path: "/support/" }]} />
       <p className="kicker">Support</p>
       <h1>How can we help?</h1>
       <p className="updated support-lead">

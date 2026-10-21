@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import type { Metadata } from "next";
 import { pageMeta } from "@/lib/seo";
 import { PrivacyBody } from "@/components/legal/Privacy";
@@ -8,7 +9,7 @@ export const metadata: Metadata = pageMeta("/privacy/", "Privacy Policy", "What 
 
 export default function PrivacyPage() {
   return (
-    <article className="prose">
+    <article className="prose"><Breadcrumbs items={[{ name: "Privacy Policy", path: "/privacy/" }]} />
       <h1>Privacy Policy</h1>
       <p className="updated">Last updated {LEGAL_UPDATED}</p>
       <OnThisPage />

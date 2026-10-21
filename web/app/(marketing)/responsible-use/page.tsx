@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import type { Metadata } from "next";
 import { pageMeta } from "@/lib/seo";
 import { Agreement } from "@/components/Agreement";
@@ -7,7 +8,7 @@ export const metadata: Metadata = pageMeta("/responsible-use/", "Responsible Use
 
 export default function ResponsibleUsePage() {
   return (
-    <article className="prose">
+    <article className="prose"><Breadcrumbs items={[{ name: "Responsible Use Agreement", path: "/responsible-use/" }]} />
       <h1>Responsible Use Agreement</h1>
       <p className="updated">Version {CURRENT_TERMS_VERSION}. Everyone agrees to this before using TypeWit.</p>
       <Agreement headingLevel={2} />

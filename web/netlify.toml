@@ -23,3 +23,52 @@
     Content-Security-Policy = "frame-ancestors 'self' https://*.officeapps.live.com https://*.office.com https://*.office365.com https://*.sharepoint.com https://*.microsoft365.com https://*.cloud.microsoft; base-uri 'self'; object-src 'none'; form-action 'self'; upgrade-insecure-requests"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Canonicals and sitemap belong to the main site, never a test deployment URL.
+[context.production.environment]
+  NEXT_PUBLIC_SITE_URL = "https://typewit.com"
+
+[context.deploy-preview.environment]
+  NEXT_PUBLIC_SITE_URL = "https://typewit.com"
+  NEXT_PUBLIC_NOINDEX = "true"
+
+[context.branch-deploy.environment]
+  NEXT_PUBLIC_SITE_URL = "https://typewit.com"
+  NEXT_PUBLIC_NOINDEX = "true"
+
+# Keep the apex domain as the single public search address.
+[[redirects]]
+  from = "https://www.typewit.com/*"
+  to = "https://typewit.com/:splat"
+  status = 301
+  force = true
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/login/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/signup/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/reset-password/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/account/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/word/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
