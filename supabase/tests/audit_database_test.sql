@@ -47,10 +47,21 @@ begin
   if public.consume_google_oauth_nonce(owner_id,nonce_id,'wrong') then raise exception 'Wrong verifier accepted'; end if;
   if not public.consume_google_oauth_nonce(owner_id,nonce_id,'fixture-hash') then raise exception 'Correct verifier refused'; end if;
   if public.consume_google_oauth_nonce(owner_id,nonce_id,'fixture-hash') then raise exception 'Nonce reused'; end if;
+  insert into public.google_oauth_nonces(nonce,user_id,browser_hash,expires_at,returned_at)
+    values(gen_random_uuid(),owner_id,'expired',now()-interval '1 minute',now()) returning nonce into nonce_id;
+  if public.consume_google_oauth_nonce(owner_id,nonce_id,'expired') then raise exception 'Expired nonce accepted'; end if;
+  if public.consume_google_oauth_nonce(gen_random_uuid(),nonce_id,'expired') then raise exception 'Other user nonce accepted'; end if;
   begin perform public.reserve_words(owner_id,-1,150); raise exception 'Negative quota accepted';
   exception when raise_exception then if sqlerrm<>'Words must be positive.' then raise; end if; end;
   begin perform public.hit_rate_limit(owner_id,'test',1,0); raise exception 'Zero window accepted';
   exception when raise_exception then if sqlerrm<>'Invalid rate-limit window.' then raise; end if; end;
+  -- Progress does not validate the execution JSON again (existing rows remain
+  -- runnable; execution mutations still use the strict validator).
+  alter table public.drips disable trigger drips_drafting_execution;
+  update public.drips set chunk_deletions='[-1]' where id=second_drip;
+  alter table public.drips enable trigger drips_drafting_execution;
+  update public.drips set chunks_written=1 where id=second_drip;
+  if not found then raise exception 'Progress update failed'; end if;
 end;
 $$;
 create function public.original_drafting_validator(
@@ -100,4 +111,16 @@ begin
 end;
 $$;
 
+do $$
+declare owner_id uuid:=gen_random_uuid(); outcome text;
+begin
+  insert into auth.users(id) values(owner_id);
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
+  outcome:=public.confirm_age('BD',extract(year from current_date)::integer-1,1,false);
+  if outcome<>'too_young' or not exists(select 1 from auth.users where id=owner_id)
+    or not exists(select 1 from public.profiles where user_id=owner_id and eligibility_blocked_at is not null) then
+    raise exception 'Underage cleanup bypassed account-deletion safeguards';
+  end if;
+end;
+$$;
 rollback;

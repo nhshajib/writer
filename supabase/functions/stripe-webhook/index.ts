@@ -4,7 +4,12 @@
 
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
-import { planForSubscriptionStatus, verifyStripeSignature } from "../_shared/stripe.ts";
+import {
+  customerSubscriptions,
+  planForSubscriptionStatus,
+  preferredSubscription,
+  verifyStripeSignature,
+} from "../_shared/stripe.ts";
 
 interface StripeEvent {
   id: string;
@@ -36,13 +41,15 @@ serve(async (req) => {
   const event = JSON.parse(payload) as StripeEvent;
   const db = adminClient();
 
-  // Process each event once; Stripe retries deliveries.
-  const { data: fresh, error: seenError } = await db
-    .from("stripe_events")
-    .upsert({ id: event.id, type: event.type }, { onConflict: "id", ignoreDuplicates: true })
-    .select("id");
-  if (seenError) throw new Error(seenError.message);
-  if (!fresh?.length) return json({ received: true, duplicate: true });
+  // Receipt is not completion. A crash leaves processed_at null so retries
+  // re-read Stripe and finish the idempotent profile/trial updates.
+  const { error: receiptError } = await db.from("stripe_events")
+    .upsert({ id: event.id, type: event.type }, { onConflict: "id", ignoreDuplicates: true });
+  if (receiptError) throw new Error("The payment update could not be recorded.");
+  const { data: receipt, error: seenError } = await db.from("stripe_events").select("processed_at")
+    .eq("id", event.id).single();
+  if (seenError) throw new Error("The payment update could not be checked.");
+  if (receipt.processed_at) return json({ received: true, duplicate: true });
 
   try {
     switch (event.type) {
@@ -55,14 +62,15 @@ serve(async (req) => {
         break;
     }
   } catch (error) {
-    // Forget the event so Stripe's retry is processed instead of skipped as a duplicate.
-    await db.from("stripe_events").delete().eq("id", event.id);
-    throw error;
+    throw error; // Keep the unprocessed receipt for Stripe's retry.
   }
+  const { error: processedError } = await db.from("stripe_events").update({ processed_at: new Date().toISOString() })
+    .eq("id", event.id);
+  if (processedError) throw new Error("The payment update could not be completed.");
   return json({ received: true });
 });
 
-async function syncSubscription(subscription: Subscription, eventType: string, created: number): Promise<void> {
+async function syncSubscription(subscription: Subscription, _eventType: string, created: number): Promise<void> {
   const db = adminClient();
   const userId = await findUserId(subscription);
   if (!userId) {
@@ -70,21 +78,23 @@ async function syncSubscription(subscription: Subscription, eventType: string, c
     return;
   }
 
-  const status = eventType === "customer.subscription.deleted" ? "canceled" : subscription.status;
-  const eventAt = new Date(created * 1000).toISOString();
-  // Stripe doesn't guarantee delivery order; an event older than the last one
-  // applied leaves the plan as it is.
-  const { error } = await db
-    .from("profiles")
-    .update({
-      subscription_status: status,
-      plan: planForSubscriptionStatus(status),
-      stripe_customer_id: subscription.customer,
-      stripe_event_at: eventAt,
-    })
-    .eq("user_id", userId)
-    .or(`stripe_event_at.is.null,stripe_event_at.lte.${eventAt}`);
-  if (error) throw new Error(error.message);
+  // Acquire a generation BEFORE reading Stripe. If another webhook starts
+  // a newer read, this result may not overwrite it even within the same second.
+  const { data: generation, error: generationError } = await db.rpc("begin_stripe_sync", { owner: userId });
+  if (generationError || generation == null) throw new Error("The billing account could not be synchronized.");
+  const subscriptions = await customerSubscriptions<Subscription>(
+    requireEnv("STRIPE_SECRET_KEY"),
+    subscription.customer,
+  );
+  const current = preferredSubscription(subscriptions);
+  const status = current?.status ?? "canceled";
+  const { data: updated, error } = await db.from("profiles").update({
+    subscription_status: status,
+    plan: planForSubscriptionStatus(status),
+    stripe_customer_id: subscription.customer,
+    stripe_event_at: new Date(created * 1000).toISOString(),
+  }).eq("user_id", userId).eq("stripe_sync_generation", generation).select("user_id");
+  if (error || !updated?.length) throw new Error("A newer billing update is being applied. Stripe will retry.");
 
   // A subscription that starts in trial uses up this person's one trial.
   if (subscription.trial_end) {

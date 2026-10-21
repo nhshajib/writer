@@ -11,7 +11,14 @@
 import { requireUser } from "../_shared/auth.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
-import { StripeError, stripeGet, stripeRequest } from "../_shared/stripe.ts";
+import {
+  customerSubscriptions,
+  preferredSubscription,
+  StripeError,
+  stripeGet,
+  stripeRequest,
+  subscriptionHasNotEnded,
+} from "../_shared/stripe.ts";
 
 const TRIAL_DAYS = "7";
 const ADULT_AGE = 18;
@@ -77,7 +84,13 @@ async function checkout(
       "Pro has to be bought by an adult. Ask a parent or guardian to contact us from the help page.",
     );
   }
-  if (profile?.subscription_status === "active" || profile?.subscription_status === "trialing") {
+  const liveSubscriptions = profile?.stripe_customer_id
+    ? await customerSubscriptions(secretKey, profile.stripe_customer_id)
+    : [];
+  if (
+    liveSubscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
+    (!profile?.stripe_customer_id && subscriptionHasNotEnded(profile?.subscription_status))
+  ) {
     throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
   }
 
@@ -176,13 +189,7 @@ interface StripePaymentMethod {
 }
 
 async function latestSubscription(customer: string, secretKey: string): Promise<StripeSubscription | null> {
-  const list = await stripeGet<{ data: StripeSubscription[] }>(secretKey, "subscriptions", {
-    customer,
-    status: "all",
-    limit: "1",
-    "expand[]": "data.default_payment_method",
-  });
-  return list.data[0] ?? null;
+  return preferredSubscription(await customerSubscriptions<StripeSubscription>(secretKey, customer, true));
 }
 
 async function portal(userId: string, secretKey: string, appUrl: string, req: Request): Promise<Response> {

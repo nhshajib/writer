@@ -44,3 +44,29 @@ Deno.test("plan follows subscription status", () => {
     "free",
   ]);
 });
+
+Deno.test("audit 9/10: an older live subscription wins over a newer canceled one", async () => {
+  const { preferredSubscription, subscriptionHasNotEnded, customerSubscriptions } = await import(
+    "../functions/_shared/stripe.ts"
+  );
+  const current = preferredSubscription([{ id: "ended", status: "canceled" }, { id: "live", status: "active" }]);
+  assertEquals(planForSubscriptionStatus(current?.status), "pro");
+  assertEquals(["unpaid", "incomplete", "past_due", "paused"].map(subscriptionHasNotEnded), [true, true, true, true]);
+  assertEquals(["canceled", "incomplete_expired", null].map(subscriptionHasNotEnded), [false, false, false]);
+  let page = 0;
+  const all = await customerSubscriptions(
+    "fixture-secret",
+    "fixture-customer",
+    false,
+    (() => {
+      page++;
+      return Promise.resolve(Response.json(
+        page === 1
+          ? { data: [{ id: "ended", status: "canceled" }], has_more: true }
+          : { data: [{ id: "live", status: "active" }], has_more: false },
+      ));
+    }) as typeof fetch,
+  );
+  assertEquals(page, 2);
+  assertEquals(preferredSubscription(all)?.id, "live");
+});
