@@ -16,6 +16,7 @@ export const RATE_LIMITS = {
   plan: [600, 3600],
   check: [60, 3600],
   picker: [60, 3600],
+  googleConnect: [60, 3600],
 } as const satisfies Record<string, readonly [number, number]>;
 
 /**

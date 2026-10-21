@@ -1,6 +1,16 @@
-import { assertEquals } from "jsr:@std/assert@1.0.13";
-import { allowedOrigin } from "../functions/_shared/http.ts";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
+import { allowedOrigin, HttpError, readJson } from "../functions/_shared/http.ts";
 import { testProviderEnabled } from "../functions/_shared/env.ts";
+
+Deno.test("second audit: request bodies must be JSON objects, not null or primitives", async () => {
+  const request = (body: unknown) =>
+    new Request("https://edge.invalid", { method: "POST", body: JSON.stringify(body) });
+  for (const body of [null, [], 1, "text", false]) {
+    const error = await assertRejects(() => readJson(request(body)), HttpError, "JSON object");
+    assertEquals(error.status, 400);
+  }
+  assertEquals(await readJson(request({ text: "Approved text" })), { text: "Approved text" });
+});
 
 Deno.test("CORS allows the app, local development and configured extras only", () => {
   Deno.env.set("APP_URL", "https://app.example.com/");

@@ -61,11 +61,16 @@ export function errorResponse(error: unknown): Response {
 }
 
 export async function readJson<T>(req: Request): Promise<T> {
+  let body: unknown;
   try {
-    return (await req.json()) as T;
+    body = await req.json();
   } catch {
     throw new HttpError(400, "Request body must be JSON.");
   }
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    throw new HttpError(400, "Request body must be a JSON object.");
+  }
+  return body as T;
 }
 
 /** Wraps a handler with CORS preflight handling and error mapping. */

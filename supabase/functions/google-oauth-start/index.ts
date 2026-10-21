@@ -11,10 +11,12 @@ import { adminClient, encryptionKey } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
 import { GOOGLE_AUTH_URL, GOOGLE_SCOPES } from "../_shared/providers/google.ts";
 import { allowedRedirect, googleClientConfig, googleRedirectUri, type OAuthState } from "../_shared/oauth.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 
 const STATE_TTL_SECONDS = 10 * 60;
 
 serve(async (req) => {
+  if (req.method !== "GET") throw new HttpError(405, "Method not allowed.");
   const user = await requireUser(req);
   const { clientId } = googleClientConfig();
   const redirectTo = allowedRedirect(new URL(req.url).searchParams.get("redirect_to"));
@@ -23,6 +25,7 @@ serve(async (req) => {
   if (!challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) {
     throw new HttpError(400, "Start Google connect from your dashboard in this browser.");
   }
+  await rateLimit(user.id, "googleConnect");
   const state: OAuthState = {
     uid: user.id,
     exp: Math.floor(Date.now() / 1000) + STATE_TTL_SECONDS,
