@@ -677,3 +677,10 @@ Run `cd supabase && deno test -A tests/` and `deno fmt --check` plus
 `supabase/tests/*_database_test.sql` run in an isolated PostgreSQL database after
 migrations and roll back their fixtures. They must not run on customer data.
 See [the backend audit report](docs/audits/backend-hardening.md) for release evidence.
+
+The second audit adds `20261023000005_checkout_concurrency.sql`. Apply it before
+deploying `billing`: checkout preparation now uses a service-only expiring lease,
+reuses an open checkout for the same price, and retires older links when changing
+billing intervals. The account's existing subscriptions still determine access.
+`supabase/tests/checkout_database_test.sql` verifies lease contention, expiry,
+stale releases, grants and account cleanup in an isolated database.
