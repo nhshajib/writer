@@ -9,6 +9,7 @@
 // offered if this person's normalized email has never claimed one.
 
 import { requireUser } from "../_shared/auth.ts";
+import { sha256Hex } from "../_shared/crypto.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import {
@@ -30,8 +31,10 @@ function ageFrom(year: number, month: number, now = new Date()): number {
 
 serve(async (req) => {
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed.");
-  const user = await requireUser(req);
   const action = new URL(req.url).pathname.split("/").filter(Boolean).pop();
+  // Ineligible accounts must still be able to inspect and end existing
+  // billing before account deletion. They cannot buy or upgrade a plan.
+  const user = await requireUser(req, { allowIneligible: action === "portal" || action === "summary" });
 
   const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
   if (!secretKey) throw new HttpError(503, "Payments are not configured yet.");
@@ -39,7 +42,7 @@ serve(async (req) => {
 
   try {
     if (action === "checkout") return await checkout(user, secretKey, appUrl, req);
-    if (action === "portal") return await portal(user.id, secretKey, appUrl, req);
+    if (action === "portal") return await portal(user.id, secretKey, appUrl, req, user.eligibilityBlocked);
     if (action === "summary") return await summary(user.id, secretKey);
     if (action === "reprice") return await reprice(user.id, secretKey);
   } catch (error) {
@@ -84,44 +87,115 @@ async function checkout(
       "Pro has to be bought by an adult. Ask a parent or guardian to contact us from the help page.",
     );
   }
-  const liveSubscriptions = profile?.stripe_customer_id
-    ? await customerSubscriptions(secretKey, profile.stripe_customer_id)
-    : [];
-  if (
-    liveSubscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
-    (!profile?.stripe_customer_id && subscriptionHasNotEnded(profile?.subscription_status))
-  ) {
-    throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
-  }
-
-  const customerId = profile?.stripe_customer_id ?? await createCustomer(user, secretKey);
-
-  const { data: trialAvailable, error: trialError } = await db.rpc("trial_available", { email: user.email });
-  if (trialError) throw new Error(trialError.message);
-
-  const params: Record<string, string> = {
-    mode: "subscription",
-    customer: customerId,
-    client_reference_id: user.id,
-    "line_items[0][price]": price,
-    "line_items[0][quantity]": "1",
-    success_url: `${appUrl}/account?checkout=success`,
-    cancel_url: `${appUrl}/pricing?checkout=canceled`,
-    // Always collect a card, including for the trial.
-    payment_method_collection: "always",
-    "subscription_data[metadata][user_id]": user.id,
+  const lease = crypto.randomUUID();
+  const { data: acquired, error: lockError } = await db.rpc("acquire_billing_checkout", { owner: user.id, lease });
+  if (lockError) throw new HttpError(503, "Checkout could not be prepared. Please try again.");
+  if (!acquired) throw new HttpError(409, "Checkout is already being prepared. Please wait a moment and try again.");
+  const deadline = Date.now() + 90_000;
+  const checkoutFetch: typeof fetch = (input, init) => {
+    if (Date.now() >= deadline) throw new HttpError(503, "Checkout took too long. Please try again.");
+    const remaining = AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+    return fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, remaining]) : remaining });
   };
-  if (trialAvailable) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
+  try {
+    // Reload after acquiring: another request may have created the customer
+    // between the first profile read and this lock.
+    const customer = await customerFor(user.id);
+    const liveSubscriptions = customer ? await customerSubscriptions(secretKey, customer, false, checkoutFetch) : [];
+    if (
+      liveSubscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
+      (!profile?.stripe_customer_id && subscriptionHasNotEnded(profile?.subscription_status))
+    ) {
+      throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
+    }
 
-  const session = await stripeRequest<{ url: string }>(secretKey, "checkout/sessions", params);
-  return json({ url: session.url, trial: Boolean(trialAvailable) });
+    const customerId = customer ?? await createCustomer(user, secretKey, checkoutFetch);
+
+    const open = await stripeGet<
+      {
+        data: {
+          id: string;
+          url: string | null;
+          mode: string;
+          metadata?: { typewit_price?: string };
+          line_items?: { data: { price: { id: string } | null }[] };
+        }[];
+        has_more: boolean;
+      }
+    >(secretKey, "checkout/sessions", {
+      customer: customerId,
+      status: "open",
+      limit: "100",
+      "expand[]": "data.line_items",
+    }, checkoutFetch);
+    // A partial list must not be mistaken for "no checkout".
+    if (open.has_more) {
+      throw new HttpError(
+        409,
+        "There are several unfinished checkouts. Please contact support before starting another.",
+      );
+    }
+    const pending = open.data.filter((session) => session.mode === "subscription");
+    const same = pending.find((session) =>
+      (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price && session.url
+    );
+    // Retire older links when switching the selected billing interval, so only
+    // one TypeWit checkout can be completed. Reuse an identical open checkout.
+    for (const session of pending) {
+      if (session.id !== same?.id) {
+        await stripeRequest(secretKey, `checkout/sessions/${session.id}/expire`, {}, checkoutFetch);
+      }
+    }
+
+    const { data: trialAvailable, error: trialError } = await db.rpc("trial_available", { email: user.email });
+    if (trialError) throw new Error(trialError.message);
+    if (same?.url) return json({ url: same.url, trial: Boolean(trialAvailable) });
+
+    const params: Record<string, string> = {
+      mode: "subscription",
+      customer: customerId,
+      client_reference_id: user.id,
+      "line_items[0][price]": price,
+      "line_items[0][quantity]": "1",
+      success_url: `${appUrl}/account?checkout=success`,
+      cancel_url: `${appUrl}/pricing?checkout=canceled`,
+      // Always collect a card, including for the trial.
+      payment_method_collection: "always",
+      "subscription_data[metadata][user_id]": user.id,
+      "metadata[typewit_price]": price,
+    };
+    if (trialAvailable) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
+
+    const session = await stripeRequest<{ url: string }>(
+      secretKey,
+      "checkout/sessions",
+      params,
+      checkoutFetch,
+      `typewit-checkout-${lease}`,
+    );
+    return json({ url: session.url, trial: Boolean(trialAvailable) });
+  } finally {
+    // A stale request must never release a newer request's lease.
+    const { error } = await db.from("billing_checkout_locks").delete().eq("user_id", user.id).eq("lease_id", lease);
+    if (error) console.error("Checkout lock release failed", error.message);
+  }
 }
 
-async function createCustomer(user: { id: string; email: string | null }, secretKey: string): Promise<string> {
-  const customer = await stripeRequest<{ id: string }>(secretKey, "customers", {
-    email: user.email ?? "",
-    "metadata[user_id]": user.id,
-  });
+async function createCustomer(
+  user: { id: string; email: string | null },
+  secretKey: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<string> {
+  const customer = await stripeRequest<{ id: string }>(
+    secretKey,
+    "customers",
+    {
+      email: user.email ?? "",
+      "metadata[user_id]": user.id,
+    },
+    fetchFn,
+    `typewit-customer-${user.id}-${(await sha256Hex(user.email ?? "")).slice(0, 24)}`,
+  );
   const { error } = await adminClient()
     .from("profiles")
     .update({ stripe_customer_id: customer.id })
@@ -192,13 +266,21 @@ async function latestSubscription(customer: string, secretKey: string): Promise<
   return preferredSubscription(await customerSubscriptions<StripeSubscription>(secretKey, customer, true));
 }
 
-async function portal(userId: string, secretKey: string, appUrl: string, req: Request): Promise<Response> {
+async function portal(
+  userId: string,
+  secretKey: string,
+  appUrl: string,
+  req: Request,
+  cancellationOnly = false,
+): Promise<Response> {
   const customer = await customerFor(userId);
   if (!customer) throw new HttpError(404, "You don't have a billing account yet.");
   const body = req.headers.get("content-length") === "0"
     ? {}
     : await readJson<{ flow?: string }>(req).catch(() => ({}));
-  const flow = PORTAL_FLOWS.find((f) => f === (body as { flow?: string }).flow);
+  const flow = cancellationOnly
+    ? "subscription_cancel"
+    : PORTAL_FLOWS.find((f) => f === (body as { flow?: string }).flow);
   const returnUrl = `${appUrl}/app/billing/manage/`;
 
   const params: Record<string, string> = { customer, return_url: returnUrl };
@@ -232,6 +314,9 @@ async function portal(userId: string, secretKey: string, appUrl: string, req: Re
   } catch (error) {
     // A flow the portal isn't set up for: open the portal's home page instead.
     if (!flow || !(error instanceof StripeError)) throw error;
+    if (cancellationOnly) {
+      throw new HttpError(503, "Cancellation could not be opened. Please contact support to end your subscription.");
+    }
     console.warn("Portal flow unavailable, opening the portal home", flow, error.message);
     const session = await stripeRequest<{ url: string }>(secretKey, "billing_portal/sessions", {
       customer,

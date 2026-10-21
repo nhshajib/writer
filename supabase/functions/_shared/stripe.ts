@@ -17,12 +17,14 @@ export async function stripeRequest<T>(
   path: string,
   params: Record<string, string> = {},
   fetchFn: typeof fetch = fetch,
+  idempotencyKey?: string,
 ): Promise<T> {
   const res = await fetchFn(`https://api.stripe.com/v1/${path}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: new URLSearchParams(params),
     signal: AbortSignal.timeout(15_000),

@@ -449,6 +449,10 @@ async function startSession(
 ): Promise<Response> {
   const db = adminClient();
   const { text } = input;
+  // Validate before reserving quota. Provider calls can outlast a near-term
+  // start time; in that case start when approval is saved, without charging
+  // for a session that fails a second time-of-day validation.
+  const requestedStart = readStartAt(body.start_at);
   // Resolve the target document before reserving quota, so a bad document id
   // doesn't use up the day's words.
   // A Word document is identified by its address in Word; only the add-in running in it can write to it.
@@ -484,7 +488,7 @@ async function startSession(
     throw error;
   }
   const approvedAt = new Date();
-  const started = readStartAt(body.start_at) ?? approvedAt;
+  const started = requestedStart && requestedStart > approvedAt ? requestedStart : approvedAt;
   const lastOffset = plan.schedule[plan.schedule.length - 1];
   const { data: drip, error } = await db
     .from("drips")

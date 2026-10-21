@@ -98,7 +98,8 @@ async function syncSubscription(subscription: Subscription, _eventType: string, 
 
   // A subscription that starts in trial uses up this person's one trial.
   if (subscription.trial_end) {
-    const { data } = await db.auth.admin.getUserById(userId);
+    const { data, error: userError } = await db.auth.admin.getUserById(userId);
+    if (userError) throw new Error("The trial account could not be checked. Stripe will retry.");
     const email = data?.user?.email;
     if (email) {
       const { error: claimError } = await db.rpc("claim_trial", {
@@ -113,10 +114,11 @@ async function syncSubscription(subscription: Subscription, _eventType: string, 
 
 async function findUserId(subscription: Subscription): Promise<string | null> {
   if (subscription.metadata?.user_id) return subscription.metadata.user_id;
-  const { data } = await adminClient()
+  const { data, error } = await adminClient()
     .from("profiles")
     .select("user_id")
     .eq("stripe_customer_id", subscription.customer)
     .maybeSingle();
+  if (error) throw new Error("The billing account could not be checked. Stripe will retry.");
   return data?.user_id ?? null;
 }

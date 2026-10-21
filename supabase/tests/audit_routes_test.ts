@@ -233,6 +233,7 @@ Deno.test("audit OAuth routes: matching browser only, single use, required scope
         return Response.json({ id: owner, aud: "authenticated", role: "authenticated" });
       }
       if (url.pathname.endsWith("/profiles")) return Response.json({ eligibility_blocked_at: null });
+      if (url.pathname.endsWith("/rpc/hit_rate_limit")) return Response.json(true);
       if (url.pathname.endsWith("/google_oauth_nonces")) {
         if (init?.method === "POST") {
           nonce = body;
@@ -336,6 +337,8 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
   let plan = "pro";
   let failProfile = true;
   let profileWrites = 0;
+  let failLookup = false;
+  let failTrialUser = false;
   try {
     ["http://database.invalid", "fixture-key", "fixture-webhook", "fixture-stripe"].forEach((v, i) =>
       Deno.env.set(names[i], v)
@@ -357,6 +360,17 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
         return Response.json(receipts.get(id));
       }
       if (url.pathname.endsWith("/rpc/begin_stripe_sync")) return Response.json(++generation);
+      if (url.pathname.endsWith("/profiles") && init?.method !== "PATCH") {
+        return failLookup
+          ? Response.json({ message: "fake lookup outage" }, { status: 500 })
+          : Response.json({ user_id: owner });
+      }
+      if (url.pathname.includes("/auth/v1/admin/users/")) {
+        return failTrialUser
+          ? Response.json({ message: "fake auth outage" }, { status: 503 })
+          : Response.json({ id: owner, email: "fixture@example.invalid" });
+      }
+      if (url.pathname.endsWith("/rpc/claim_trial")) return Response.json(null);
       if (url.hostname === "api.stripe.com") {
         return Response.json({
           data: [
@@ -377,7 +391,7 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
     }) as typeof fetch;
     const handler = await capture("../functions/stripe-webhook/index.ts");
     const timestamp = Math.floor(Date.now() / 1000);
-    const send = async (type: string, id: string) => {
+    const send = async (type: string, id: string, metadata = true, trial = false) => {
       const payload = JSON.stringify({
         id,
         type,
@@ -387,8 +401,8 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
             id: "fixture-ended",
             customer: "fixture-customer",
             status: "canceled",
-            trial_end: null,
-            metadata: { user_id: owner },
+            trial_end: trial ? timestamp + 86400 : null,
+            ...(metadata ? { metadata: { user_id: owner } } : {}),
           },
         },
       });
@@ -420,6 +434,17 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
     const writes = profileWrites;
     assertEquals((await send("customer.subscription.deleted", "fixture-event-b")).status, 200);
     assertEquals(profileWrites, writes);
+    // A transient lookup is not an unknown/deleted customer: Stripe must retry.
+    failLookup = true;
+    assertEquals((await send("customer.subscription.updated", "fixture-event-lookup", false)).status, 500);
+    assertEquals(receipts.get("fixture-event-lookup")?.processed_at, null);
+    failLookup = false;
+    assertEquals((await send("customer.subscription.updated", "fixture-event-lookup", false)).status, 200);
+    failTrialUser = true;
+    assertEquals((await send("customer.subscription.updated", "fixture-event-trial", true, true)).status, 500);
+    assertEquals(receipts.get("fixture-event-trial")?.processed_at, null);
+    failTrialUser = false;
+    assertEquals((await send("customer.subscription.updated", "fixture-event-trial", true, true)).status, 200);
   } finally {
     globalThis.fetch = originalFetch;
     names.forEach((n, i) => before[i] === undefined ? Deno.env.delete(n) : Deno.env.set(n, before[i]!));
