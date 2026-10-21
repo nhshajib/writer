@@ -1178,7 +1178,7 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
       return json({ row: claimed, status: row.status, next_run_at: row.next_run_at, attention: row.attention });
     }
     case "control":
-      return json({ status: row.status, lease_id: row.lease_id });
+      return json({ status: row.status, lease_id: row.lease_id, chunks_written: row.chunks_written });
     case "update":
     case "confirm": {
       const patch = enginePatch(body.patch);

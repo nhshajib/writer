@@ -160,3 +160,24 @@ test("an account without age answers is asked once before the dashboard", async 
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Good (morning|afternoon|evening)/);
 });
+
+test("a concurrent successful age confirmation completes onboarding without changing the first answer", async ({ page, request }) => {
+  await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null } });
+  await page.addInitScript((session) => localStorage.setItem("sb-localhost-auth-token", JSON.stringify(session)), {
+    access_token: "fixture-token", refresh_token: "fixture-refresh", token_type: "bearer", expires_in: 86400,
+    expires_at: Math.floor(Date.now() / 1000) + 86400,
+    user: { id: "fixture-user", aud: "authenticated", role: "authenticated", email: "fixture@example.invalid", user_metadata: {}, app_metadata: {} },
+  });
+  let confirmations = 0;
+  await page.route("**/rest/v1/rpc/confirm_age", async route => {
+    confirmations++;
+    await request.post("/__test/profile", { data: { age_confirmed_at: new Date().toISOString(), birth_year: 1990, birth_month: 1 } });
+    await route.fulfill({ status: 400, json: { message: "Your age has already been confirmed." } });
+  });
+  await page.goto("/app/");
+  await expect(page.getByRole("heading", { name: "One last step" })).toBeVisible();
+  await aboutYou(page, "BD", 30);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Good (morning|afternoon|evening)/);
+  expect(confirmations).toBe(1);
+});

@@ -59,7 +59,7 @@ export async function recordPendingAgreement(): Promise<boolean> {
 
 export type AgeResult = "ok" | "guardian_needed" | "too_young";
 
-/** Records age answers through the server's check. "too_young" means the account was deleted. */
+/** Records the first age answer. Ineligible accounts use the normal cleanup path. */
 export async function confirmAge(age: AgeAnswers): Promise<AgeResult> {
   const { data, error } = await supabase().rpc("confirm_age", {
     country: age.country,
@@ -67,7 +67,16 @@ export async function confirmAge(age: AgeAnswers): Promise<AgeResult> {
     birth_month: age.birth_month,
     guardian: age.guardian_agreed,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Two refreshes/tabs may finish onboarding together. The server refuses
+    // a second answer; use its existing result without changing any age data.
+    if (error.message.includes("Your age has already been confirmed.")) {
+      const { data: profile, error: profileError } = await supabase().from("profiles")
+        .select("age_confirmed_at, eligibility_blocked_at").maybeSingle();
+      if (!profileError && profile?.age_confirmed_at) return profile.eligibility_blocked_at ? "too_young" : "ok";
+    }
+    throw new Error(error.message);
+  }
   return data as AgeResult;
 }
 

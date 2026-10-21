@@ -129,6 +129,7 @@ Deno.test("audit routes: Word confirmations cannot revive or rewrite sessions; d
         headers: { Authorization: "Bearer fixture-jwt", "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+    assertEquals((await (await drips(request({ op: "control" }))).json()).chunks_written, 0);
     assertEquals(
       (await drips(request({ op: "confirm", expected: 0, patch: { chunks_written: 1, status: "running" } }))).status,
       400,
