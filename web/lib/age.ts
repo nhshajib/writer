@@ -1,6 +1,6 @@
 /**
  * Who may use TypeWit, by age. The same rules are enforced in the database
- * (supabase/migrations/20261020000001_age_and_guardian.sql): 13 and over, and at
+ * (supabase/migrations/20261020024953_age_and_guardian.sql): 13 and over, and at
  * least the age of digital consent in the person's country; under-18s need a
  * parent or guardian's agreement. Only the country and the month and year of
  * birth are asked for.
