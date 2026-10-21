@@ -44,6 +44,8 @@ begin
     -- through the account-deletion path. Keep the existing UI result.
     update public.profiles set eligibility_blocked_at=now(),age_confirmed_at=now(),
       country=code,birth_year=confirm_age.birth_year,birth_month=confirm_age.birth_month where user_id=me;
+    update public.drips set status='canceled',next_run_at=null,lease_id=null
+      where user_id=me and status in ('scheduled','running','paused');
     return 'too_young';
   end if;
   if age<18 and not coalesce(guardian,false) then return 'guardian_needed'; end if;

@@ -36,3 +36,12 @@ export function allowedRedirect(candidate: string | null, appUrl = Deno.env.get(
     return null;
   }
 }
+
+/** RFC 7636 S256 challenge. The verifier stays only in the initiating tab. */
+export async function pkceChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, "-").replace(/\//g, "_").replace(
+    /=+$/,
+    "",
+  );
+}

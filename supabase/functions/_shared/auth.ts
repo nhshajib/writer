@@ -9,5 +9,11 @@ export async function requireUser(req: Request): Promise<{ id: string; email: st
 
   const { data, error } = await adminClient().auth.getUser(token);
   if (error || !data.user) throw new HttpError(401, "Invalid or expired session.");
+  const { data: profile, error: profileError } = await adminClient().from("profiles")
+    .select("eligibility_blocked_at").eq("user_id", data.user.id).maybeSingle();
+  if (profileError) throw new HttpError(503, "Your account could not be checked. Please try again.");
+  if (profile?.eligibility_blocked_at && !new URL(req.url).pathname.endsWith("/drips/account/delete")) {
+    throw new HttpError(403, "Sorry, you can't use TypeWit with these age details.");
+  }
   return { id: data.user.id, email: data.user.email ?? null };
 }

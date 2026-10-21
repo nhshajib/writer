@@ -44,3 +44,11 @@ Deno.test("allowedRedirect only allows the app origin", () => {
   assertEquals(allowedRedirect("https://typewit.example.com/", undefined), null);
   assertEquals(allowedRedirect(null, app), null);
 });
+
+Deno.test("OAuth browser binding uses the RFC 7636 S256 challenge", async () => {
+  const { pkceChallenge } = await import("../functions/_shared/oauth.ts");
+  assertEquals(
+    await pkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
+    "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+  );
+});

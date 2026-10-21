@@ -92,6 +92,7 @@ export function useDashboardLoader() {
 
   const refresh = useCallback(async () => {
     try {
+      await finishGoogleConnectReturn();
       const client = supabase();
       const [{ data: profile, error: profileError }, conns, list, { data: notes }] = await Promise.all([
         client.from("profiles")
@@ -221,7 +222,11 @@ export const DashboardProvider = DashboardContext.Provider;
 /** Starts the "Connect Google Docs" flow and returns to `returnPath`. */
 export async function connectGoogleDocs(returnPath = "/app/connections"): Promise<void> {
   const redirect = encodeURIComponent(`${window.location.origin}${returnPath}`);
-  const { url } = await api<{ url: string }>(`google-oauth-start?redirect_to=${redirect}`);
+  const verifier = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  sessionStorage.setItem("typewit-google-connect-verifier", verifier);
+  const { url } = await api<{ url: string }>(`google-oauth-start?redirect_to=${redirect}&browser_challenge=${encodeURIComponent(challenge)}`);
   window.location.assign(url);
 }
 
@@ -238,4 +243,31 @@ export function formatRelative(iso: string): string {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   return days < 7 ? `${days} d ago` : formatDate(iso);
+}
+
+let googleReturn: Promise<void> | null = null;
+/** Finish in the initiating tab only; erase the code fragment before API calls. */
+function finishGoogleConnectReturn(): Promise<void> {
+  if (googleReturn) return googleReturn;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const state = params.get("google_connect");
+  const code = params.get("google_code");
+  if (!state || !code) return Promise.resolve();
+  const verifier = sessionStorage.getItem("typewit-google-connect-verifier");
+  sessionStorage.removeItem("typewit-google-connect-verifier");
+  const url = new URL(window.location.href);
+  url.hash = "";
+  window.history.replaceState(null, "", url.toString());
+  googleReturn = (async () => {
+    try {
+      if (!verifier) throw new Error("Complete Google connect in the same browser tab that started it.");
+      await api("google-oauth-callback", { method: "POST", body: { state, code, verifier } });
+      url.searchParams.set("google", "connected");
+    } catch (error) {
+      url.searchParams.set("google", "error");
+      url.searchParams.set("google_message", error instanceof Error ? error.message : "Google connect could not finish. Try again.");
+    }
+    window.history.replaceState(null, "", url.toString());
+  })();
+  return googleReturn;
 }
