@@ -2,7 +2,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
 import { sha256Hex } from "../functions/_shared/crypto.ts";
 
 type Handler = (request: Request) => Promise<Response>;
-async function capture(path: string): Promise<Handler> {
+async function capture(load: () => Promise<unknown>): Promise<Handler> {
   const original = Deno.serve;
   let handler: Handler | undefined;
   Object.defineProperty(Deno, "serve", {
@@ -13,7 +13,7 @@ async function capture(path: string): Promise<Handler> {
     writable: true,
   });
   try {
-    await import(path);
+    await load();
   } finally {
     Object.defineProperty(Deno, "serve", { value: original, configurable: true, writable: true });
   }
@@ -70,7 +70,7 @@ Deno.test("second audit: slow document creation does not strand a word reservati
       if (url.pathname.endsWith("/drip-tick")) return Response.json({ claimed: 0 });
       throw new Error(`Unexpected fake path: ${url.pathname}`);
     }) as typeof fetch;
-    const handler = await capture("../functions/drips/index.ts");
+    const handler = await capture(() => import("../functions/drips/index.ts"));
     const text = "Approved test text.";
     const response = await handler(
       new Request("http://edge.invalid/functions/v1/drips", {
@@ -134,7 +134,7 @@ Deno.test("second audit: age-blocked accounts can cancel billing but cannot buy 
       }
       throw new Error(`Unexpected fake path: ${url.pathname}`);
     }) as typeof fetch;
-    const handler = await capture("../functions/billing/index.ts");
+    const handler = await capture(() => import("../functions/billing/index.ts"));
     const send = (action: string, body = {}) =>
       handler(
         new Request(`http://edge.invalid/functions/v1/billing/${action}`, {
@@ -269,7 +269,7 @@ Deno.test("second audit: checkout serializes double clicks, reuses open payment 
       }
       throw new Error(`Unexpected fake checkout path: ${url.pathname}`);
     }) as typeof fetch;
-    const handler = await capture("../functions/billing/index.ts?checkout-second-pass");
+    const handler = await capture(() => import("../functions/billing/index.ts?checkout-second-pass"));
     const send = (interval = "month") =>
       handler(
         new Request("http://edge.invalid/functions/v1/billing/checkout", {

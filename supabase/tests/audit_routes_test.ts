@@ -4,7 +4,7 @@ import { encrypt } from "../functions/_shared/crypto.ts";
 import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
 
 type Handler = (request: Request) => Promise<Response>;
-async function capture(path: string): Promise<Handler> {
+async function capture(load: () => Promise<unknown>): Promise<Handler> {
   const serve = Deno.serve;
   let handler: Handler | undefined;
   Object.defineProperty(Deno, "serve", {
@@ -15,7 +15,7 @@ async function capture(path: string): Promise<Handler> {
     writable: true,
   });
   try {
-    await import(path);
+    await load();
   } finally {
     Object.defineProperty(Deno, "serve", { value: serve, configurable: true, writable: true });
   }
@@ -122,7 +122,7 @@ Deno.test("audit routes: Word confirmations cannot revive or rewrite sessions; d
       if (url.pathname.endsWith("/drip_events")) return Response.json([]);
       throw new Error(`Unexpected fake request: ${url.pathname}`);
     }) as typeof fetch;
-    const drips = await capture("../functions/drips/index.ts");
+    const drips = await capture(() => import("../functions/drips/index.ts"));
     const request = (body: unknown) =>
       new Request(`http://edge.invalid/functions/v1/drips/${id}/engine`, {
         method: "POST",
@@ -177,7 +177,7 @@ Deno.test("audit routes: Word confirmations cannot revive or rewrite sessions; d
     written = 0;
     updates = 0;
     failControl = true;
-    const tick = await capture("../functions/drip-tick/index.ts");
+    const tick = await capture(() => import("../functions/drip-tick/index.ts"));
     const response = await tick(
       new Request("http://edge.invalid/functions/v1/drip-tick", {
         method: "POST",
@@ -270,8 +270,8 @@ Deno.test("audit OAuth routes: matching browser only, single use, required scope
       }
       throw new Error(`Unexpected fake path: ${url.pathname}`);
     }) as typeof fetch;
-    const start = await capture("../functions/google-oauth-start/index.ts");
-    const callback = await capture("../functions/google-oauth-callback/index.ts");
+    const start = await capture(() => import("../functions/google-oauth-start/index.ts"));
+    const callback = await capture(() => import("../functions/google-oauth-callback/index.ts"));
     const begin = async () => {
       const response = await start(
         new Request(
@@ -389,7 +389,7 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
       }
       throw new Error(`Unexpected fake billing path: ${url.pathname}`);
     }) as typeof fetch;
-    const handler = await capture("../functions/stripe-webhook/index.ts");
+    const handler = await capture(() => import("../functions/stripe-webhook/index.ts"));
     const timestamp = Math.floor(Date.now() / 1000);
     const send = async (type: string, id: string, metadata = true, trial = false) => {
       const payload = JSON.stringify({
