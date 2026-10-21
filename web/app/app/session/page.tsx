@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PausedSessionEditor } from "@/components/app/PausedSessionEditor";
 import { Skeleton } from "@/components/app/Skeleton";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -46,6 +47,7 @@ function SessionView() {
   const [offline, setOffline] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [report, setReport] = useState<AccessReport | null>(null);
@@ -280,7 +282,7 @@ function SessionView() {
             </a>
           )}
           {active && <button type="button" className="btn btn-secondary btn-sm desktop-only" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>}
-          {paused && !attention && <button type="button" className="btn btn-primary btn-sm desktop-only" onClick={() => control("resume")} disabled={busy}><Icon.play /> Resume</button>}
+          {paused && !attention && <button type="button" className="btn btn-primary btn-sm desktop-only" onClick={() => control("resume")} disabled={busy || editing}><Icon.play /> Resume</button>}
           {finished && drip.provider !== "microsoft" && (
             <Link href={`/app/new?from=${drip.id}`} className="btn btn-primary btn-sm"><Icon.refresh /> Run again…</Link>
           )}
@@ -343,6 +345,8 @@ function SessionView() {
         {offline && <p className="alert alert-info" role="status">Can&apos;t reach TypeWit right now. Showing the last known state; this page retries on its own. The session keeps running on the server.</p>}
       </div>
 
+      {paused && isPro && !attention && !drip.progress.temporary_edit_active && !editing && <p className="mb-6"><button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>Edit remaining text &amp; settings <span className="badge badge-blue pro-badge">Pro</span></button></p>}
+      {paused && editing && <PausedSessionEditor drip={drip} onCancel={() => setEditing(false)} onSaved={async () => { setEditing(false); await Promise.all([load(), dashboard.refresh()]); setAnnouncement("Changes saved. The session is still paused. Resume when ready."); }} />}
       <div className="session-grid">
         <div className="stack-6">
           <section className="card session-hero" aria-labelledby="progress-title">
@@ -373,7 +377,7 @@ function SessionView() {
                   <div className="session-primary mobile-only">
                     {active
                       ? <button type="button" className="btn btn-secondary btn-lg btn-block" onClick={() => control("pause")} disabled={busy}><Icon.pause /> Pause</button>
-                      : <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => control("resume")} disabled={busy}><Icon.play /> Resume</button>}
+                      : <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => control("resume")} disabled={busy || editing}><Icon.play /> Resume</button>}
                   </div>
                 )}
                 <dl className="hero-facts">

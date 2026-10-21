@@ -19,6 +19,7 @@ import {
   minimumDurationSeconds,
   type ScheduleStats,
   scheduleStats,
+  seededRandom,
 } from "./schedule.ts";
 
 export interface PlanRequest {
@@ -169,7 +170,19 @@ export function planSession(req: PlanRequest): SessionPlan {
   }
   const warnings: PlanWarning[] = [];
 
-  let units = splitText(text, unit);
+  const split = (u: InsertionUnit) => {
+    const parts = splitText(text, u);
+    if (u !== "word") return parts;
+    const random = seededRandom(seed ^ 0x776f7264);
+    const groups: string[] = [];
+    for (let i = 0; i < parts.length;) {
+      const size = 1 + Math.floor(random() * 5);
+      groups.push(parts.slice(i, i + size).join(""));
+      i += size;
+    }
+    return groups;
+  };
+  let units = split(unit);
   // "Even parts" groups words so a step lands about once a minute, as before.
   if (unit === "chunk") {
     const minutes = pacing?.timing === "duration" ? (pacing.duration_seconds ?? 60) / 60 : words;
@@ -311,7 +324,7 @@ export function planSession(req: PlanRequest): SessionPlan {
 
   const options: UnitOption[] = INSERTION_UNITS.filter((u) => u !== "chunk").map((u) => {
     const alternative = u === unit ? script : compileDrafting(
-      splitText(text, u),
+      split(u),
       req.plan === "pro" && !asap && !draftingProblem ? suppliedDrafting : undefined,
       seed,
     );

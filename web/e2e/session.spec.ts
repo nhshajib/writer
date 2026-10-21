@@ -75,7 +75,7 @@ test("a session can be set up and started with the keyboard alone", async ({ pag
   await expect(sentences).toBeChecked();
   await tabTo(page, sentences);
   await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("radio", { name: /^Words/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /^Word groups/ })).toBeChecked();
   await page.keyboard.press("ArrowUp");
   await expect(sentences).toBeChecked();
   await tabTo(page, next);
@@ -124,7 +124,7 @@ test("a duration that is too short is explained before starting", async ({ page 
   // Each step size shows whether it fits.
   await toStep(page, 3);
   await expect(page.getByRole("radio", { name: /^Characters.*needs at least 1[0-9] minutes/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /^Words \d+ words$/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^Word groups \d+ word groups/ })).toBeVisible();
 
   // Continuing from the timing step is refused with the reason, and focus goes to the setting to change.
   await toStep(page, 4);
@@ -431,4 +431,42 @@ test("settings explain where data is kept and can clear finished sessions", asyn
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Deleted 1 finished session and their saved text.")).toBeVisible();
   expect((await request.get(`/functions/v1/drips/${id}`)).status()).toBe(404);
+});
+
+
+
+test("Pro edits only the remaining text while paused, approves, saves, then resumes", async ({ page, request }) => {
+  const id = await startSession(page);
+  await request.post("/__test/advance", { data: { id, written: 1 } });
+  await page.reload();
+  await page.getByRole("button", { name: "Pause", exact: true }).first().click();
+  await page.getByRole("button", { name: /Edit remaining text/ }).click();
+  const editor = page.getByRole("form", { name: /Edit the remaining session/ });
+  await expect(editor.getByRole("button", { name: "Save changes and stay paused" })).toBeDisabled();
+  await editor.getByLabel("Remaining text", { exact: true }).fill("A revised ending for this document.");
+  await editor.getByLabel("Insertion steps", { exact: true }).selectOption("word");
+  await editor.getByRole("checkbox", { name: /I have reviewed and approve/ }).check();
+  await editor.getByRole("button", { name: "Save changes and stay paused" }).click();
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole("listitem").filter({ hasText: "Remaining text and settings updated" })).toBeVisible();
+  const detail = await (await request.get(`/functions/v1/drips/${id}`)).json();
+  expect(detail.drip.status).toBe("paused");
+  expect(detail.drip.progress.written_text).toBe("The river rose overnight. ");
+  expect(detail.drip.progress.remaining_text).toBe("A revised ending for this document.");
+  const response = page.waitForResponse((r) => r.url().endsWith("/resume") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Resume", exact: true }).first().click();
+  expect((await response).ok()).toBe(true);
+  const resumed = await (await request.get(`/functions/v1/drips/${id}`)).json();
+  expect(["running", "scheduled"]).toContain(resumed.drip.status);
+});
+
+
+test("desktop session navigation stays clear of the session summary", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/app/new/");
+  const bar = await page.locator(".step-bar").boundingBox();
+  const summary = await page.locator(".new-rail").boundingBox();
+  expect(bar).not.toBeNull();
+  expect(summary).not.toBeNull();
+  expect(bar!.x + bar!.width).toBeLessThanOrEqual(summary!.x);
 });

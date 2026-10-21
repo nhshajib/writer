@@ -144,29 +144,30 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
           Drafting rhythm <span className="badge badge-blue pro-badge">Pro</span>
           <span className="hint"> · remembered in this browser</span>
         </summary>
-        <p className="hint">Automated simulated drafting. The six settings below change the pace and temporary edits; completed text still matches the text you approve.</p>
+        <p className="hint">Choose how quickly text arrives, how often a temporary mistake is corrected, and when to pause. These automated edits create a varied drafting rhythm; completed text still matches the text you approve. Google Docs decides which edits appear together in version history.</p>
         <fieldset className="settings-group">
-          <legend>Cadence</legend>
+          <legend>Typing rhythm and corrections</legend>
+          <p className="hint"><strong>Where to start:</strong> Choose Typing speed above for a words-per-minute pace, or Target duration to finish within a chosen time. Try 40 WPM with 25% timing variation, a 1% typo rate, a 1% false-start rate, and a 2-second sentence pause with 25% pause variation. These are starting suggestions; adjust them after checking the schedule preview.</p>
           <div className="slider-grid">
-            {timing === "speed" ? <SliderField label="Typing speed" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={20} max={150}
+            {timing === "speed" ? <SliderField label="Typing speed (adjustable cadence)" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={20} max={150}
               onChange={(v) => onChange({ wpm: v })}
-              hint={'20–150 WPM. A "word" is 5 characters; temporary edits and API limits can increase completion time.'} />
+              hint={'How fast text is added: 20 is slower and 150 is faster. Start at 40 WPM, then adjust to your preferred pace. A "word" means 5 characters; corrections and API limits can make the session take longer.'} />
               : <p className="hint">Choose Typing speed above to use the remembered {pace.wpm} WPM setting. Target duration uses your selected finish time.</p>}
             <SliderField label="Timing variation" unit="%" unitLabel="percent" value={pace.variation} min={0} max={50}
               onChange={(v) => onChange({ variation: v })}
-              hint={`Each wait varies within ${pace.variation}% of its baseline. 0% means even spacing.`} />
-            <SliderField label="Neighbor-key typo rate" unit="%" unitLabel="percent of eligible words" value={pace.typoRate} min={0} max={20}
+              hint={`Waits between edits can be shorter or longer by up to ${pace.variation}%. Start at 25% for a changing rhythm; 0% gives even spacing. This also applies to Target duration.`} />
+            <SliderField label="Neighbor-key typos" unit="%" unitLabel="percent of eligible words" value={pace.typoRate} min={0} max={20}
               onChange={(v) => onChange({ typoRate: v })}
-              hint="Chance per eligible word using A–Z letters of a neighboring QWERTY key slip, followed by a visible deletion and correction. 0% is off." />
-            <SliderField label="False-start rate" unit="%" unitLabel="percent of eligible words" value={pace.falseStartRate} min={0} max={20}
+              hint="Occasionally inserts a letter from a nearby keyboard key, then deletes and corrects it. Start at 1%: roughly 1 in 100 eligible English words may get a typo, not 1 in 100 letters. Higher rates add more corrections and time. Set 0% to turn off." />
+            <SliderField label="False starts" unit="%" unitLabel="percent of eligible words" value={pace.falseStartRate} min={0} max={20}
               onChange={(v) => onChange({ falseStartRate: v })}
-              hint="Chance per eligible word using A–Z letters of entering a temporary nearby word, pausing and deleting it before the approved word. 0% is off." />
-            <SliderField label="Sentence-boundary pause" unit="s" unitLabel="seconds" value={pace.sentencePauseSeconds} min={0} max={30}
+              hint="Occasionally adds a temporary wrong word, pauses, deletes it, and enters your approved word. Start at 1% for occasional detours: roughly 1 in 100 eligible English words. The count varies per session. Set 0% to turn off." />
+            <SliderField label="Natural breaks after sentences" unit="s" unitLabel="seconds" value={pace.sentencePauseSeconds} min={0} max={30}
               onChange={(v) => onChange({ sentencePauseSeconds: v })}
-              hint="Extra pause after completed sentences. 0 seconds is off; these pauses are included in the saved plan." />
+              hint="Adds a short wait after a sentence ends, like a moment to think before continuing. Start at 2 seconds; increase it for more breathing room. Set 0 seconds to turn off. These pauses are included in the schedule preview." />
             <SliderField label="Sentence-pause variation" unit="%" unitLabel="percent" value={pace.sentencePauseVariation} min={0} max={50}
               onChange={(v) => onChange({ sentencePauseVariation: v })}
-              hint={`Sentence pauses vary within ${pace.sentencePauseVariation}% of the chosen length.`} />
+              hint={`Each sentence pause can be shorter or longer by up to ${pace.sentencePauseVariation}%. Start at 25%: a 2-second pause becomes about 1.5–2.5 seconds. 0% keeps every pause the same length. This has no effect when sentence pauses are off.`} />
           </div>
           {(pace.typoRate > 0 || pace.falseStartRate > 0) && <p className="alert alert-info small" role="status">Temporary words and mistakes appear in the real document before correction. Pausing or stopping mid-correction can leave temporary text there. Review it before sharing. Google decides how these automated edits appear in version history.</p>}
         </fieldset>

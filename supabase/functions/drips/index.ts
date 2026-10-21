@@ -6,6 +6,7 @@
 //   GET  /drips/:id                 one drip with progress, the text written so far, and recent events
 //   POST /drips/:id/pause           pause
 //   POST /drips/:id/resume          resume (shifts the rest of the schedule by the pause)
+//   POST /drips/:id/settings        Pro: revise remaining text and settings while safely paused
 //   POST /drips/:id/cancel          cancel (stop; text already entered stays)
 //   POST /drips/:id/check           Test connection for a session, incl. the insertion point
 //   POST /drips/:id/delete          delete a finished session and its saved text and log
@@ -22,7 +23,7 @@
 //   POST /drips/account/delete      delete my account and everything TypeWit stores for it
 
 import { requireUser } from "../_shared/auth.ts";
-import { INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
+import { countWords, INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
 import { decrypt, sha256Hex } from "../_shared/crypto.ts";
 import { googleAccessToken, loadConnection, providerFor } from "../_shared/connections.ts";
 import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
@@ -37,6 +38,7 @@ import { textRevision } from "../_shared/providers/word.ts";
 import { notifyUser } from "../_shared/notifyUser.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
 import { computeProgress, type ProgressInput } from "../_shared/progress.ts";
+import { type EditableSession, replanPaused } from "../_shared/replan.ts";
 import { randomSeed } from "../_shared/schedule.ts";
 import {
   CLAIM_LOOKAHEAD_SECONDS,
@@ -121,6 +123,7 @@ serve(async (req) => {
     if (parts.length === 1 && method === "GET") return await getDrip(user.id, id);
     if (parts.length === 2 && method === "POST") {
       if (parts[1] === "pause") return await pauseDrip(user.id, id);
+      if (parts[1] === "settings") return await editPausedSettings(user.id, id, req);
       if (parts[1] === "resume") return await resumeDrip(user.id, id, req);
       if (parts[1] === "cancel") return await cancelDrip(user.id, id);
       if (parts[1] === "check") {
@@ -656,6 +659,66 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   await db.from("notifications").delete().eq("drip_id", id).eq("kind", "drip_attention");
   await logEvent(id, userId, "resumed", result.detail);
   await kickWorkerIfDue(Date.parse(String(result.patch.next_run_at)));
+  return json({ drip: updated });
+}
+
+/** Pro users may replan only the unentered suffix of a safely paused session. */
+async function editPausedSettings(userId: string, id: string, req: Request): Promise<Response> {
+  await rateLimit(userId, "plan");
+  const tier = await userPlan(userId);
+  if (tier.plan !== "pro") throw new HttpError(403, "Editing paused session settings is a Pro feature.");
+  if (!tier.agreed) throw new HttpError(403, "Accept the current Responsible Use Agreement first.");
+  const body = await readJson<
+    PlanBody & { confirmed?: boolean; updated_at?: string; remaining_text?: string; remaining_sha256?: string }
+  >(req);
+  if (body.confirmed !== true) throw new HttpError(400, "Review and approve the changed settings first.");
+  const db = adminClient();
+  const { data, error } = await db.from("drips").select(`${RESUME_COLUMNS}, text, lease_id`)
+    .eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new HttpError(404, "Session not found.");
+  const row = data as unknown as EditableSession & { status: string; updated_at: string; lease_id: string | null };
+  if (row.status !== "paused") throw new HttpError(409, "Pause the session before editing settings.");
+  if (body.updated_at !== row.updated_at) throw new HttpError(409, "The session changed. Reload it before editing.");
+  if (row.lease_id !== null) throw new HttpError(409, "The last edit is still finishing. Try again shortly.");
+  const input = readPlanInput(body);
+  if (input.mode === "as_soon_as_possible") {
+    throw new HttpError(400, "Choose a duration or typing speed for the remaining text.");
+  }
+  let patch;
+  try {
+    if (body.remaining_text !== undefined && typeof body.remaining_text !== "string") {
+      throw new Error("Remaining text must be text.");
+    }
+    if (body.remaining_text !== undefined && body.remaining_sha256 !== await sha256Hex(body.remaining_text)) {
+      throw new Error("Approve the exact remaining text before saving.");
+    }
+    patch = replanPaused(row, input, body.remaining_text);
+  } catch (e) {
+    throw new HttpError(422, e instanceof Error ? e.message : "These settings cannot be applied.");
+  }
+  const fullText = patch.source_chunks.join("");
+  if (fullText.length > 200_000) throw new HttpError(422, "The whole session must stay within 200,000 characters.");
+  const textPatch = body.remaining_text === undefined ? {} : {
+    text: fullText,
+    text_format: "plain",
+    word_count: countWords(fullText),
+    text_sha256: await sha256Hex(fullText),
+    approved_at: new Date().toISOString(),
+  };
+  const { data: updated, error: saveError } = await db.from("drips").update({ ...patch, ...textPatch })
+    .eq("id", id).eq("user_id", userId).eq("status", "paused").eq("updated_at", row.updated_at)
+    .eq("chunks_written", row.chunks_written).is("pending_index", null).select(DRIP_COLUMNS).maybeSingle();
+  if (saveError) throw new Error(saveError.message);
+  if (!updated) throw new HttpError(409, "The session changed while saving. Reload and try again.");
+  await logEvent(id, userId, "settings_updated", {
+    insertion_unit: patch.insertion_unit,
+    pacing: patch.pacing,
+    remaining_edits: patch.total_chunks - row.chunks_written,
+    text_changed: body.remaining_text !== undefined,
+    text_sha256: body.remaining_text !== undefined ? textPatch.text_sha256 : undefined,
+    approved_at: body.remaining_text !== undefined ? textPatch.approved_at : undefined,
+  });
   return json({ drip: updated });
 }
 

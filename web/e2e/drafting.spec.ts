@@ -28,14 +28,14 @@ test.beforeEach(async ({ page, request }) => {
 test("Pro configures six remembered drafting knobs and sends them with exact source approval", async ({ page, request }) => {
   await timingStep(page);
   await page.getByRole("radio", { name: /^Typing speed/ }).check();
-  const speed = page.getByRole("spinbutton", { name: "Typing speed", exact: true });
+  const speed = page.getByRole("spinbutton", { name: "Typing speed (adjustable cadence)", exact: true });
   await expect(speed).toHaveAttribute("min", "20");
   await expect(speed).toHaveAttribute("max", "150");
   await speed.fill("85");
   await page.getByRole("spinbutton", { name: "Timing variation", exact: true }).fill("32");
-  await page.getByRole("spinbutton", { name: "Neighbor-key typo rate", exact: true }).fill("8");
-  await page.getByRole("spinbutton", { name: "False-start rate", exact: true }).fill("11");
-  await page.getByRole("spinbutton", { name: "Sentence-boundary pause", exact: true }).fill("3");
+  await page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true }).fill("8");
+  await page.getByRole("spinbutton", { name: "False starts", exact: true }).fill("11");
+  await page.getByRole("spinbutton", { name: "Natural breaks after sentences", exact: true }).fill("3");
   await page.getByRole("spinbutton", { name: "Sentence-pause variation", exact: true }).fill("20");
   await expect(page.getByText(/Temporary words and mistakes appear in the real document/)).toBeVisible();
   await ready(page);
@@ -60,15 +60,15 @@ test("Pro configures six remembered drafting knobs and sends them with exact sou
 
 test("saved drafting settings survive a new visit and malformed values are sanitized", async ({ page }) => {
   await timingStep(page);
-  await page.getByRole("spinbutton", { name: "Neighbor-key typo rate", exact: true }).fill("7");
-  await page.getByRole("spinbutton", { name: "Sentence-boundary pause", exact: true }).fill("4");
+  await page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true }).fill("7");
+  await page.getByRole("spinbutton", { name: "Natural breaks after sentences", exact: true }).fill("4");
   await page.reload();
   await page.getByLabel("Title").fill("Remembered");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(SOURCE);
   await toStep(page, 4);
-  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typo rate", exact: true })).toHaveValue("7");
-  await expect(page.getByRole("spinbutton", { name: "Sentence-boundary pause", exact: true })).toHaveValue("4");
+  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true })).toHaveValue("7");
+  await expect(page.getByRole("spinbutton", { name: "Natural breaks after sentences", exact: true })).toHaveValue("4");
   await page.evaluate(() => localStorage.setItem("typewit.pace", JSON.stringify({ wpm: 9999, typoRate: -100, falseStartRate: "invalid", sentencePauseSeconds: 9999, sentencePauseVariation: 9999 })));
   await page.reload();
   await page.getByLabel("Title").fill("Sanitized");
@@ -76,10 +76,10 @@ test("saved drafting settings survive a new visit and malformed values are sanit
   await page.getByLabel("Text to enter").fill(SOURCE);
   await toStep(page, 4);
   await page.getByRole("radio", { name: /^Typing speed/ }).check();
-  await expect(page.getByRole("spinbutton", { name: "Typing speed", exact: true })).toHaveValue("150");
-  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typo rate", exact: true })).toHaveValue("0");
-  await expect(page.getByRole("spinbutton", { name: "False-start rate", exact: true })).toHaveValue("0");
-  await expect(page.getByRole("spinbutton", { name: "Sentence-boundary pause", exact: true })).toHaveValue("30");
+  await expect(page.getByRole("spinbutton", { name: "Typing speed (adjustable cadence)", exact: true })).toHaveValue("150");
+  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "False starts", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Natural breaks after sentences", exact: true })).toHaveValue("30");
   await expect(page.getByRole("spinbutton", { name: "Sentence-pause variation", exact: true })).toHaveValue("50");
 });
 
@@ -88,7 +88,7 @@ test("Free cannot use saved premium settings or access their controls", async ({
   await page.addInitScript(() => localStorage.setItem("typewit.pace", JSON.stringify({ wpm: 85, typoRate: 20, falseStartRate: 20, sentencePauseSeconds: 30, sentencePauseVariation: 50 })));
   await timingStep(page);
   await expect(page.getByRole("radio", { name: /^Typing speed/ })).toBeDisabled();
-  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typo rate", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true })).toHaveCount(0);
   await ready(page);
   await toStep(page, 5);
   await expect(page.getByText(/I also approve the enabled simulated mistakes/)).toHaveCount(0);
@@ -106,7 +106,7 @@ test("enabling temporary edits clears an earlier approval", async ({ page }) => 
   await toStep(page, 5);
   await page.getByLabel(/I've read this exact text/).check();
   await toStep(page, 4);
-  await page.getByRole("spinbutton", { name: "False-start rate", exact: true }).fill("10");
+  await page.getByRole("spinbutton", { name: "False starts", exact: true }).fill("10");
   await ready(page);
   await toStep(page, 5);
   await expect(page.getByLabel(/I've read this exact text/)).not.toBeChecked();
@@ -115,7 +115,7 @@ test("enabling temporary edits clears an earlier approval", async ({ page }) => 
 
 test("switching from All at once to paced drafting requires renewed approval", async ({ page }) => {
   await timingStep(page);
-  await page.getByRole("spinbutton", { name: "False-start rate", exact: true }).fill("10");
+  await page.getByRole("spinbutton", { name: "False starts", exact: true }).fill("10");
   await page.getByRole("radio", { name: /^All at once/ }).check();
   await expect(page.getByRole("status").filter({ hasText: "whole text is entered in one insertion" })).toBeVisible();
   await toStep(page, 5);

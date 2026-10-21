@@ -66,3 +66,30 @@ Google Cloud Console → **Google Auth Platform → Branding** (older consoles: 
 
 Adding a logo makes Google review the app's branding (usually a few days). The domain must be verified in
 Google Search Console under the same Google account.
+
+
+### Why Google still says “continue to …supabase.co”
+
+The account chooser can show the OAuth callback domain separately from the app name and logo.
+TypeWit signs in through Supabase Auth, whose default callback is
+`https://jopggisumjlfitapkgjh.supabase.co/auth/v1/callback`. Setting the website's branding alone
+does not replace this domain. Also check that the Google OAuth client configured in Supabase
+belongs to the same Google Cloud project whose TypeWit branding was verified and published.
+
+To use a branded address such as `auth.typewit.com`:
+
+1. In Supabase project settings, review the paid Custom Domain add-on and its price before enabling it.
+2. Follow Supabase's domain setup instructions and add its CNAME and verification TXT records in DNS.
+3. Before activating the domain, add `https://auth.typewit.com/auth/v1/callback` to the Google OAuth
+   client's authorized redirect URIs. Keep the existing Supabase callback too.
+4. Complete certificate verification and activate the custom domain in Supabase.
+5. Set the deployed frontend's `NEXT_PUBLIC_SUPABASE_URL` to `https://auth.typewit.com`, rebuild,
+   and test sign-in, sign-out, password recovery, and the Google Docs connection. Keep the site's
+   Supabase redirect allowlist and Google authorized origins set to the TypeWit frontend URLs.
+
+This requires access to Supabase project settings, DNS, and Google Cloud; a SQL migration or a
+change to the login button cannot change Google's hosted account chooser. Do not change the
+frontend URL until the domain and callback are ready.
+
+References: https://supabase.com/docs/guides/auth/social-login/auth-google and
+https://supabase.com/docs/guides/platform/custom-domains

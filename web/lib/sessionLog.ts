@@ -28,6 +28,8 @@ export function describe(event: DripEvent): { text: string; sub?: string; late?:
     }
     case "schedule_shifted":
       return { text: label, sub: `Moved ${span((num(d.by_seconds) ?? 0) * 1000)} later · now finishing ${when(str(d.finish_at)!)}`, late: true };
+    case "settings_updated":
+      return { text: "Remaining text and settings updated", sub: "Previously entered text was kept. The session stayed paused until resumed." };
     case "paused":
       return { text: d.by === "system" ? "Paused by TypeWit" : "Paused by you" };
     case "resumed": {

@@ -1,0 +1,83 @@
+"use client";
+
+import { type FormEvent, useState } from "react";
+import { DEFAULT_PACE, PaceControls, paceFromSettings, pacingFor, sanitizePace, type Pace } from "./PaceControls";
+import { api, sha256Hex } from "@/lib/api";
+import { type Drip, type InsertionUnit, UNIT_LABEL } from "@/lib/types";
+
+export function PausedSessionEditor({ drip, onSaved, onCancel }: {
+  drip: Drip;
+  onSaved: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [originalText] = useState(drip.progress.remaining_text ?? "");
+  const [version] = useState(drip.updated_at);
+  const [text, setText] = useState(originalText);
+  const [timing, setTiming] = useState<"duration" | "speed">(drip.pacing?.timing ?? "duration");
+  const [minutes, setMinutes] = useState(Math.max(1, Math.ceil(drip.duration_seconds * (1 - drip.progress.percent / 100) / 60)));
+  const [unit, setUnit] = useState<InsertionUnit>(drip.insertion_unit);
+  const [pace, setPace] = useState<Pace>({ ...DEFAULT_PACE, ...(drip.pacing ? paceFromSettings(drip.pacing) : {}) });
+  const [approved, setApproved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  function change(update: () => void) { update(); setApproved(false); }
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (!approved || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`drips/${drip.id}/settings`, { method: "POST", body: {
+        confirmed: true, updated_at: version,
+        ...(text !== originalText ? { remaining_text: text, remaining_sha256: await sha256Hex(text) } : {}),
+        insertion_unit: unit, mode: "scheduled",
+        pacing: pacingFor(timing, minutes, pace),
+      } });
+      await onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save the changes.");
+      setBusy(false);
+    }
+  }
+  return (
+    <form className="card session-settings-editor" onSubmit={save} aria-labelledby="edit-session-title">
+      <h2 id="edit-session-title">Edit the remaining session <span className="badge badge-blue">Pro</span></h2>
+      <p className="muted">Text already entered stays in your document. Changes apply only to what comes next. Saving keeps the session paused; choose Resume when you are ready.</p>
+      <fieldset disabled={busy}>
+        <legend className="sr-only">Remaining text and settings</legend>
+        <div className="field">
+          <label className="label" htmlFor="remaining-text">Remaining text</label>
+          <textarea id="remaining-text" value={text} onChange={(e) => change(() => setText(e.target.value))} required aria-describedby="remaining-hint" />
+          <p id="remaining-hint" className="hint">Review this exact text before approving. This editor saves plain text; formatting already entered is kept. Keep any spaces or line breaks needed to join it to the text already in the document.</p>
+        </div>
+        <div className="field">
+          <label className="label" htmlFor="edit-unit">Insertion steps</label>
+          <select id="edit-unit" value={unit} onChange={(e) => change(() => setUnit(e.target.value as InsertionUnit))}>
+            {Object.entries(UNIT_LABEL).map(([value, label]) => <option key={value} value={value}>{label.title}{value === "word" ? " (random groups of 1–5 words)" : ""}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label className="label" htmlFor="edit-timing">Timing for the remaining text</label>
+          <select id="edit-timing" value={timing} onChange={(e) => change(() => setTiming(e.target.value as typeof timing))}>
+            <option value="duration">Finish within a chosen time after resuming</option>
+            <option value="speed">Use a typing speed</option>
+          </select>
+        </div>
+        {timing === "duration" && <div className="field">
+          <label className="label" htmlFor="edit-minutes">Minutes after resuming</label>
+          <input id="edit-minutes" type="number" min={1} max={10080} required value={minutes} onChange={(e) => change(() => setMinutes(Number(e.target.value)))} />
+        </div>}
+        <PaceControls timing={timing} pace={pace} onChange={(update) => change(() => setPace((p) => { const next = { ...p, ...update }; if (next.maxBreakSeconds < next.minBreakSeconds) { if ("minBreakSeconds" in update) next.maxBreakSeconds = next.minBreakSeconds; else next.minBreakSeconds = next.maxBreakSeconds; } return sanitizePace(next); }))} />
+        <label className="check">
+          <input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
+          <span>I have reviewed and approve the remaining text and settings, including any enabled temporary mistakes and corrections.</span>
+        </label>
+      </fieldset>
+      {error && <p className="alert alert-error" role="alert">{error}</p>}
+      <div className="row">
+        <button type="submit" className="btn btn-primary" disabled={busy || !approved || !text.trim()}>{busy ? "Saving…" : "Save changes and stay paused"}</button>
+        <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </form>
+  );
+}

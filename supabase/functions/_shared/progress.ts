@@ -86,14 +86,23 @@ export function computeProgress(drip: ProgressInput, now: Date): Progress {
   const written = Math.min(drip.chunks_written, drip.chunks.length);
   const source = drip.source_chunks ?? drip.chunks;
   const sourceWritten = drip.source_unit_ends ? drip.source_unit_ends.filter((end) => end <= written).length : written;
-  const writtenText = source.slice(0, sourceWritten).join("");
-  const remainingText = source.slice(sourceWritten).join("");
+  let writtenText = source.slice(0, sourceWritten).join("");
+  let remainingText = source.slice(sourceWritten).join("");
   const completedSourceBoundary = drip.source_unit_ends?.[sourceWritten - 1] ?? 0;
   const draftTail = drip.chunk_deletions && written > completedSourceBoundary
     ? executionText(drip.chunks, drip.chunk_deletions, completedSourceBoundary, written)
     : "";
   const withinSource = written > completedSourceBoundary && written < drip.total_chunks;
   const temporary = withinSource && draftTail.length > 0 && !(source[sourceWritten] ?? "").startsWith(draftTail);
+  const lastAction = drip.action_kinds?.[written - 1];
+  // Approved text already entered inside a source unit must not be offered for entry again.
+  if (
+    withinSource && draftTail && !temporary && lastAction !== "typo" && lastAction !== "false_start" &&
+    lastAction !== "backspace"
+  ) {
+    writtenText += draftTail;
+    remainingText = remainingText.slice(draftTail.length);
+  }
   const sourceAt = (executionCount: number) =>
     drip.source_unit_ends ? drip.source_unit_ends.filter((end) => end <= executionCount).length : executionCount;
   const charsTotal = writtenText.length + remainingText.length;

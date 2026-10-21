@@ -80,7 +80,7 @@ function localInputValue(date: Date): string {
 
 const UNITS: { value: InsertionUnit; hint: string }[] = [
   { value: "sentence", hint: "One sentence at a time. Recommended." },
-  { value: "word", hint: "One word at a time." },
+  { value: "word", hint: "Random groups of 1–5 words per insertion." },
   { value: "character", hint: "One character at a time." },
   { value: "paragraph", hint: "One paragraph at a time." },
   { value: "chunk", hint: "Equal groups of words, about once a minute." },
@@ -811,7 +811,7 @@ export default function NewSessionPage() {
                   <input type="radio" name="unit" value={u.value} checked={unit === u.value} onChange={() => setUnit(u.value)} />
                   <span>
                     <strong>{UNIT_LABEL[u.value].title}</strong>
-                    <small>{count ? `${count}${tooSlow}` : u.hint}</small>
+                    <small>{count ? `${count}${tooSlow}` : u.hint}{count && u.value === "word" ? " · Random groups of 1–5 words." : ""}</small>
                   </span>
                 </label>
               );

@@ -12,6 +12,7 @@ import { checkAge } from "../lib/age.ts";
 import { executionText } from "../../supabase/functions/_shared/drafting.ts";
 import { planSession } from "../../supabase/functions/_shared/plan.ts";
 import { computeProgress } from "../../supabase/functions/_shared/progress.ts";
+import { replanPaused, type EditableSession } from "../../supabase/functions/_shared/replan.ts";
 import { planResume } from "../../supabase/functions/_shared/session.ts";
 
 const PORT = Number(process.env.MOCK_PORT ?? 54399);
@@ -87,6 +88,7 @@ function log(id: string, kind: string, detail: Record<string, unknown> = {}) {
 }
 
 function view(row: Row, includeText: boolean) {
+  row.updated_at ??= row.created_at;
   const { chunks: _c, source_chunks: _s, chunk_deletions: _d, action_kinds: _a, source_unit_ends: _e, schedule, ...rest } = row;
   const { written_text, remaining_text, next_part, ...progress } = computeProgress(row, new Date());
   return includeText
@@ -366,6 +368,19 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
 
   const now = Date.now();
   switch (parts[1]) {
+    case "settings": {
+      if (profileChanges.plan === "free") return send(res, 403, { error: "Editing paused sessions is a Pro feature." });
+      if (row.status !== "paused") return send(res, 409, { error: "Pause the session before editing." });
+      if (body.updated_at !== row.updated_at) return send(res, 409, { error: "The session changed. Reload it." });
+      if (body.confirmed !== true) return send(res, 400, { error: "Approve the changes." });
+      try {
+        const editable = { ...row, text: (row.source_chunks ?? row.chunks).join("") } as unknown as EditableSession;
+        const patch = replanPaused(editable, { unit: body.insertion_unit as never, seed: 42, pacing: body.pacing as never }, body.remaining_text as string | undefined);
+        Object.assign(row, patch, { updated_at: new Date(now).toISOString(), word_count: patch.source_chunks.join("").match(/\S+/g)?.length ?? 0 });
+        log(row.id, "settings_updated");
+        return send(res, 200, { drip: view(row, false) });
+      } catch (e) { return send(res, 422, { error: e instanceof Error ? e.message : "Cannot save settings." }); }
+    }
     case "pause":
       Object.assign(row, { status: "paused", paused_at: new Date(now).toISOString(), attention: null });
       log(row.id, "paused", { by: "user" });

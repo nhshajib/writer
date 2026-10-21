@@ -71,6 +71,7 @@ export interface Drip {
   mode: "scheduled" | "as_soon_as_possible";
   last_error: string | null;
   created_at: string;
+  updated_at?: string;
   approved_at: string | null;
   session_started_at?: string | null;
   schedule_shift_seconds?: number;
@@ -210,7 +211,7 @@ export const STATUS_LABEL: Record<DripStatus, string> = {
 export const UNIT_LABEL: Record<InsertionUnit, { one: string; many: string; title: string }> = {
   sentence: { one: "sentence", many: "sentences", title: "Sentences" },
   paragraph: { one: "paragraph", many: "paragraphs", title: "Paragraphs" },
-  word: { one: "word", many: "words", title: "Words" },
+  word: { one: "word group", many: "word groups", title: "Word groups" },
   character: { one: "character", many: "characters", title: "Characters" },
   chunk: { one: "part", many: "parts", title: "Even parts" },
 };
