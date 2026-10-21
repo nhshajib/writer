@@ -36,6 +36,7 @@ test.beforeEach(async ({ page, request }) => {
 test("Free sees the Pro writing features marked, and the server refuses formatting", async ({ page, request }) => {
   await request.post("/__test/profile", { data: { plan: "free", subscription_status: null } });
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Note");
   await toStep(page, 2);
   await expect(page.getByRole("radio", { name: /Keep formatting/ })).toBeDisabled();
@@ -52,6 +53,7 @@ test("Free sees the Pro writing features marked, and the server refuses formatti
 
 test("Pro keeps formatting: the preview shows it and the session is created with Markdown", async ({ page, request }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Plan");
   await toStep(page, 2);
   await page.getByRole("radio", { name: /Keep formatting/ }).check();
@@ -66,7 +68,7 @@ test("Pro keeps formatting: the preview shows it and the session is created with
   await expectNoAxeViolations(page);
 
   await toStep(page, 4);
-  await expect(page.getByRole("status").filter({ hasText: "one insertion each" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
   await toStep(page, 5);
   await expect(page.getByText("Headings, bold, italic and bullets kept")).toBeVisible();
   await page.getByLabel(/I've read this exact text/).check();
@@ -79,6 +81,7 @@ test("Pro keeps formatting: the preview shows it and the session is created with
 
 test("Pro imports .md, .txt and .docx files into the text box", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Imports");
   await toStep(page, 2);
   const input = page.getByTestId("import-file");
@@ -109,18 +112,19 @@ test("Pro adds text under a chosen heading of an existing document", async ({ pa
   await request.post(`/functions/v1/drips/${drips[0].id}/cancel`);
 
   await page.goto("/app/new/");
+  await toStep(page, 1);
   await page.getByRole("radio", { name: /Existing document/ }).check();
   await page.locator("#doc").selectOption({ label: "Report" });
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("A new finding for this part.");
   await toStep(page, 3);
   await page.getByRole("radio", { name: /Under a heading/ }).check();
-  await page.locator(".step-bar").getByRole("button", { name: /^Continue/ }).click();
+  await page.locator(".step-bar").getByRole("button", { name: /^Review session/ }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Choose a heading." })).toBeVisible();
   await page.getByLabel("Heading", { exact: true }).selectOption({ label: "Results" });
   await expectNoAxeViolations(page);
   await toStep(page, 4);
-  await expect(page.getByRole("status").filter({ hasText: "one insertion each" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
   await toStep(page, 5);
   await expect(page.getByText('At the end of the "Results" section')).toBeVisible();
   await page.getByLabel(/I've read this exact text/).check();
@@ -133,6 +137,7 @@ test("Pro adds text under a chosen heading of an existing document", async ({ pa
 
 test("Pro breaks can be set in hours, up to 8", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Long one");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("One sentence. Another sentence. A third one.");
@@ -142,6 +147,6 @@ test("Pro breaks can be set in hours, up to 8", async ({ page }) => {
   await page.getByRole("spinbutton", { name: "Longest break" }).fill("3");
   await page.getByRole("spinbutton", { name: "Longest break" }).blur();
   await expect(page.locator(".break-field").filter({ hasText: "Longest break" }).locator(".hint")).toContainText("3 h");
-  await expect(page.getByRole("status").filter({ hasText: "one insertion each" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
   await expect(page.locator(".plan-preview .alert-error")).toHaveCount(0);
 });

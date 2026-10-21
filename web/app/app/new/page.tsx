@@ -14,6 +14,7 @@ import { ACTIVE_STATUSES, type PacePreset, PLAN_LIMITS, useDashboard } from "@/l
 import { PacePresets } from "@/components/app/PacePresets";
 import { MarkdownPreview } from "@/components/app/MarkdownPreview";
 import { IMPORT_ACCEPT, importFile } from "@/lib/importDoc";
+import { rhythmPacing, type SessionRhythm } from "../../../../supabase/functions/_shared/plan.ts";
 import { parseMarkdown, type TextFormat } from "../../../../supabase/functions/_shared/markdown.ts";
 import { pickGoogleDoc } from "@/lib/googlePicker";
 import { supabase } from "@/lib/supabase";
@@ -30,8 +31,8 @@ import {
 
 type Timing = TimingMode | "asap";
 
-/** The form is shown as five steps, one at a time; every check still runs again on Start. */
-const STEP_NAMES = ["Document", "Text", "Insertion", "Timing", "Review"];
+/** Two stages: setup with optional details, then exact-text approval. Server checks still run on Start. */
+const STEP_NAMES = ["Set up", "Review & start"];
 /** The field to focus when a step has a problem. */
 const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 3: ["heading"], 4: ["custom-minutes", "duration", "start-at"] };
 type Target = "new" | "existing";
@@ -126,11 +127,24 @@ export default function NewSessionPage() {
   const [title, setTitle] = useState("");
   const [pastDocKey, setPastDocKey] = useState("");
   const [text, setText] = useState("");
-  const [unit, setUnit] = useState<InsertionUnit>("sentence");
+  const [unit, setUnit] = useState<InsertionUnit>("word");
   const [timing, setTiming] = useState<Timing>("duration");
-  const [preset, setPreset] = useState<string>("60");
+  const [preset, setPreset] = useState<string>("15");
   const [customMinutes, setCustomMinutes] = useState("90");
   const [pace, updatePace] = usePace();
+  const [rhythm, setRhythm] = useState<SessionRhythm>("natural");
+  const [advanced, setAdvanced] = useState(false);
+  const [autoDuration, setAutoDuration] = useState(true);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("typewit.rhythm");
+      if (saved === "natural" || saved === "steady" || plan === "pro" && (saved === "custom" || saved === "drafting")) setRhythm(saved);
+    } catch { /* Keep the recommended rhythm if browser storage is unavailable. */ }
+  }, [plan]);
+  function rememberRhythm(next: SessionRhythm) {
+    setRhythm(next);
+    try { localStorage.setItem("typewit.rhythm", next); } catch { /* Browser storage is optional. */ }
+  }
   // Google Docs chosen with Google Picker in this visit.
   const [picked, setPicked] = useState<PastDoc[]>([]);
   const [picking, setPicking] = useState(false);
@@ -156,14 +170,11 @@ export default function NewSessionPage() {
   const errorRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [step, setStep] = useState(1);
-  // The furthest step reached, so finished steps can be revisited from the progress steps.
-  const [reached, setReached] = useState(1);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [stepError, setStepError] = useState<string | null>(null);
   const [pasteNote, setPasteNote] = useState<string | null>(null);
   const [canPaste, setCanPaste] = useState(false);
   useEffect(() => setCanPaste(typeof navigator.clipboard?.readText === "function"), []);
-  const stepperCurrent = useRef<HTMLLIElement>(null);
   const [leaving, setLeaving] = useState(false);
   const stepHeading = useRef<HTMLParagraphElement>(null);
   // One id per Start press, so a repeated request can't start a second session.
@@ -206,6 +217,8 @@ export default function NewSessionPage() {
       .then(({ data }) => {
         if (!data?.text) return;
         setText(data.text as string);
+        setRhythm(plan === "pro" ? "custom" : (data.pacing as PacingSettings | null)?.drafting?.sentence_pause_seconds ? "natural" : "steady");
+        setAutoDuration(false);
         if (data.text_format === "markdown") setFormat("markdown");
         if (data.insertion_unit) setUnit(data.insertion_unit as InsertionUnit);
         const pacing = data.pacing as PacingSettings | null;
@@ -245,6 +258,8 @@ export default function NewSessionPage() {
   }, [plan, timing, startLater, preset, format, place]);
 
   function applyPreset(p: PacePreset) {
+    rememberRhythm("custom");
+    setAutoDuration(false);
     setTiming(p.timing);
     if (p.timing === "duration" && p.minutes) {
       if (DURATIONS.some((d) => d.minutes === p.minutes)) setPreset(String(p.minutes));
@@ -280,12 +295,31 @@ export default function NewSessionPage() {
   const placeLabel = place === "heading" && heading ? `At the end of the "${heading.text}" section` : "At the end of the document";
 
   // Free sessions use the standard pace (the server does the same); custom timing is Pro.
-  const effectivePace = isPro ? pace : DEFAULT_PACE;
-  const simulatedDrafting = timing !== "asap" && isPro && (pace.typoRate > 0 || pace.falseStartRate > 0);
-  useEffect(() => setApproved(false), [pace.typoRate, pace.falseStartRate, simulatedDrafting]);
+  const effectivePace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE)
+    : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
+  const sessionTitle = title.trim() || plainText.trim().split(/\n|(?<=[.!?])\s/)[0]?.slice(0, 80) || "Untitled session";
+  useEffect(() => {
+    if (!autoDuration || timing !== "duration") return;
+    const desired = Math.max(5, Math.ceil(words / 25));
+    const allowed = DURATIONS.filter((d) => d.minutes <= limits.minutes);
+    setPreset(String((allowed.find((d) => d.minutes >= desired) ?? allowed[allowed.length - 1]).minutes));
+  }, [words, autoDuration, timing, limits.minutes]);
+  function chooseRhythm(next: SessionRhythm) {
+    if (next === "drafting" && !isPro) return;
+    rememberRhythm(next);
+    setApproved(false);
+    if (next !== "custom") { setTiming("duration"); setUnit("word"); }
+  }
+  function customize(change: Partial<typeof pace>) {
+    updatePace({ ...effectivePace, ...change });
+    rememberRhythm("custom");
+    setApproved(false);
+  }
+  const simulatedDrafting = timing !== "asap" && isPro && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0);
+  useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const pacingKey = JSON.stringify(pacing);
-  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, seed ?? null]);
+  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, rhythm, seed ?? null]);
   const current = preview !== null && previewKey === inputKey;
   const ready = text.trim() !== "" && (timing !== "duration" || minutesValid);
 
@@ -302,6 +336,7 @@ export default function NewSessionPage() {
           method: "POST",
           body: {
             text,
+            rhythm,
             text_format: format,
             insertion_unit: unit,
             mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
@@ -315,7 +350,7 @@ export default function NewSessionPage() {
         // Keep this timing while the user keeps editing, until they ask for another.
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
-        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, kept]));
+        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, rhythm, kept]));
       } catch (e) {
         if (!stale) setPreviewError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -324,7 +359,7 @@ export default function NewSessionPage() {
       stale = true;
       clearTimeout(handle);
     };
-  }, [text, format, unit, timing, pacingKey, ready, seed]);
+  }, [text, format, unit, timing, pacingKey, rhythm, ready, seed]);
 
   // The chosen document's headings, for "Under a heading" (Pro, Google Docs).
   const headingDoc = place === "heading" && target === "existing" && chosenDoc ? chosenDoc : null;
@@ -442,7 +477,7 @@ export default function NewSessionPage() {
   function stepProblem(n: number): string | null {
     if (n === 1) {
       if (!connectionId) return "Connect your Google account first.";
-      if (target === "new" && !title.trim()) return "Give the new document a title.";
+
       if (target === "existing" && !chosenDoc) return "Choose a document.";
       if (target === "existing" && chosenDoc?.busy) return "That document already has an unfinished session.";
     }
@@ -451,7 +486,7 @@ export default function NewSessionPage() {
       if (overWords) return `Your plan allows ${limits.words} words a day. Shorten the text or upgrade to Pro.`;
     }
     if (n === 3 && place === "heading") {
-      if (target !== "existing") return "Choose an existing document in step 1 to add text under one of its headings.";
+      if (target !== "existing") return "Choose an existing document in Destination to add text under one of its headings.";
       if (!headingId) return "Choose a heading.";
     }
     if (n === 4) {
@@ -465,26 +500,12 @@ export default function NewSessionPage() {
   }
 
   function goToStep(next: number) {
+    next = next === 5 ? 5 : 1;
     setDirection(next < step ? "back" : "forward");
     setStep(next);
-    setReached((r) => Math.max(r, next));
     setStepError(null);
     window.scrollTo(0, 0);
-    requestAnimationFrame(() => (isMobile ? stepHeading.current : stepperCurrent.current)?.focus());
-  }
-
-  /** From the progress steps: back freely, forward only through steps that pass their checks. */
-  function jumpTo(target: number) {
-    if (target <= step) return goToStep(target);
-    for (let n = step; n < target; n++) {
-      const problem = stepProblem(n);
-      if (problem) {
-        if (n !== step) goToStep(n);
-        setStepError(problem);
-        return;
-      }
-    }
-    goToStep(target);
+    requestAnimationFrame(() => document.getElementById("new-title")?.focus());
   }
 
   async function pasteText() {
@@ -505,24 +526,29 @@ export default function NewSessionPage() {
   }
 
   function continueStep() {
-    const problem = stepProblem(step);
+    const invalid = [1, 2, 3, 4].find((n) => stepProblem(n));
+    const problem = invalid ? stepProblem(invalid) : null;
     if (problem) {
       setStepError(problem);
-      const field = (STEP_FIELDS[step] ?? []).map((id) => document.getElementById(id)).find((el) => el && el.offsetParent !== null);
+      if (invalid === 1) { const destination = document.querySelector<HTMLDetailsElement>(".destination-options"); if (destination) destination.open = true; }
+      if (invalid === 3 || invalid === 4) setAdvanced(true);
+      const field = (STEP_FIELDS[invalid ?? 2] ?? []).map((id) => document.getElementById(id)).find((el) => el && el.offsetParent !== null);
       field?.focus();
       return;
     }
-    goToStep(step + 1);
+    if (!current) { setStepError("Checking your schedule. Please try again in a moment."); return; }
+    goToStep(5);
   }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (step !== 5) { continueStep(); return; }
     if (starting.current) return;
     setError(null);
     setProblems([]);
 
     if (!connectionId) return fail("Connect your Google account first.");
-    if (target === "new" && !title.trim()) return fail("Give the new document a title.");
+
     if (target === "existing" && !chosenDoc) return fail("Choose a document.");
     if (chosenDoc?.busy && target === "existing") return fail("That document already has an unfinished session.");
     if (words === 0) return fail("Add the text you want entered.");
@@ -544,8 +570,9 @@ export default function NewSessionPage() {
         method: "POST",
         body: {
           connection_id: connectionId,
-          ...(target === "new" ? { new_document_title: title.trim() } : { document_id: chosenDoc!.documentId }),
+          ...(target === "new" ? { new_document_title: sessionTitle } : { document_id: chosenDoc!.documentId }),
           text,
+          rhythm,
           text_format: format,
           ...(place === "heading" && heading
             ? { insert_target: { heading_id: heading.id, heading_text: heading.text, level: heading.level } }
@@ -596,39 +623,89 @@ export default function NewSessionPage() {
   const plannedDuration = current && preview.ok
     ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
     : timing === "asap" ? "All at once" : "—";
-  const docLabel = target === "new" ? (title.trim() ? `New Google Doc "${title.trim()}"` : "New Google Doc (add a title)") : chosenDoc?.title ?? "Choose a document";
+  const docLabel = target === "new" ? `New Google Doc "${sessionTitle}"` : chosenDoc?.title ?? "Choose a document";
 
   return (
     <>
       <nav className="crumbs" aria-label="Breadcrumb"><Link href="/app/sessions">Sessions</Link><span aria-hidden="true">/</span><span aria-current="page">New session</span></nav>
       <div className="page-head">
         <div>
-          <h1 id="new-title">New session</h1>
+          <h1 id="new-title" tabIndex={-1}>New session</h1>
           {isMobile
-            ? <p className="step-indicator" ref={stepHeading} tabIndex={-1} aria-live="polite">Step {step} of 5 · {STEP_NAMES[step - 1]}</p>
-            : <p className="new-sub">Your words. Your document. Your pace.</p>}
+            ? <p className="step-indicator" ref={stepHeading} tabIndex={-1} aria-live="polite">Step {step === 5 ? 2 : 1} of 2 · {STEP_NAMES[step === 5 ? 1 : 0]}</p>
+            : <p className="new-sub">Paste your text, choose a rhythm, then review and start.</p>}
         </div>
       </div>
-      {!isMobile && (
-        <ol className="stepper" aria-label="Steps">
-          {STEP_NAMES.map((name, i) => {
-            const n = i + 1;
-            const state = n === step ? "current" : n < step || n <= reached ? "done" : "todo";
-            const label = <><span className="stepper-dot" aria-hidden="true">{n < step ? <Icon.check /> : n}</span><span className="stepper-name">{n}. {name}</span></>;
-            return (
-              <li key={name} data-state={state} aria-current={n === step ? "step" : undefined} ref={n === step ? stepperCurrent : undefined} tabIndex={n === step ? -1 : undefined}>
-                {n !== step && n <= reached
-                  ? <button type="button" onClick={() => jumpTo(n)}>{label}<span className="sr-only">{n < step ? ", done" : ""}</span></button>
-                  : <span className="stepper-item">{label}{n === step && <span className="sr-only">, current step</span>}</span>}
-              </li>
-            );
-          })}
-        </ol>
-      )}
+      {!isMobile && <ol className="session-stages" aria-label="Steps">
+        <li aria-current={step !== 5 ? "step" : undefined}><button type="button" onClick={() => goToStep(1)}>1. Set up</button></li>
+        <li aria-current={step === 5 ? "step" : undefined}>2. Review &amp; start</li>
+      </ol>}
       {fromNote && <p className="alert alert-info mb-4" role="status">{fromNote}</p>}
 
-      <form className="new-grid" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-step={step} data-direction={direction}>
+      <form className="new-grid quick-session" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-step={step} data-direction={direction}>
         <div className="card card-flush new-main">
+        <div className="form-section" data-step-section="2">
+          <h2><span className="step-n" aria-hidden="true">2</span>Add your text</h2>
+          <p className="muted">Paste or dictate your text. TypeWit enters it exactly as written, in order, including line breaks.</p>
+          <div className="field">
+            {draft && !text && (
+              <p className="alert alert-info" style={{ marginBottom: "0.75rem" }}>
+                <span>You have unsent text from before ({countWords(draft).toLocaleString()} words), saved in this browser.</span>{" "}
+                <button type="button" className="link-btn" onClick={() => { changeText(draft); setDraft(""); }}>Restore it</button>{" "}
+                <button type="button" className="link-btn" onClick={() => { writeDraft(""); setDraft(""); }}>Discard</button>
+              </p>
+            )}
+            <div className="text-head">
+              <label className="label" htmlFor="text">Text to enter</label>
+              <div className="text-actions">
+                {canPaste && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={pasteText}><Icon.clipboard />Paste text</button>
+                )}
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
+                  disabled={!isPro || importing} aria-describedby={isPro ? undefined : "import-pro"}>
+                  <Icon.doc />{importing ? "Importing…" : "Import file"}{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}
+                </button>
+                <input ref={fileInput} type="file" accept={IMPORT_ACCEPT} hidden data-testid="import-file"
+                  onChange={(e) => onImport(e.target.files?.[0])} />
+              </div>
+            </div>
+            {!isPro && <span id="import-pro" className="sr-only">Importing .docx, .md and .txt files is part of Pro.</span>}
+            {pasteNote && <p className="hint" role="status">{pasteNote}</p>}
+            {importNote && <p className="hint" role="status">{importNote}</p>}
+            <details className="more"><summary>Formatting options</summary>
+            <div className="choices choices-inline format-choice" role="radiogroup" aria-label="Text format">
+              <label className="choice">
+                <input type="radio" name="format" value="plain" checked={format === "plain"} onChange={() => changeFormat("plain")} />
+                <span><strong>Plain text</strong><small>Entered exactly as typed.</small></span>
+              </label>
+              <label className="choice">
+                <input type="radio" name="format" value="markdown" checked={format === "markdown"} onChange={() => changeFormat("markdown")}
+                  disabled={!isPro} />
+                <span>
+                  <strong>Keep formatting{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong>
+                  <small># Heading, **bold**, *italic* and - bullets become real formatting.</small>
+                </span>
+              </label>
+            </div>
+            </details>
+            <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span id="text-count" className={overWords ? "error-text" : "hint"}>
+                {words.toLocaleString()} {words === 1 ? "word" : "words"} · {plainText.length.toLocaleString()} characters
+                {plan === "free" && ` · ${limits.words} words a day on Free`}
+              </span>
+              {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
+            </div>
+            {parsed && text.trim() && (
+              <div className="format-preview">
+                <p className="label">How it will look</p>
+                <MarkdownPreview parsed={parsed} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <details className="destination-options" open={target === "existing" ? true : undefined}><summary>Destination: {docLabel}</summary>
         <fieldset className="form-section" data-step-section="1">
           <legend className="sr-only">Document</legend>
           <h2 aria-hidden="true"><span className="step-n">1</span>Choose a document</h2>
@@ -659,8 +736,8 @@ export default function NewSessionPage() {
             {target === "new"
               ? (
                 <>
-                  <label className="label" htmlFor="title">Title</label>
-                  <input id="title" type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="History essay" />
+                  <label className="label" htmlFor="title">Title (optional)</label>
+                  <input id="title" type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Uses the opening sentence of your text" />
                 </>
               )
               : (
@@ -685,6 +762,7 @@ export default function NewSessionPage() {
                 </>
               )}
           </div>
+          <details className="more"><summary>Check the connection (optional)</summary>
           <div className="row" style={{ marginTop: "0.75rem" }}>
             <button type="button" className="btn btn-secondary btn-sm" onClick={testConnection} disabled={checking || !connectionId || (target === "existing" && !chosenDoc)}>
               {checking ? "Testing…" : "Test connection"}
@@ -692,68 +770,40 @@ export default function NewSessionPage() {
             <span className="hint">Checks access without changing the document.</span>
           </div>
           <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
+          </details>
         </fieldset>
 
-        <div className="form-section" data-step-section="2">
-          <h2><span className="step-n" aria-hidden="true">2</span>Add your text</h2>
-          <p className="muted">Paste or dictate your text. TypeWit enters it exactly as written, in order, including line breaks.</p>
-          <div className="field">
-            {draft && !text && (
-              <p className="alert alert-info" style={{ marginBottom: "0.75rem" }}>
-                <span>You have unsent text from before ({countWords(draft).toLocaleString()} words), saved in this browser.</span>{" "}
-                <button type="button" className="link-btn" onClick={() => { changeText(draft); setDraft(""); }}>Restore it</button>{" "}
-                <button type="button" className="link-btn" onClick={() => { writeDraft(""); setDraft(""); }}>Discard</button>
-              </p>
-            )}
-            <div className="text-head">
-              <label className="label" htmlFor="text">Text to enter</label>
-              <div className="text-actions">
-                {canPaste && (
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={pasteText}><Icon.clipboard />Paste text</button>
-                )}
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
-                  disabled={!isPro || importing} aria-describedby={isPro ? undefined : "import-pro"}>
-                  <Icon.doc />{importing ? "Importing…" : "Import file"}{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}
-                </button>
-                <input ref={fileInput} type="file" accept={IMPORT_ACCEPT} hidden data-testid="import-file"
-                  onChange={(e) => onImport(e.target.files?.[0])} />
-              </div>
-            </div>
-            {!isPro && <span id="import-pro" className="sr-only">Importing .docx, .md and .txt files is part of Pro.</span>}
-            {pasteNote && <p className="hint" role="status">{pasteNote}</p>}
-            {importNote && <p className="hint" role="status">{importNote}</p>}
-            <div className="choices choices-inline format-choice" role="radiogroup" aria-label="Text format">
-              <label className="choice">
-                <input type="radio" name="format" value="plain" checked={format === "plain"} onChange={() => changeFormat("plain")} />
-                <span><strong>Plain text</strong><small>Entered exactly as typed.</small></span>
-              </label>
-              <label className="choice">
-                <input type="radio" name="format" value="markdown" checked={format === "markdown"} onChange={() => changeFormat("markdown")}
-                  disabled={!isPro} />
-                <span>
-                  <strong>Keep formatting{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong>
-                  <small># Heading, **bold**, *italic* and - bullets become real formatting.</small>
-                </span>
-              </label>
-            </div>
-            <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span id="text-count" className={overWords ? "error-text" : "hint"}>
-                {words.toLocaleString()} {words === 1 ? "word" : "words"} · {plainText.length.toLocaleString()} characters
-                {plan === "free" && ` · ${limits.words} words a day on Free`}
-              </span>
-              {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
-            </div>
-            <p className="dictation-hint"><Icon.mic />Use your device&apos;s dictation to add text by voice.</p>
-            {parsed && text.trim() && (
-              <div className="format-preview">
-                <p className="label">How it will look</p>
-                <MarkdownPreview parsed={parsed} />
-              </div>
-            )}
+        </details>
+        <section className="form-section rhythm-setup" data-step-section="2" aria-labelledby="rhythm-title">
+          <h2 id="rhythm-title">Choose a rhythm</h2>
+          <p className="muted">Start with Natural. You can adjust the details if you need to.</p>
+          <div className="rhythm-cards" role="group" aria-label="Writing rhythm">
+            {([
+              ["natural", "Natural", "Recommended", "Small word groups, varied timing and short sentence pauses."],
+              ["steady", "Steady", "Free", "Small word groups with fewer pauses for a simpler pace."],
+              ["drafting", "Drafting", "Pro", "Adds occasional temporary typos and false starts, then corrects them."],
+            ] as const).map(([key, name, badge, description]) => <button key={key} type="button" className="rhythm-card" aria-pressed={rhythm === key} disabled={key === "drafting" && !isPro} onClick={() => chooseRhythm(key)}>
+              <strong>{name}<span className="badge badge-blue">{badge}</span></strong><span>{description}</span>
+            </button>)}
           </div>
-        </div>
-
+          {rhythm !== "custom" && <p className="hint mobile-only" aria-live="polite">{rhythm === "natural" ? "Small word groups, varied timing and short sentence pauses." : rhythm === "steady" ? "Small word groups with fewer pauses for a simpler pace." : "Occasional temporary typos and false starts are entered, then corrected."}</p>}
+          {rhythm === "custom" && <p className="hint">Custom rhythm selected. Choose Natural to return to the recommended settings.</p>}
+          {timing === "duration" && <div className="field" style={{ marginTop: "1rem", maxWidth: 320 }}>
+            <label className="label" htmlFor="quick-duration">Finish within</label>
+            <select id="quick-duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }}>
+              {DURATIONS.map((d) => <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>{d.label}{d.minutes > limits.minutes ? " (Pro)" : ""}</option>)}
+              {preset === "custom" && <option value="custom">Custom time</option>}
+            </select>
+            <p className="hint">{autoDuration ? "Suggested for your text. " : ""}Includes pauses and breaks. You can close this page after starting.</p>
+          </div>}
+          {!isPro && <p className="upgrade-inline">Natural and Steady are included on Free. <Link href="/app/billing/">Get corrected mistakes, custom rhythms and longer sessions with Pro.</Link></p>}
+          {current && !preview.ok && !advanced && <p className="alert alert-error" role="alert">{preview.problems.map((p) => p.message).join(" ")}</p>}
+          {previewError && !advanced && <p className="alert alert-error" role="alert">{previewError}</p>}
+          <details className="more"><summary>Preview the timing</summary>
+            <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing} onReshuffle={() => setSeed(undefined)} />
+          </details>
+        </section>
+        <details className="session-advanced" open={advanced} onToggle={(e) => setAdvanced(e.currentTarget.open)}><summary>Advanced settings <span className="hint"> · optional</span></summary>
         <fieldset className="form-section" data-step-section="3">
           <legend className="sr-only">Insertion mode</legend>
           <h2 aria-hidden="true"><span className="step-n">3</span>Choose how it&apos;s entered</h2>
@@ -775,7 +825,7 @@ export default function NewSessionPage() {
           {place === "heading" && (
             <div className="field" style={{ marginTop: "0.75rem", maxWidth: 520 }}>
               {target !== "existing" || !chosenDoc
-                ? <p className="alert alert-info small">Choose an existing document in step 1 to see its headings.</p>
+                ? <p className="alert alert-info small">Choose an existing document in Destination to see its headings.</p>
                 : headingsError
                 ? <p className="alert alert-error small" role="alert">{headingsError}</p>
                 : headings === null
@@ -829,11 +879,11 @@ export default function NewSessionPage() {
               <span><strong>Target duration</strong><small>Fit everything, breaks included, into a set time.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => setTiming("speed")} disabled={!isPro} />
+              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => { updatePace(effectivePace); rememberRhythm("custom"); setTiming("speed"); }} disabled={!isPro} />
               <span><strong>Typing speed{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong><small>Set words per minute; see how long it takes.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => setTiming("asap")} />
+              <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => { setTiming("asap"); setRhythm("custom"); }} />
               <span><strong>All at once</strong><small>One insertion, no pacing.</small></span>
             </label>
           </div>
@@ -842,7 +892,7 @@ export default function NewSessionPage() {
             <div className="row" style={{ marginTop: "1rem", alignItems: "flex-end", gap: "1rem" }}>
               <div className="field" style={{ maxWidth: 260, marginBottom: 0 }}>
                 <label className="label" htmlFor="duration">Total duration</label>
-                <select id="duration" value={preset} onChange={(e) => setPreset(e.target.value)} aria-describedby="duration-hint">
+                <select id="duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }} aria-describedby="duration-hint">
                   {DURATIONS.map((d) => (
                     <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>
                       {d.label}{d.minutes > limits.minutes ? " (Pro)" : ""}
@@ -866,14 +916,13 @@ export default function NewSessionPage() {
           )}
 
           {timing !== "asap" && isPro && (
-            <PacePresets timing={timing === "speed" ? "speed" : "duration"} minutes={minutes} pace={pace} onApply={applyPreset} />
+            <PacePresets timing={timing === "speed" ? "speed" : "duration"} minutes={minutes} pace={effectivePace} onApply={applyPreset} />
           )}
-          {timing !== "asap" && isPro && <PaceControls timing={timing} pace={pace} onChange={updatePace} collapsed={isMobile} />}
+          {timing !== "asap" && isPro && <PaceControls timing={timing} pace={effectivePace} onChange={customize} collapsed={isMobile} />}
           {timing !== "asap" && !isPro && (
             <div className="pro-note">
               <p>
-                <strong>Standard pacing.</strong> A little natural variation between parts, and short breaks about every 8
-                minutes. <Link href="/app/billing/">Pro</Link> adds 20–150 WPM cadence, simulated typos and false starts, sentence pauses, custom timing and saved presets.
+                <strong>Your free rhythm is ready.</strong> Natural includes short sentence pauses; Steady uses fewer pauses. Both include varied word groups and breaks. <Link href="/app/billing/">Pro</Link> adds custom speed, adjustable pauses, simulated corrections and saved presets.
               </p>
             </div>
           )}
@@ -905,6 +954,7 @@ export default function NewSessionPage() {
 
         </fieldset>
 
+        </details>
         <div className="form-section" data-step-section="5">
           <h2><span className="step-n" aria-hidden="true">5</span>Review and approve</h2>
           <p className="muted">TypeWit enters exactly this text. Editing it clears your approval.</p>
@@ -915,13 +965,14 @@ export default function NewSessionPage() {
           <h3 className="review-sub">Before you start</h3>
           <dl className="summary-list" aria-label="Before you start">
             <dt>Document</dt><dd>{docLabel}</dd>
-            <dt>Insertion location</dt><dd>{placeLabel}</dd>
-            <dt>Formatting</dt><dd>{format === "markdown" ? "Headings, bold, italic and bullets kept" : "Plain text"}</dd>
-            <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
+            {place === "heading" && <><dt>Insertion location</dt><dd>{placeLabel}</dd></>}
+            <dt>Rhythm</dt><dd>{timing === "asap" ? "All at once" : rhythm === "custom" ? "Custom" : rhythm === "drafting" ? "Drafting with simulated corrections" : rhythm === "natural" ? "Natural" : "Steady"}</dd>
+            {format === "markdown" && <><dt>Formatting</dt><dd>Headings, bold, italic and bullets kept</dd></>}
+            {startLater && <><dt>Starts</dt><dd>{when(new Date(startAt).getTime())}</dd></>}
             <dt>Text length</dt><dd>{words.toLocaleString()} words, {plainText.length.toLocaleString()} characters</dd>
-            <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
-            <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
-            {simulatedDrafting && <><dt>Automated simulated edits</dt><dd>Neighbor-key typos {pace.typoRate}%, false starts {pace.falseStartRate}% per eligible English word; temporary text is deleted and corrected.</dd></>}
+            {unit !== "word" && <><dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}</dd></>}
+
+            {simulatedDrafting && <><dt>Automated simulated edits</dt><dd>Neighbor-key typos {effectivePace.typoRate}%, false starts {effectivePace.falseStartRate}% per eligible English word; temporary text is deleted and corrected.</dd></>}
             <dt>Planned duration</dt>
             <dd>{plannedDuration}</dd>
           </dl>
@@ -944,45 +995,20 @@ export default function NewSessionPage() {
         </div>
         </div>
 
-        <aside className="new-rail" aria-labelledby="summary-title">
-          <div className="card rail-card">
-            <h2 id="summary-title" className="card-title">Session summary</h2>
-            <ul className="summary-rows">
-              <li><span className="sr-icon" aria-hidden="true"><Icon.doc /></span><span className="sr-label">Document</span>
-                <span className="sr-value">{target === "new" ? title.trim() || <span className="muted">Add a title</span> : chosenDoc?.title ?? <span className="muted">Choose a document</span>}</span></li>
-              <li><span className="sr-icon gdoc" aria-hidden="true"><Icon.doc /></span><span className="sr-label">Provider</span><span className="sr-value">Google Docs</span></li>
-              <li><span className="sr-icon" aria-hidden="true"><Icon.list /></span><span className="sr-label">Insert at</span><span className="sr-value">{place === "heading" && heading ? `Under "${heading.text}"` : "End of document"}</span></li>
-              <li><span className="sr-icon" aria-hidden="true"><Icon.text /></span><span className="sr-label">Text</span>
-                <span className="sr-value">
-                  {words > 0 && !overWords
-                    ? <span className="pill good"><Icon.check />{reached > 2 ? `${words.toLocaleString()} words` : "Ready to review"}</span>
-                    : <span className="muted">{overWords ? "Over today's limit" : "Add your text"}</span>}
-                </span></li>
-              <li><span className="sr-icon" aria-hidden="true"><Icon.clock /></span><span className="sr-label">Timing</span>
-                <span className="sr-value">{reached >= 4 ? plannedDuration : <span className="muted">Set in next steps</span>}</span></li>
-              <li><span className="sr-icon" aria-hidden="true"><Icon.eye /></span><span className="sr-label">Review</span>
-                <span className="sr-value">{approved ? <span className="pill good"><Icon.check />Approved</span> : <span className="muted">{reached >= 5 ? "Not approved yet" : "Set in next steps"}</span>}</span></li>
-            </ul>
-            <div className="control-note">
-              <span aria-hidden="true"><Icon.info /></span>
-              <p><strong>You stay in control</strong>You review and approve the exact text before anything is entered, and you can pause or stop at any time.</p>
-            </div>
-          </div>
-        </aside>
         <div className="step-bar">
           {stepError && <p className="alert alert-error" role="alert">{stepError}</p>}
           <div className="step-bar-row">
             {!isMobile && <button type="button" className="btn btn-ghost btn-lg step-cancel" onClick={cancel}>Cancel</button>}
             {(step > 1 || isMobile) && (
-              <button type="button" className="btn btn-secondary btn-lg" onClick={() => (step > 1 ? goToStep(step - 1) : setLeaving(true))}>
+              <button type="button" className="btn btn-secondary btn-lg" onClick={() => (step > 1 ? goToStep(1) : setLeaving(true))}>
                 {step > 1 ? "Back" : "Exit"}
               </button>
             )}
             {step < 5
               // Different keys: the press on Continue must not land on a submit button swapped into its place.
               ? (
-                <button key="continue" type="button" className="btn btn-primary btn-lg" onClick={continueStep}>
-                  {isMobile ? "Continue" : <>Continue to {STEP_NAMES[step].toLowerCase()}<Icon.chevronRight /></>}
+                <button key="continue" type="button" className="btn btn-primary btn-lg" onClick={continueStep} disabled={words > 0 && !current && !previewError}>
+                  Review session<Icon.chevronRight />
                 </button>
               )
               : <button key="start" type="submit" className="btn btn-primary btn-lg" disabled={busy} aria-disabled={busy}>{busy ? "Starting…" : "Start session"}</button>}
@@ -1031,10 +1057,11 @@ function PlanSummary({ plan, error, hasText, timing, onReshuffle }: {
   const n = plan.source_unit_count ?? plan.unit_count;
   const edits = plan.unit_count;
   const simulated = edits !== n;
+  const corrections = (plan.drafting_stats?.typos ?? 0) + (plan.drafting_stats?.false_starts ?? 0) > 0;
   const label = UNIT_LABEL[plan.unit][n === 1 ? "one" : "many"];
   const total = span(plan.duration_seconds * 1000);
   const breaks = plan.breaks.length;
-  const summary = `${n.toLocaleString()} ${label}, ${simulated ? `${edits.toLocaleString()} automated edits including simulated corrections` : "one insertion each"}, ${timing === "speed" ? "estimated to take" : "over"} ${total}` +
+  const summary = `${n.toLocaleString()} ${label}, ${simulated ? `${edits.toLocaleString()} automated edits ${corrections ? "including simulated corrections" : "to allow sentence pauses"}` : "one insertion each"}, ${timing === "speed" ? "estimated to take" : "over"} ${total}` +
     (breaks ? ` with ${breaks} break${breaks === 1 ? "" : "s"} (${span(plan.break_seconds * 1000)} in all)` : "") +
     `. The first after about ${span(stats.first_offset_ms)}; the last at the ${total} mark.`;
 

@@ -195,6 +195,7 @@ test("any Google Doc can be chosen with Google Picker and is used for the sessio
   });
 
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByRole("radio", { name: /Existing document/ }).check();
   await page.getByRole("button", { name: "Choose from Google Drive…" }).click();
   await expect(page.locator("#doc")).toHaveValue("c1:picked-doc-123");
@@ -209,4 +210,21 @@ test("any Google Doc can be chosen with Google Picker and is used for the sessio
   const { requests } = await (await request.get("/__test/requests")).json();
   const create = requests.find((r: { method: string; path: string }) => r.method === "POST" && r.path === "/functions/v1/drips");
   expect(create.body.document_id).toBe("picked-doc-123");
+});
+
+test("Free Word offers the same Natural and Steady rhythms", async ({ page, request }) => {
+  await request.post("/__test/profile", { data: { plan: "free" } });
+  await useFakeWord(page, { host: "Word", url: DOC_URL });
+  await page.goto("/word/");
+  await expect(page.getByLabel("Writing rhythm")).toHaveValue("natural");
+  const response = page.waitForResponse((r) => r.url().endsWith("/drips/plan") && r.request().method() === "POST");
+  await page.getByLabel("Text to enter").fill("One sentence for this document. Another sentence follows.");
+  const natural = await (await response).json();
+  expect(natural.plan.ok).toBe(true);
+  expect(natural.plan.pacing.drafting.sentence_pause_seconds).toBe(2);
+  const steadyResponse = page.waitForResponse((r) => r.url().endsWith("/drips/plan") && r.request().method() === "POST");
+  await page.getByLabel("Writing rhythm").selectOption("steady");
+  const steady = await (await steadyResponse).json();
+  expect(steady.plan.ok).toBe(true);
+  expect(steady.plan.pacing.drafting.sentence_pause_seconds).toBe(0);
 });

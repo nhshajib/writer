@@ -54,64 +54,32 @@ async function startSession(page: Page, opts: { minutes?: string } = {}) {
   return new URL(page.url()).searchParams.get("id")!;
 }
 
-test("a session can be set up and started with the keyboard alone", async ({ page, request }) => {
+test("a session starts with the keyboard using the recommended rhythm and an automatic title", async ({ page, request }) => {
   await page.goto("/app/new/");
-  const next = page.locator(".step-bar").getByRole("button", { name: /^Continue/ });
-  const title = page.getByLabel("Title");
-  await tabTo(page, title);
-  await page.keyboard.type("Flood essay");
-  await tabTo(page, next);
-  await page.keyboard.press("Enter");
-
-  // Each step moves focus to the progress steps, then on into the new step.
-  await expect(page.getByRole("list", { name: "Steps" }).locator('[aria-current="step"]')).toBeFocused();
   await tabTo(page, page.getByLabel("Text to enter"));
   await page.keyboard.insertText(ESSAY);
-  await tabTo(page, next);
+  const review = page.getByRole("button", { name: "Review session", exact: true });
+  await expect(review).toBeEnabled();
+  await tabTo(page, review);
   await page.keyboard.press("Enter");
-
-  // Sentences is the default; arrow keys move within the step-size group.
-  const sentences = page.getByRole("radio", { name: /^Sentences/ });
-  await expect(sentences).toBeChecked();
-  await tabTo(page, sentences);
-  await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("radio", { name: /^Word groups/ })).toBeChecked();
-  await page.keyboard.press("ArrowUp");
-  await expect(sentences).toBeChecked();
-  await tabTo(page, next);
-  await page.keyboard.press("Enter");
-
-  // The checked plan is announced politely in one sentence, not per keystroke.
-  const summary = page.getByRole("status").filter({ hasText: "one insertion each" });
-  await expect(summary).toContainText("10 sentences, one insertion each");
-  await expect(summary).toContainText("1 hour mark");
-  await expect(page.getByRole("img", { name: /Planned schedule/ })).toBeVisible();
-  await tabTo(page, next);
-  await page.keyboard.press("Enter");
-
+  await expect(page.locator("form[data-step]")).toHaveAttribute("data-step", "5");
   const approve = page.getByLabel(/I've read this exact text/);
   await tabTo(page, approve);
   await page.keyboard.press("Space");
-  await expect(approve).toBeChecked();
-
   await tabTo(page, page.getByRole("button", { name: "Start session" }));
   await page.keyboard.press("Enter");
   await page.waitForURL(/\/app\/session\/?\?id=/);
-
-  // The session follows the schedule that was previewed.
   const { requests } = await (await request.get("/__test/requests")).json();
-  const plans = requests.filter((r: { path: string }) => r.path.endsWith("/drips/plan"));
-  const create = requests.find((r: { method: string; path: string }) => r.method === "POST" && r.path.endsWith("/drips"));
-  expect(create.body.insertion_unit).toBe("sentence");
-  expect(create.body.pacing.timing).toBe("duration");
-  expect(create.body.pacing.duration_seconds).toBe(3600);
-  expect(create.body.request_id).toMatch(/^[0-9a-f-]{36}$/);
-  expect(create.body.schedule_seed).toBe(plans.at(-1).body.schedule_seed);
+  const create = requests.find((r: { method: string; path: string }) => r.method === "POST" && /\/drips$/.test(r.path));
+  expect(create.body.rhythm).toBe("natural");
+  expect(create.body.insertion_unit).toBe("word");
+  expect(create.body.new_document_title).toBe(ESSAY.split(/(?<=[.!?])\s/)[0]);
   expect(create.body.text).toBe(ESSAY);
 });
 
 test("a duration that is too short is explained before starting", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Flood essay");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(ESSAY);
@@ -119,8 +87,8 @@ test("a duration that is too short is explained before starting", async ({ page 
   await page.getByRole("radio", { name: /^Characters/ }).check();
   await toStep(page, 4);
   await page.getByLabel("Total duration").selectOption("5");
-  await expect(page.getByText(/characters need at least/)).toBeVisible();
-  await expect(page.getByText(/60 edits a minute/)).toBeVisible();
+  await expect(page.getByText(/characters need at least/).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText(/60 edits a minute/).filter({ visible: true })).toBeVisible();
   // Each step size shows whether it fits.
   await toStep(page, 3);
   await expect(page.getByRole("radio", { name: /^Characters.*needs at least 1[0-9] minutes/ })).toBeVisible();
@@ -128,24 +96,25 @@ test("a duration that is too short is explained before starting", async ({ page 
 
   // Continuing from the timing step is refused with the reason, and focus goes to the setting to change.
   await toStep(page, 4);
-  await page.locator(".step-bar").getByRole("button", { name: /^Continue/ }).click();
+  await page.locator(".step-bar").getByRole("button", { name: /^Review session/ }).click();
   await expect(page.locator(".step-bar .alert-error")).toContainText("need at least");
   await expect(page.getByLabel("Total duration")).toBeFocused();
-  await expect(page.locator("form[data-step]")).toHaveAttribute("data-step", "4");
+  await expect(page.locator("form[data-step]")).toHaveAttribute("data-step", "1");
 });
 
 test("the new-session page passes axe in light and dark mode", async ({ page }) => {
   await page.goto("/app/new/");
   await expectNoAxeViolations(page);
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Flood essay");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(ESSAY);
   await expectNoAxeViolations(page);
   await toStep(page, 4);
-  await expect(page.getByText(/one insertion each/)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
   await expectNoAxeViolations(page);
   await toStep(page, 5);
-  await page.getByText(/See the 10 sentences/).click();
+  await page.getByText(/See the .* in order/).click();
   await expectNoAxeViolations(page);
   await page.emulateMedia({ colorScheme: "dark" });
   await expectNoAxeViolations(page);
@@ -307,6 +276,7 @@ test("the session page passes axe in light and dark mode, with reduced motion re
 
 test("pace settings: every slider has a labelled number box, and the estimate follows them", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Flood essay");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(ESSAY);
@@ -361,27 +331,23 @@ test("pace settings: every slider has a labelled number box, and the estimate fo
   await expectNoAxeViolations(page);
 });
 
-test("the summary before starting lists document, location, length, modes and duration", async ({ page }) => {
+test("review keeps the useful facts without repeating default settings", async ({ page }) => {
   await page.goto("/app/new/");
-  await page.getByLabel("Title").fill("Flood essay");
-  await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(ESSAY);
-  await toStep(page, 4);
-  await expect(page.getByText(/one insertion each/)).toBeVisible();
-  await toStep(page, 5);
-  const summary = page.getByRole("definition").filter({ hasText: /hour/ }).first();
-  await expect(summary).toBeVisible();
+  await page.getByRole("button", { name: "Review session", exact: true }).click();
   const list = page.locator("dl.summary-list");
-  await expect(list).toContainText('New Google Doc "Flood essay"');
-  await expect(list).toContainText("At the end of the document");
+  await expect(list).toContainText("New Google Doc");
   await expect(list).toContainText(`${ESSAY.length} characters`);
-  await expect(list).toContainText("Sentences (10 insertions)");
-  await expect(list).toContainText("Target duration");
-  await expect(list).toContainText(/1 hour/);
+  await expect(list).toContainText("Natural");
+  await expect(list).toContainText("Planned duration");
+  await expect(list).not.toContainText("Plain text");
+  await expect(page.locator(".new-rail")).toHaveCount(0);
 });
 
 test("test connection reports each check without changing anything", async ({ page, request }) => {
   await page.goto("/app/new/");
+  await toStep(page, 1);
+  await page.getByText("Check the connection (optional)", { exact: true }).click();
   await page.getByRole("button", { name: "Test connection" }).click();
   await expect(page.getByText("Connection works.")).toBeVisible();
   await expect(page.getByText(/Google account:.*OK/)).toBeVisible();
@@ -461,12 +427,10 @@ test("Pro edits only the remaining text while paused, approves, saves, then resu
 });
 
 
-test("desktop session navigation stays clear of the session summary", async ({ page }) => {
+test("desktop setup has one focused column and no duplicate summary", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/app/new/");
-  const bar = await page.locator(".step-bar").boundingBox();
-  const summary = await page.locator(".new-rail").boundingBox();
-  expect(bar).not.toBeNull();
-  expect(summary).not.toBeNull();
-  expect(bar!.x + bar!.width).toBeLessThanOrEqual(summary!.x);
+  await expect(page.locator(".new-rail")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Review session", exact: true })).toBeVisible();
+  await expect(page.locator(".session-advanced")).not.toHaveAttribute("open", "");
 });

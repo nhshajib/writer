@@ -59,9 +59,11 @@ test("Home shows what needs you with the fix right there, and live sessions can 
   await expect(live.getByRole("button", { name: "Resume History essay" })).toBeVisible();
 
   // The day at a glance, and connections that only claim what is true.
+  await page.getByText("Usage details", { exact: true }).click();
   const glance = page.getByRole("region", { name: "Today at a glance" });
   await expect(glance).toContainText("Active sessions");
   await expect(glance).toContainText("2 / 3");
+  await page.getByText("Connected accounts", { exact: true }).click();
   const docs = page.getByRole("region", { name: "Connected documents" });
   await expect(docs.getByRole("link", { name: /Google Docs.*Connected/ })).toBeVisible();
   await expect(docs.getByRole("link", { name: /Word add-in.*Not set up/ })).toBeVisible();

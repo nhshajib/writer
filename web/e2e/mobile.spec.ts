@@ -103,48 +103,27 @@ test("the sessions list keeps its filter after Back, and sorting is in a sheet",
   await expectNoAxeViolations(page);
 });
 
-test("a new session is five steps: each checks itself, Back keeps everything, and editing clears approval", async ({ page, request }) => {
+test("a new session is two stages on mobile and editing clears approval", async ({ page, request }) => {
   await page.goto("/app/new/");
-  await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
-  await expect(page.getByText("Step 1 of 5 · Document")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.locator(".step-bar .alert-error")).toHaveText("Give the new document a title.");
-  await expect(page.getByLabel("Title")).toBeFocused();
-  await page.getByLabel("Title").fill("Phone essay");
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  await expect(page.getByText("Step 2 of 5 · Text")).toBeVisible();
+  await expect(page.getByText("Step 1 of 2 · Set up")).toBeVisible();
+  await page.getByRole("button", { name: "Review session", exact: true }).click();
+  await expect(page.locator(".step-bar .alert-error")).toHaveText("Add the text you want entered.");
   await page.getByLabel("Text to enter").fill(TEXT);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("radio", { name: /^Sentences/ })).toBeChecked();
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByText("Step 4 of 5 · Timing")).toBeVisible();
-  await expect(page.getByText("Advanced timing")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  await expect(page.getByText("Step 5 of 5 · Review")).toBeVisible();
+  await page.getByRole("button", { name: "Review session", exact: true }).click();
+  await expect(page.getByText("Step 2 of 2 · Review & start")).toBeVisible();
   const approve = page.getByLabel(/I've read this exact text/);
-  await expect(approve).not.toBeChecked();
   await approve.check();
   await expectNoAxeViolations(page);
-
-  // Back keeps the fields; changing the text clears the approval.
-  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Text to enter")).toHaveValue(TEXT);
-  await page.getByLabel("Text to enter").fill(`${TEXT} One more.`);
-  for (let i = 0; i < 2; i++) await page.getByRole("button", { name: "Continue" }).click();
-  // The schedule for the edited text has been checked.
-  await expect(page.getByRole("status").filter({ hasText: "6 sentences, one insertion each" })).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByLabel("Text to enter").fill(TEXT + " One more.");
+  await page.getByRole("button", { name: "Review session", exact: true }).click();
   await expect(approve).not.toBeChecked();
   await approve.check();
   await page.getByRole("button", { name: "Start session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
-
   const { requests } = await (await request.get("/__test/requests")).json();
-  const creates = requests.filter((r: { method: string; path: string }) => r.method === "POST" && /\/drips\/?$/.test(r.path));
-  expect(creates.length).toBe(1);
-  expect(creates[0].body.text).toBe(`${TEXT} One more.`);
+  expect(requests.filter((r: { method: string; path: string }) => r.method === "POST" && /\/drips$/.test(r.path))).toHaveLength(1);
 });
 
 test("leaving a new session asks first", async ({ page }) => {

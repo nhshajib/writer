@@ -149,6 +149,7 @@ function routeParts(req: Request): string[] {
 // ---------------------------------------------------------------------------
 
 interface CreateDripBody {
+  rhythm?: "steady" | "natural" | "drafting" | "custom";
   connection_id?: string;
   /** Optional later start (ISO time, up to 7 days ahead); the schedule counts from it. */
   start_at?: string;
@@ -172,6 +173,7 @@ interface CreateDripBody {
 }
 
 interface PlanBody {
+  rhythm?: "steady" | "natural" | "drafting" | "custom";
   text?: string;
   duration_minutes?: number;
   insertion_unit?: InsertionUnit;
@@ -207,6 +209,9 @@ function readPacing(raw: unknown): PacingSettings {
 }
 
 function readPlanInput(body: PlanBody) {
+  if (body.rhythm !== undefined && !["steady", "natural", "drafting", "custom"].includes(body.rhythm)) {
+    throw new HttpError(400, "Choose a supported writing rhythm.");
+  }
   const text = typeof body.text === "string" ? body.text : "";
   const unit = body.insertion_unit ?? "sentence";
   const mode = body.mode ?? "scheduled";
@@ -228,6 +233,7 @@ function readPlanInput(body: PlanBody) {
     throw new HttpError(400, "schedule_seed must be a 32-bit unsigned integer.");
   }
   return {
+    rhythm: body.rhythm,
     text,
     unit,
     mode,

@@ -37,7 +37,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Is Free really free?",
-    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 150 words a day (about half a page) and sessions up to 30 minutes, with every insertion mode and accessibility feature.",
+    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 150 words a day (about half a page) and sessions up to 30 minutes, with Natural and Steady rhythms, sentence pauses, every insertion mode and accessibility feature.",
   },
 ];
 

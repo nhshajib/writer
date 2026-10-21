@@ -143,6 +143,7 @@ export interface PlanProblem {
 
 /** POST /drips/plan: the checked plan for a text, step size and duration. */
 export interface SessionPlan {
+  drafting_stats?: { typos: number; false_starts: number; sentence_pauses: number; extra_edits: number };
   ok: boolean;
   problems: PlanProblem[];
   unit: InsertionUnit;

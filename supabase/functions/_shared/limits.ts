@@ -19,8 +19,9 @@ export const PRO_ONLY_MESSAGES = {
   startLater: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it.",
   formatting: "Keeping headings, bold, italic and bullets is part of Pro. Use plain text, or upgrade.",
   headings: "Adding text under a heading is part of Pro. Text goes at the end of the document on Free.",
-  drafting: "Simulated typos, false starts and sentence pauses are part of Pro. Upgrade or turn these settings off.",
-  speed: "Typing speed and custom timing are part of Pro. Free sessions use the standard pace for a set time.",
+  drafting:
+    "Custom drafting effects are part of Pro. Free includes ready-made Natural and Steady rhythms with optional sentence pauses.",
+  speed: "Typing speed and custom timing are part of Pro. Free sessions use Natural or Steady for a set time.",
 };
 export const MAX_TEXT_CHARS = 200_000;
 

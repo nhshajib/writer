@@ -3,7 +3,8 @@
 import type { Session } from "@supabase/supabase-js";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
-import { DEFAULT_PACE, PaceControls, pacingFor, usePace } from "@/components/app/PaceControls";
+import { DEFAULT_PACE, PaceControls, paceFromSettings, pacingFor, usePace } from "@/components/app/PaceControls";
+import { rhythmPacing, type SessionRhythm } from "../../../supabase/functions/_shared/plan.ts";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { api, ApiError, sha256Hex } from "@/lib/api";
@@ -203,6 +204,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const [timing, setTiming] = useState<Timing>("duration");
   const [minutes, setMinutes] = useState(tier === "pro" ? 60 : 30);
   const [pace, updatePace] = usePace();
+  const [rhythm, setRhythm] = useState<SessionRhythm>(tier === "pro" ? "custom" : "natural");
   const [approved, setApproved] = useState(false);
   const [plan, setPlan] = useState<SessionPlan | null>(null);
   const [planKey, setPlanKey] = useState("");
@@ -215,11 +217,11 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const starting = useRef(false);
 
   const isPro = tier === "pro";
-  const effectivePace = isPro ? pace : DEFAULT_PACE;
-  const simulatedDrafting = isPro && timing !== "asap" && (pace.typoRate > 0 || pace.falseStartRate > 0);
-  useEffect(() => setApproved(false), [pace.typoRate, pace.falseStartRate, simulatedDrafting]);
+  const effectivePace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE) : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
+  const simulatedDrafting = isPro && timing !== "asap" && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0);
+  useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
-  const key = JSON.stringify([text, unit, timing, pacing, seed ?? null]);
+  const key = JSON.stringify([text, unit, timing, pacing, rhythm, seed ?? null]);
   const current = plan !== null && planKey === key;
 
   useEffect(() => {
@@ -231,6 +233,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           method: "POST",
           body: {
             text,
+            rhythm,
             insertion_unit: unit,
             mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
             ...(pacing ? { pacing } : {}),
@@ -241,7 +244,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
         setPlan(res.plan);
-        setPlanKey(JSON.stringify([text, unit, timing, pacing, kept]));
+        setPlanKey(JSON.stringify([text, unit, timing, pacing, rhythm, kept]));
       } catch (e) {
         if (!stale) setError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -277,6 +280,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           document_id: documentUrl,
           document_title: title,
           text,
+          rhythm,
           insertion_unit: unit,
           mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
           ...(pacing ? { pacing } : { duration_minutes: 1 }),
@@ -317,11 +321,20 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         </select>
       </div>
 
+      <div className="field">
+        <label className="label" htmlFor="pane-rhythm">Writing rhythm</label>
+        <select id="pane-rhythm" value={rhythm} onChange={(e) => { setRhythm(e.target.value as SessionRhythm); setTiming("duration"); setApproved(false); }}>
+          <option value="natural">Natural — varied timing and sentence pauses</option>
+          <option value="steady">Steady — fewer pauses</option>
+          <option value="drafting" disabled={!isPro}>Drafting — occasional corrected mistakes (Pro)</option>
+          <option value="custom" disabled={!isPro}>Custom settings (Pro)</option>
+        </select>
+      </div>
       <fieldset className="field">
         <legend className="label">Timing</legend>
         {([["duration", "Target duration"], ["speed", "Typing speed"], ["asap", "All at once"]] as const).map(([value, label]) => (
           <label key={value} className="check">
-            <input type="radio" name="pane-timing" value={value} checked={timing === value} disabled={value === "speed" && !isPro} onChange={() => setTiming(value)} />
+            <input type="radio" name="pane-timing" value={value} checked={timing === value} disabled={value === "speed" && !isPro} onChange={() => { if (value === "speed") { updatePace(effectivePace); setRhythm("custom"); } setTiming(value); }} />
             <span>{label}{value === "speed" && !isPro && " (Pro)"}</span>
           </label>
         ))}
@@ -339,8 +352,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           </span>
         </div>
       )}
-      {timing !== "asap" && isPro && <PaceControls timing={timing} pace={pace} onChange={updatePace} />}
-      {timing !== "asap" && !isPro && <p className="hint">Standard pacing is included. Pro adds 20–150 WPM cadence, simulated typos and false starts, and configurable sentence pauses.</p>}
+      {timing !== "asap" && isPro && <PaceControls timing={timing} pace={effectivePace} onChange={(change) => { updatePace({ ...effectivePace, ...change }); setRhythm("custom"); }} />}
+      {timing !== "asap" && !isPro && <p className="hint">Natural and Steady are included on Free. Pro adds custom speed, adjustable pauses and simulated corrections.</p>}
 
       <div className="plan-box" role="status" aria-live="polite">
         {!text.trim() ? "Add text to see the schedule." : !current ? "Checking the schedule…" : !plan.ok

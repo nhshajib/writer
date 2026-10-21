@@ -22,7 +22,25 @@ import {
   seededRandom,
 } from "./schedule.ts";
 
+export type SessionRhythm = "steady" | "natural" | "drafting" | "custom";
+
+/** Ready-made rhythms are shared with the UI; no temporary mistakes in the free rhythms. */
+export function rhythmPacing(rhythm: Exclude<SessionRhythm, "custom">, seconds: number): PacingSettings {
+  const base = standardPacing(seconds);
+  return {
+    ...base,
+    variation_pct: rhythm === "steady" ? 15 : 25,
+    drafting: {
+      typo_rate_pct: rhythm === "drafting" ? 1 : 0,
+      false_start_rate_pct: rhythm === "drafting" ? 1 : 0,
+      sentence_pause_seconds: rhythm === "steady" ? 0 : 2,
+      sentence_pause_variation_pct: rhythm === "steady" ? 0 : 25,
+    },
+  };
+}
+
 export interface PlanRequest {
+  rhythm?: SessionRhythm;
   text: string;
   unit: InsertionUnit;
   seed: number;
@@ -144,20 +162,28 @@ export function planSession(req: PlanRequest): SessionPlan {
   // The document gets the text without Markdown markers.
   const text = parsed ? parsed.plain : source;
   const asap = req.mode === "as_soon_as_possible";
-  const requested = asap ? null : req.pacing ?? legacyPacing(req.durationSeconds ?? 0);
+  const requested = asap
+    ? null
+    : req.rhythm && req.rhythm !== "custom"
+    ? rhythmPacing(req.rhythm, req.pacing?.duration_seconds ?? req.durationSeconds ?? 0)
+    : req.pacing ?? legacyPacing(req.durationSeconds ?? 0);
   // Free uses the standard pace for a chosen duration; typing speed and custom timing are Pro.
   const freeSpeed = req.plan === "free" && requested?.timing === "speed";
   const pacing = req.plan === "free" && requested && req.pacing && !freeSpeed
-    ? standardPacing(requested.duration_seconds ?? 0)
+    ? (req.rhythm === "natural" || req.rhythm === "steady")
+      ? rhythmPacing(req.rhythm, requested.duration_seconds ?? 0)
+      : standardPacing(requested.duration_seconds ?? 0)
     : requested;
   const limits = PLAN_LIMITS[req.plan];
   const words = countWords(text);
   const problems: PlanProblem[] = [];
-  const suppliedDrafting = req.pacing?.drafting;
+  const suppliedDrafting = req.rhythm && req.rhythm !== "custom" ? requested?.drafting : req.pacing?.drafting;
   const draftingProblem = validateDrafting(suppliedDrafting);
   if (draftingProblem) problems.push({ code: "invalid_settings", message: draftingProblem });
   const hasDrafting = !draftingProblem && draftingEnabled(suppliedDrafting);
-  if (hasDrafting && req.plan === "free") problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.drafting });
+  if ((hasDrafting && req.rhythm !== "natural" || req.rhythm === "drafting") && req.plan === "free") {
+    problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.drafting });
+  }
   if (hasDrafting && asap) {
     problems.push({
       code: "invalid_settings",
@@ -192,7 +218,7 @@ export function planSession(req: PlanRequest): SessionPlan {
   const sourceChunks = units;
   const script = compileDrafting(
     sourceChunks,
-    req.plan === "pro" && !asap && !draftingProblem ? suppliedDrafting : undefined,
+    (req.plan === "pro" || req.rhythm === "natural") && !asap && !draftingProblem ? suppliedDrafting : undefined,
     seed,
     parsed,
   );
@@ -325,7 +351,7 @@ export function planSession(req: PlanRequest): SessionPlan {
   const options: UnitOption[] = INSERTION_UNITS.filter((u) => u !== "chunk").map((u) => {
     const alternative = u === unit ? script : compileDrafting(
       split(u),
-      req.plan === "pro" && !asap && !draftingProblem ? suppliedDrafting : undefined,
+      (req.plan === "pro" || req.rhythm === "natural") && !asap && !draftingProblem ? suppliedDrafting : undefined,
       seed,
     );
     const count = alternative.chunks.length;

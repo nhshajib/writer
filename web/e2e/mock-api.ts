@@ -98,6 +98,7 @@ function view(row: Row, includeText: boolean) {
 
 function planFrom(body: Record<string, unknown>, seed: number) {
   return planSession({
+    rhythm: body.rhythm as never,
     text: String(body.text ?? ""),
     unit: (body.insertion_unit ?? "sentence") as never,
     mode: body.mode as never,

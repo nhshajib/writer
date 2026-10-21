@@ -7,13 +7,14 @@ import { PRO_PRICE } from "@/lib/site";
 export const FREE_FEATURES = [
   "150 words a day",
   "Sessions up to 30 minutes",
-  "Standard pacing with breaks",
-  "Every insertion mode and accessibility feature",
+  "Natural and Steady rhythms, ready to use",
+  "Random word groups, sentence pauses and accessibility tools",
 ];
 
 export const PRO_FEATURES = [
   "Unlimited words",
   "Sessions up to a week, 3 at once",
+  "Drafting rhythm with occasional corrected mistakes",
   "Adjustable cadence: 20–150 WPM with timing variation",
   "Neighbor-key typos: temporary letter slips, automatically corrected",
   "False starts: temporary wrong words, deleted and replaced",
@@ -35,11 +36,11 @@ export const PLAN_COMPARISON: { feature: string; free: string; pro: string }[] =
   { feature: "Longest session", free: "30 minutes", pro: "1 week" },
   { feature: "Documents in progress at once", free: "1", pro: "3" },
   { feature: "Sentence, word, paragraph or even-part steps", free: "Yes", pro: "Yes" },
-  { feature: "Standard pacing with breaks", free: "Yes", pro: "Yes" },
+  { feature: "Natural and Steady ready-made rhythms", free: "Both included", pro: "Both included" },
   { feature: "Adjustable cadence (typing speed)", free: "No", pro: "20–150 WPM + timing variation" },
   { feature: "Neighbor-key typos", free: "No", pro: "Adjustable rate; automatically corrected" },
   { feature: "False starts", free: "No", pro: "Adjustable rate; wrong words deleted and replaced" },
-  { feature: "Natural breaks after sentences", free: "No", pro: "Adjustable pause length + variation" },
+  { feature: "Natural breaks after sentences", free: "Included in Natural rhythm", pro: "Fully adjustable" },
   { feature: "Keep headings, bold, italic and bullets", free: "No", pro: "Yes" },
   { feature: "Insert under a heading (Google Docs)", free: "No", pro: "Yes" },
   { feature: "Import .docx, .md and .txt files", free: "No", pro: "Yes" },

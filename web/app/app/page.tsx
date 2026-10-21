@@ -130,26 +130,12 @@ export default function HomePage() {
             <h2 id="setup-title">Get started</h2>
             <span className="small muted">Takes about two minutes</span>
           </div>
-          <ol className="setup">
-            <li className={`setup-step${googleConnected ? " done" : ""}`}>
-              <span className="n" aria-hidden="true">{googleConnected ? <Icon.check /> : 1}</span>
-              <strong>Connect Google Docs{googleConnected && <span className="sr-only"> (done)</span>}</strong>
-              <span>Lets TypeWit create documents and add your text.</span>
-              {!googleConnected && <button type="button" className="btn btn-primary btn-sm" onClick={connect}>Connect</button>}
-            </li>
-            <li className={`setup-step${drips.length ? " done" : ""}`}>
-              <span className="n" aria-hidden="true">{drips.length ? <Icon.check /> : 2}</span>
-              <strong>Start your first session</strong>
-              <span>Paste your text, approve it, choose the pace.</span>
-              {!drips.length && <Link href="/app/new" className={`btn btn-sm ${googleConnected ? "btn-primary" : "btn-secondary"}`}>New session</Link>}
-            </li>
-            <li className="setup-step">
-              <span className="n" aria-hidden="true">3</span>
-              <strong>Using Word?</strong>
-              <span>Add the TypeWit add-in to run sessions in Word documents.</span>
-              <Link href="/app/documents" className="btn btn-secondary btn-sm">Set up Word</Link>
-            </li>
-          </ol>
+          <p className="muted">Paste your text, use a ready-made rhythm, and review before starting. Your document updates automatically while you get on with your day.</p>
+          <div className="row mt-4">
+            {googleConnected ? <Link href="/app/new" className="btn btn-primary">Create your first session</Link> : <button type="button" className="btn btn-primary" onClick={connect}>Connect Google Docs</button>}
+            <Link href="/app/documents#word" className="small">Using Microsoft Word?</Link>
+          </div>
+          {profile.plan === "free" && <p className="hint mt-4">Free includes 150 words a day, two ready-made rhythms and sentence pauses. Try a complete short session before deciding whether you need Pro.</p>}
           {connectError && <p className="alert alert-error mt-4" role="alert">{connectError}</p>}
         </section>
       )}
@@ -212,6 +198,7 @@ export default function HomePage() {
 
             {live.length > 0 && <Link href="/app/new/" className="btn btn-primary btn-lg btn-block mobile-only home-new"><Icon.plus /> New session</Link>}
 
+            <details className="home-analytics"><summary>Writing activity</summary>
             <section className="card home-week" aria-labelledby="week-title">
               <div className="card-head">
                 <h2 id="week-title">Words this week</h2>
@@ -221,9 +208,11 @@ export default function HomePage() {
               <p className="small muted week-note">Total words entered, last 7 days</p>
               <BarChart data={week} unit="words" caption="Words entered in sessions started each day, last 7 days" />
             </section>
+            </details>
           </div>
 
           <div className="home-col">
+            <details className="home-analytics"><summary>Usage details</summary>
             <section className="card home-glance" aria-labelledby="glance-title">
               <h2 id="glance-title" className="card-title">Today at a glance</h2>
               <ul className="glance">
@@ -258,6 +247,7 @@ export default function HomePage() {
                 </li>
               </ul>
             </section>
+            </details>
 
             <section className="card card-flush home-recent" aria-labelledby="recent-title">
               <div className="card-head">
@@ -283,6 +273,7 @@ export default function HomePage() {
                 )}
             </section>
 
+            <details className="home-analytics"><summary>Connected accounts</summary>
             <section className="card card-flush home-docs" aria-labelledby="docs-title">
               <div className="card-head">
                 <h2 id="docs-title">Connected documents</h2>
@@ -314,6 +305,7 @@ export default function HomePage() {
                 </li>
               </ul>
             </section>
+            </details>
 
             {moments.length > 0 && (
               <section className="card home-today" aria-labelledby="today-title">

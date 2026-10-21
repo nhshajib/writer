@@ -55,7 +55,7 @@ export function replanPaused(
     const clip = <T extends { start: number; end: number }>(ranges: T[]) =>
       ranges.filter((r) => r.end > offset)
         .map((r) => ({ ...r, start: Math.max(0, r.start - offset), end: r.end - offset }));
-    formats = compileDrafting(plan.source_chunks, request.pacing?.drafting, request.seed, {
+    formats = compileDrafting(plan.source_chunks, plan.pacing?.drafting, request.seed, {
       plain: remaining,
       paragraphs: clip(parsed.paragraphs),
       spans: clip(parsed.spans),

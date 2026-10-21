@@ -11,13 +11,14 @@ const SOURCE = "The garden is ready for spring. We will plant the flowers near t
 
 async function timingStep(page: Page) {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Drafting settings");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(SOURCE);
   await toStep(page, 4);
 }
 async function ready(page: Page) {
-  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits including simulated corrections/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
 }
 
 test.beforeEach(async ({ page, request }) => {
@@ -63,6 +64,7 @@ test("saved drafting settings survive a new visit and malformed values are sanit
   await page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true }).fill("7");
   await page.getByRole("spinbutton", { name: "Natural breaks after sentences", exact: true }).fill("4");
   await page.reload();
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Remembered");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(SOURCE);
@@ -71,6 +73,7 @@ test("saved drafting settings survive a new visit and malformed values are sanit
   await expect(page.getByRole("spinbutton", { name: "Natural breaks after sentences", exact: true })).toHaveValue("4");
   await page.evaluate(() => localStorage.setItem("typewit.pace", JSON.stringify({ wpm: 9999, typoRate: -100, falseStartRate: "invalid", sentencePauseSeconds: 9999, sentencePauseVariation: 9999 })));
   await page.reload();
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Sanitized");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(SOURCE);
@@ -97,7 +100,7 @@ test("Free cannot use saved premium settings or access their controls", async ({
   await expect(page).toHaveURL(/\/app\/session/);
   const { requests } = await (await request.get("/__test/requests")).json();
   const created = requests.find((r: { method: string; path: string }) => r.method === "POST" && r.path === "/functions/v1/drips");
-  expect(created.body.pacing.drafting).toEqual({ typo_rate_pct: 0, false_start_rate_pct: 0, sentence_pause_seconds: 0, sentence_pause_variation_pct: 0 });
+  expect(created.body.pacing.drafting).toEqual({ typo_rate_pct: 0, false_start_rate_pct: 0, sentence_pause_seconds: 2, sentence_pause_variation_pct: 25 });
 });
 
 test("enabling temporary edits clears an earlier approval", async ({ page }) => {

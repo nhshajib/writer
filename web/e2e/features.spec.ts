@@ -69,11 +69,13 @@ test("Run again starts a new session from a finished one's text, settings and do
 
 test("unsent text is kept in this browser and can be restored or discarded", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Draft");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("A draft I don't want to lose.");
   await page.waitForTimeout(700);
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Draft");
   await toStep(page, 2);
   await expect(page.getByText(/You have unsent text from before \(7 words\)/)).toBeVisible();
@@ -82,10 +84,12 @@ test("unsent text is kept in this browser and can be restored or discarded", asy
 
   await page.getByLabel("Text to enter").fill("");
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Draft");
   await toStep(page, 2);
   await page.getByRole("button", { name: "Discard" }).click();
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Draft");
   await toStep(page, 2);
   await expect(page.getByText(/You have unsent text/)).toHaveCount(0);
@@ -186,6 +190,7 @@ test("Manage billing shows the subscription, card and invoices, and each change 
 test("Free shows what Pro adds without blocking the free flow, and the server refuses a scheduled start", async ({ page, request }) => {
   await request.post("/__test/profile", { data: { plan: "free", subscription_status: null } });
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Short note");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("w ".repeat(151).trim());
@@ -194,7 +199,7 @@ test("Free shows what Pro adds without blocking the free flow, and the server re
   await toStep(page, 4);
   await expect(page.getByRole("radio", { name: /Typing speed/ })).toBeDisabled();
   await expect(page.getByLabel(/Start later instead of now/)).toBeDisabled();
-  await expect(page.getByText(/Standard pacing\./)).toBeVisible();
+  await expect(page.getByText(/Your free rhythm is ready\./)).toBeVisible();
   await expect(page.locator("#duration option", { hasText: "1 hour (Pro)" })).toBeDisabled();
   await expect(page.getByRole("spinbutton", { name: "Timing variation" })).toHaveCount(0);
   await expectNoAxeViolations(page);
@@ -206,6 +211,7 @@ test("Free shows what Pro adds without blocking the free flow, and the server re
 
 test("Pro saves pace presets and applies one in a click", async ({ page }) => {
   await page.goto("/app/new/");
+  await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Essay");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(TEXT);
