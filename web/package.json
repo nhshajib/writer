@@ -13,6 +13,7 @@
   "dependencies": {
     "@fontsource-variable/inter": "5.2.6",
     "@supabase/supabase-js": "2.49.4",
+    "mammoth": "1.13.0",
     "next": "15.5.28",
     "react": "19.1.1",
     "react-dom": "19.1.1"

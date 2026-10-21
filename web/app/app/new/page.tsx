@@ -12,6 +12,9 @@ import { DEFAULT_PACE, PaceControls, pacingFor, usePace } from "@/components/app
 import { api, ApiError, sha256Hex } from "@/lib/api";
 import { ACTIVE_STATUSES, type PacePreset, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 import { PacePresets } from "@/components/app/PacePresets";
+import { MarkdownPreview } from "@/components/app/MarkdownPreview";
+import { IMPORT_ACCEPT, importFile } from "@/lib/importDoc";
+import { parseMarkdown, type TextFormat } from "../../../../supabase/functions/_shared/markdown.ts";
 import { pickGoogleDoc } from "@/lib/googlePicker";
 import { supabase } from "@/lib/supabase";
 import { span, when } from "@/lib/time";
@@ -30,8 +33,10 @@ type Timing = TimingMode | "asap";
 /** The form is shown as five steps, one at a time; every check still runs again on Start. */
 const STEP_NAMES = ["Document", "Text", "Insertion", "Timing", "Review"];
 /** The field to focus when a step has a problem. */
-const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 4: ["custom-minutes", "duration", "start-at"] };
+const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 3: ["heading"], 4: ["custom-minutes", "duration", "start-at"] };
 type Target = "new" | "existing";
+type Place = "end" | "heading";
+interface DocHeading { id: string; text: string; level: number }
 
 
 const DURATIONS: { minutes: number; label: string }[] = [
@@ -138,6 +143,14 @@ export default function NewSessionPage() {
   const [report, setReport] = useState<AccessReport | null>(null);
   const [draft, setDraft] = useState("");
   const [fromNote, setFromNote] = useState<string | null>(null);
+  const [format, setFormat] = useState<TextFormat>("plain");
+  const [importNote, setImportNote] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [place, setPlace] = useState<Place>("end");
+  const [headings, setHeadings] = useState<DocHeading[] | null>(null);
+  const [headingsError, setHeadingsError] = useState<string | null>(null);
+  const [headingId, setHeadingId] = useState("");
   const [startLater, setStartLater] = useState(false);
   const [startAt, setStartAt] = useState(() => localInputValue(new Date(Date.now() + 60 * 60 * 1000)));
   const errorRef = useRef<HTMLDivElement>(null);
@@ -189,10 +202,11 @@ export default function NewSessionPage() {
     if (dashboard.drips.length === 0) return;
     prefilled.current = true;
     const source = dashboard.drips.find((d) => d.id === from);
-    supabase().from("drips").select("text, insertion_unit, timing_mode, pacing").eq("id", from).maybeSingle()
+    supabase().from("drips").select("text, insertion_unit, timing_mode, pacing, text_format").eq("id", from).maybeSingle()
       .then(({ data }) => {
         if (!data?.text) return;
         setText(data.text as string);
+        if (data.text_format === "markdown") setFormat("markdown");
         if (data.insertion_unit) setUnit(data.insertion_unit as InsertionUnit);
         const pacing = data.pacing as PacingSettings | null;
         if (data.timing_mode === "asap") setTiming("asap");
@@ -230,12 +244,14 @@ export default function NewSessionPage() {
   useEffect(() => {
     if (plan !== "pro" && timing === "speed") setTiming("duration");
     if (plan !== "pro" && startLater) setStartLater(false);
+    if (plan !== "pro" && format !== "plain") setFormat("plain");
+    if (plan !== "pro" && place !== "end") setPlace("end");
     // Start on the longest duration the plan allows, never on a Pro-only one.
     const allowed = PLAN_LIMITS[plan].maxMinutes;
     if (preset !== "custom" && Number(preset) > allowed) {
       setPreset(String(DURATIONS.filter((d) => d.minutes <= allowed).at(-1)?.minutes ?? allowed));
     }
-  }, [plan, timing, startLater, preset]);
+  }, [plan, timing, startLater, preset, format, place]);
 
   function applyPreset(p: PacePreset) {
     setTiming(p.timing);
@@ -259,19 +275,24 @@ export default function NewSessionPage() {
 
   const isPro = plan === "pro";
   const limits = { words: PLAN_LIMITS[plan].dailyWords ?? Infinity, minutes: PLAN_LIMITS[plan].maxMinutes };
-  const words = countWords(text);
+  const parsed = useMemo(() => (format === "markdown" ? parseMarkdown(text) : null), [format, text]);
+  // The document gets the text without Markdown markers; counts and steps are of that text.
+  const plainText = parsed ? parsed.plain : text;
+  const words = countWords(plainText);
   const overWords = words > limits.words;
   const minutes = preset === "custom" ? Number(customMinutes) : Number(preset);
   const minutesValid = Number.isFinite(minutes) && minutes >= 1 && minutes <= 10080;
   const allDocs = [...pastDocs, ...picked.filter((p) => !pastDocs.some((d) => d.key === p.key))];
   const docsForAccount = allDocs.filter((d) => d.connectionId === connectionId);
   const chosenDoc = allDocs.find((d) => d.key === pastDocKey);
+  const heading = headings?.find((h) => h.id === headingId) ?? null;
+  const placeLabel = place === "heading" && heading ? `At the end of the "${heading.text}" section` : "At the end of the document";
 
   // Free sessions use the standard pace (the server does the same); custom timing is Pro.
   const effectivePace = isPro ? pace : DEFAULT_PACE;
   const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const pacingKey = JSON.stringify(pacing);
-  const inputKey = JSON.stringify([text, unit, timing, pacingKey, seed ?? null]);
+  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, seed ?? null]);
   const current = preview !== null && previewKey === inputKey;
   const ready = text.trim() !== "" && (timing !== "duration" || minutesValid);
 
@@ -288,6 +309,7 @@ export default function NewSessionPage() {
           method: "POST",
           body: {
             text,
+            text_format: format,
             insertion_unit: unit,
             mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
             ...(timing === "asap" ? {} : { pacing: JSON.parse(pacingKey) }),
@@ -300,7 +322,7 @@ export default function NewSessionPage() {
         // Keep this timing while the user keeps editing, until they ask for another.
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
-        setPreviewKey(JSON.stringify([text, unit, timing, pacingKey, kept]));
+        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, kept]));
       } catch (e) {
         if (!stale) setPreviewError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -309,7 +331,27 @@ export default function NewSessionPage() {
       stale = true;
       clearTimeout(handle);
     };
-  }, [text, unit, timing, pacingKey, ready, seed]);
+  }, [text, format, unit, timing, pacingKey, ready, seed]);
+
+  // The chosen document's headings, for "Under a heading" (Pro, Google Docs).
+  const headingDoc = place === "heading" && target === "existing" && chosenDoc ? chosenDoc : null;
+  useEffect(() => {
+    setHeadings(null);
+    setHeadingsError(null);
+    if (!headingDoc) return;
+    let stale = false;
+    const query = new URLSearchParams({ connection_id: headingDoc.connectionId, document_id: headingDoc.documentId });
+    api<{ headings: DocHeading[] }>(`drips/headings?${query}`)
+      .then((res) => {
+        if (stale) return;
+        setHeadings(res.headings);
+        setHeadingId((id) => (res.headings.some((h) => h.id === id) ? id : ""));
+      })
+      .catch((e) => !stale && setHeadingsError(e instanceof Error ? e.message : "Couldn't read the document's headings."));
+    return () => {
+      stale = true;
+    };
+  }, [headingDoc?.connectionId, headingDoc?.documentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function chooseFromDrive() {
     setPickError(null);
@@ -336,6 +378,36 @@ export default function NewSessionPage() {
     } finally {
       setPicking(false);
     }
+  }
+
+  async function onImport(file: File | undefined) {
+    if (!file) return;
+    setImportNote(null);
+    setImporting(true);
+    try {
+      const imported = await importFile(file);
+      if (!imported.text) {
+        setImportNote(`"${file.name}" has no text to import.`);
+        return;
+      }
+      changeText(imported.text);
+      setFormat(imported.markdown ? "markdown" : "plain");
+      setImportNote(
+        `Imported "${file.name}"${imported.markdown ? " with its headings, bold, italic and bullets" : ""}.` +
+          (imported.removed ? ` ${imported.removed} character${imported.removed === 1 ? "" : "s"} Google Docs can't keep ${imported.removed === 1 ? "was" : "were"} removed.` : "") +
+          " Check it before you approve.",
+      );
+    } catch (e) {
+      setImportNote(e instanceof Error ? e.message : "That file couldn't be read.");
+    } finally {
+      setImporting(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+
+  function changeFormat(next: TextFormat) {
+    setFormat(next);
+    if (approved) setApproved(false);
   }
 
   function changeText(next: string) {
@@ -384,6 +456,10 @@ export default function NewSessionPage() {
     if (n === 2) {
       if (words === 0) return "Add the text you want entered.";
       if (overWords) return `Your plan allows ${limits.words} words a day. Shorten the text or upgrade to Pro.`;
+    }
+    if (n === 3 && place === "heading") {
+      if (target !== "existing") return "Choose an existing document in step 1 to add text under one of its headings.";
+      if (!headingId) return "Choose a heading.";
     }
     if (n === 4) {
       if (timing === "duration" && !minutesValid) return "Choose a duration between 1 minute and 1 week.";
@@ -458,6 +534,8 @@ export default function NewSessionPage() {
     if (chosenDoc?.busy && target === "existing") return fail("That document already has an unfinished session.");
     if (words === 0) return fail("Add the text you want entered.");
     if (overWords) return fail(`Your plan allows ${limits.words} words a day. Shorten the text or upgrade to Pro.`);
+    const placeProblem = stepProblem(3);
+    if (placeProblem) return fail(placeProblem);
     if (timing === "duration" && !minutesValid) return fail("Choose a duration between 1 minute and 1 week.");
     if (!current) return fail("The schedule is still being checked. Try again in a moment.");
     if (!preview.ok) return fail("This session can't run as set up:", preview.problems);
@@ -475,6 +553,10 @@ export default function NewSessionPage() {
           connection_id: connectionId,
           ...(target === "new" ? { new_document_title: title.trim() } : { document_id: chosenDoc!.documentId }),
           text,
+          text_format: format,
+          ...(place === "heading" && heading
+            ? { insert_target: { heading_id: heading.id, heading_text: heading.text, level: heading.level } }
+            : {}),
           insertion_unit: unit,
           mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
           ...(timing === "asap" ? { duration_minutes: 1 } : { pacing }),
@@ -558,7 +640,8 @@ export default function NewSessionPage() {
           <legend className="sr-only">Document</legend>
           <h2 aria-hidden="true"><span className="step-n">1</span>Choose a document</h2>
           <p className="muted">
-            Where the text should go. TypeWit always adds it at the end of the document. Writing in Microsoft Word? Start
+            Where the text should go. TypeWit adds it at the end of the document, or with Pro, under a heading you choose.
+            Writing in Microsoft Word? Start
             from the <Link href="/app/documents#word">TypeWit add-in in Word</Link>.
           </p>
           {connections.length > 1 && (
@@ -631,26 +714,99 @@ export default function NewSessionPage() {
             )}
             <div className="text-head">
               <label className="label" htmlFor="text">Text to enter</label>
-              {canPaste && (
-                <button type="button" className="btn btn-secondary btn-sm" onClick={pasteText}><Icon.clipboard />Paste text</button>
-              )}
+              <div className="text-actions">
+                {canPaste && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={pasteText}><Icon.clipboard />Paste text</button>
+                )}
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
+                  disabled={!isPro || importing} aria-describedby={isPro ? undefined : "import-pro"}>
+                  <Icon.doc />{importing ? "Importing…" : "Import file"}{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}
+                </button>
+                <input ref={fileInput} type="file" accept={IMPORT_ACCEPT} hidden data-testid="import-file"
+                  onChange={(e) => onImport(e.target.files?.[0])} />
+              </div>
             </div>
+            {!isPro && <span id="import-pro" className="sr-only">Importing .docx, .md and .txt files is part of Pro.</span>}
             {pasteNote && <p className="hint" role="status">{pasteNote}</p>}
+            {importNote && <p className="hint" role="status">{importNote}</p>}
+            <div className="choices choices-inline format-choice" role="radiogroup" aria-label="Text format">
+              <label className="choice">
+                <input type="radio" name="format" value="plain" checked={format === "plain"} onChange={() => changeFormat("plain")} />
+                <span><strong>Plain text</strong><small>Entered exactly as typed.</small></span>
+              </label>
+              <label className="choice">
+                <input type="radio" name="format" value="markdown" checked={format === "markdown"} onChange={() => changeFormat("markdown")}
+                  disabled={!isPro} />
+                <span>
+                  <strong>Keep formatting{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong>
+                  <small># Heading, **bold**, *italic* and - bullets become real formatting.</small>
+                </span>
+              </label>
+            </div>
             <textarea id="text" value={text} onChange={(e) => changeText(e.target.value)} aria-describedby="text-count" />
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span id="text-count" className={overWords ? "error-text" : "hint"}>
-                {words.toLocaleString()} {words === 1 ? "word" : "words"} · {text.length.toLocaleString()} characters
+                {words.toLocaleString()} {words === 1 ? "word" : "words"} · {plainText.length.toLocaleString()} characters
                 {plan === "free" && ` · ${limits.words} words a day on Free`}
               </span>
               {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
             </div>
             <p className="dictation-hint"><Icon.mic />Use your device&apos;s dictation to add text by voice.</p>
+            {parsed && text.trim() && (
+              <div className="format-preview">
+                <p className="label">How it will look</p>
+                <MarkdownPreview parsed={parsed} />
+              </div>
+            )}
           </div>
         </div>
 
         <fieldset className="form-section" data-step-section="3">
           <legend className="sr-only">Insertion mode</legend>
           <h2 aria-hidden="true"><span className="step-n">3</span>Choose how it&apos;s entered</h2>
+          <h3 className="review-sub" id="place-title">Where the text goes</h3>
+          <div className="choices" role="radiogroup" aria-labelledby="place-title">
+            <label className="choice">
+              <input type="radio" name="place" value="end" checked={place === "end"} onChange={() => setPlace("end")} />
+              <span><strong>End of the document</strong><small>After everything already in it.</small></span>
+            </label>
+            <label className="choice">
+              <input type="radio" name="place" value="heading" checked={place === "heading"} onChange={() => setPlace("heading")} disabled={!isPro} />
+              <span>
+                <strong>Under a heading{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong>
+                <small>At the end of a section of an existing Google Doc.</small>
+              </span>
+            </label>
+          </div>
+          {!isPro && <p className="hint">Adding text under a heading is part of <Link href="/app/billing/">Pro</Link>.</p>}
+          {place === "heading" && (
+            <div className="field" style={{ marginTop: "0.75rem", maxWidth: 520 }}>
+              {target !== "existing" || !chosenDoc
+                ? <p className="alert alert-info small">Choose an existing document in step 1 to see its headings.</p>
+                : headingsError
+                ? <p className="alert alert-error small" role="alert">{headingsError}</p>
+                : headings === null
+                ? <p className="hint" role="status">Reading the document&apos;s headings…</p>
+                : headings.length === 0
+                ? <p className="alert alert-info small">This document has no headings. Add one in Google Docs, or add the text at the end.</p>
+                : (
+                  <>
+                    <label className="label" htmlFor="heading">Heading</label>
+                    <select id="heading" value={headingId} onChange={(e) => setHeadingId(e.target.value)} aria-describedby="heading-hint">
+                      <option value="">Choose a heading</option>
+                      {headings.map((h) => (
+                        <option key={h.id} value={h.id}>{`${"\u2002".repeat(Math.max(0, h.level - 1))}${h.text}`}</option>
+                      ))}
+                    </select>
+                    <span id="heading-hint" className="hint">
+                      The text goes at the end of that section, before the next heading of the same level. The section
+                      needs an empty line at its end.
+                    </span>
+                  </>
+                )}
+            </div>
+          )}
+          <h3 className="review-sub">Insertion steps</h3>
           <p className="muted">What each insertion adds to the document.</p>
           <div className="choices" role="radiogroup" aria-label="Insert one">
             {UNITS.map((u) => {
@@ -760,15 +916,16 @@ export default function NewSessionPage() {
           <h2><span className="step-n" aria-hidden="true">5</span>Review and approve</h2>
           <p className="muted">TypeWit enters exactly this text. Editing it clears your approval.</p>
           <div className="preview" tabIndex={0} role="region" aria-label="Text to approve">
-            {text || <span className="pending">Your text will appear here.</span>}
+            {parsed && text.trim() ? <MarkdownPreview parsed={parsed} /> : text || <span className="pending">Your text will appear here.</span>}
           </div>
-          {steps > 1 && current && <StepList text={text} plan={preview} />}
+          {steps > 1 && current && <StepList text={plainText} plan={preview} />}
           <h3 className="review-sub">Before you start</h3>
           <dl className="summary-list" aria-label="Before you start">
             <dt>Document</dt><dd>{docLabel}</dd>
-            <dt>Insertion location</dt><dd>At the end of the document</dd>
+            <dt>Insertion location</dt><dd>{placeLabel}</dd>
+            <dt>Formatting</dt><dd>{format === "markdown" ? "Headings, bold, italic and bullets kept" : "Plain text"}</dd>
             <dt>Starts</dt><dd>{startLater && startAt ? when(new Date(startAt).getTime()) : "Now"}</dd>
-            <dt>Text length</dt><dd>{words.toLocaleString()} words, {text.length.toLocaleString()} characters</dd>
+            <dt>Text length</dt><dd>{words.toLocaleString()} words, {plainText.length.toLocaleString()} characters</dd>
             <dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}{steps ? ` (${steps.toLocaleString()} insertions)` : ""}</dd>
             <dt>Timing mode</dt><dd>{timing === "duration" ? "Target duration" : timing === "speed" ? `Typing speed, ${pace.wpm} WPM` : "All at once"}</dd>
             <dt>Planned duration</dt>
@@ -800,7 +957,7 @@ export default function NewSessionPage() {
               <li><span className="sr-icon" aria-hidden="true"><Icon.doc /></span><span className="sr-label">Document</span>
                 <span className="sr-value">{target === "new" ? title.trim() || <span className="muted">Add a title</span> : chosenDoc?.title ?? <span className="muted">Choose a document</span>}</span></li>
               <li><span className="sr-icon gdoc" aria-hidden="true"><Icon.doc /></span><span className="sr-label">Provider</span><span className="sr-value">Google Docs</span></li>
-              <li><span className="sr-icon" aria-hidden="true"><Icon.list /></span><span className="sr-label">Insert at</span><span className="sr-value">End of document</span></li>
+              <li><span className="sr-icon" aria-hidden="true"><Icon.list /></span><span className="sr-label">Insert at</span><span className="sr-value">{place === "heading" && heading ? `Under "${heading.text}"` : "End of document"}</span></li>
               <li><span className="sr-icon" aria-hidden="true"><Icon.text /></span><span className="sr-label">Text</span>
                 <span className="sr-value">
                   {words > 0 && !overWords

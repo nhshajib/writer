@@ -4,7 +4,7 @@
  * TypeWit left it, all without changing the document.
  */
 
-import { type DocProvider, ProviderError } from "./providers/types.ts";
+import { type DocProvider, HEADING_MISSING, HEADING_NO_SPACE, ProviderError } from "./providers/types.ts";
 import { bodyContent, endsWithTail } from "./doctext.ts";
 
 export type AccessProblem =
@@ -13,7 +13,8 @@ export type AccessProblem =
   | "not_editable"
   | "editor_unavailable"
   | "connection_interrupted"
-  | "location_uncertain";
+  | "location_uncertain"
+  | "heading_missing";
 
 export interface AccessCheck {
   key: "account" | "document" | "editable" | "location";
@@ -52,12 +53,15 @@ export const ACCESS_MESSAGE: Record<AccessProblem, string> = {
   not_editable: "The document isn't editable with this account (it may be view or comment only).",
   editor_unavailable: "Google Docs is unavailable right now. Try again in a few minutes.",
   connection_interrupted: "The connection to Google was interrupted. Check your connection and try again.",
+  heading_missing: "TypeWit can't find a place under the chosen heading. Make sure the heading is still in the " +
+    "document and its section ends with an empty line.",
   location_uncertain: "The end of the document no longer matches what TypeWit entered, so the insertion point " +
     "is uncertain.",
 };
 
 function classify(error: unknown, step: "account" | "document" | "editable"): AccessProblem {
   if (!(error instanceof ProviderError)) return "connection_interrupted";
+  if (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE) return "heading_missing";
   if (error.kind === "auth") return "permission_missing";
   if (error.status === 404) return "not_found";
   if (error.status === 403) return step === "editable" ? "not_editable" : "permission_missing";

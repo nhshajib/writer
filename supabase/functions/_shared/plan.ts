@@ -8,6 +8,7 @@ import {
   unitSize,
 } from "./chunker.ts";
 import { MAX_TEXT_CHARS, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from "./limits.ts";
+import { type ChunkFormat, formatsForUnits, parseMarkdown, type TextFormat } from "./markdown.ts";
 import { buildPacing, CHARS_PER_WORD, type PacingSettings, type PlannedBreak } from "./pacing.ts";
 import {
   formatSeconds,
@@ -29,6 +30,8 @@ export interface PlanRequest {
   durationSeconds?: number;
   /** `as_soon_as_possible` writes everything in one insertion. */
   mode?: "scheduled" | "as_soon_as_possible";
+  /** "markdown" (Pro) keeps headings, bold, italic and bullets; the units are the text without the markers. */
+  format?: TextFormat;
 }
 
 export interface PlanProblem {
@@ -67,6 +70,9 @@ export interface SessionPlan {
   words: number;
   chars: number;
   units: string[];
+  text_format: TextFormat;
+  /** Markdown: the formatting of each unit. */
+  chunk_formats: ChunkFormat[] | null;
   /** Offsets in ms from the start; empty when the plan has problems. */
   schedule: number[];
   breaks: PlannedBreak[];
@@ -122,7 +128,12 @@ export function legacyPacing(durationSeconds: number): PacingSettings {
  * nothing here changes the text.
  */
 export function planSession(req: PlanRequest): SessionPlan {
-  const { text, unit, seed } = req;
+  const { unit, seed } = req;
+  const source = req.text;
+  const format: TextFormat = req.format === "markdown" ? "markdown" : "plain";
+  const parsed = format === "markdown" ? parseMarkdown(source) : null;
+  // The document gets the text without Markdown markers.
+  const text = parsed ? parsed.plain : source;
   const asap = req.mode === "as_soon_as_possible";
   const requested = asap ? null : req.pacing ?? legacyPacing(req.durationSeconds ?? 0);
   // Free uses the standard pace for a chosen duration; typing speed and custom timing are Pro.
@@ -134,6 +145,9 @@ export function planSession(req: PlanRequest): SessionPlan {
   const words = countWords(text);
   const problems: PlanProblem[] = [];
   if (freeSpeed) problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.speed });
+  if (format === "markdown" && req.plan === "free") {
+    problems.push({ code: "pro_feature", message: PRO_ONLY_MESSAGES.formatting });
+  }
   const warnings: PlanWarning[] = [];
 
   let units = splitText(text, unit);
@@ -145,10 +159,10 @@ export function planSession(req: PlanRequest): SessionPlan {
   if (asap && units.length > 0) units = [text];
 
   if (!text.trim()) problems.push({ code: "empty", message: "Add the text you want entered." });
-  if (text.length > MAX_TEXT_CHARS) {
+  if (source.length > MAX_TEXT_CHARS) {
     problems.push({
       code: "too_long",
-      message: `The text is too long (${text.length.toLocaleString("en-US")} characters; the limit is ${
+      message: `The text is too long (${source.length.toLocaleString("en-US")} characters; the limit is ${
         MAX_TEXT_CHARS.toLocaleString("en-US")
       }).`,
     });
@@ -270,6 +284,8 @@ export function planSession(req: PlanRequest): SessionPlan {
 
   const ok = problems.length === 0;
   return {
+    text_format: format,
+    chunk_formats: parsed ? formatsForUnits(parsed, units) : null,
     ok,
     problems,
     warnings,

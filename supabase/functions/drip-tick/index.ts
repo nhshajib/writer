@@ -4,6 +4,7 @@
 // returns at once; the work continues as a background task.
 
 import { type ConnectionRow, loadConnectionsByIds, providerFor } from "../_shared/connections.ts";
+import type { InsertTarget } from "../_shared/providers/types.ts";
 import { safeEqual } from "../_shared/crypto.ts";
 import { adminClient, getSecret } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
@@ -28,6 +29,7 @@ type ClaimedDrip = SessionRow & {
   document_title: string | null;
   document_url: string | null;
   word_count: number;
+  insert_target: InsertTarget | null;
 };
 
 const BATCH_SIZE = 50;
@@ -79,7 +81,7 @@ async function processDrip(drip: ClaimedDrip, connection: ConnectionRow | undefi
       .maybeSingle();
     const isPro = profile?.plan === "pro";
     outcome = await runSession(normalize(drip), drip.lease_id, {
-      provider: providerFor(connection),
+      provider: providerFor(connection, drip.insert_target),
       store,
       now: () => Date.now(),
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -126,6 +128,7 @@ function normalize(drip: ClaimedDrip): SessionRow {
     pending_doc_length: drip.pending_doc_length ?? null,
     retry_at: drip.retry_at ?? null,
     preflight_at: drip.preflight_at ?? null,
+    chunk_formats: drip.chunk_formats ?? null,
   };
 }
 

@@ -50,9 +50,9 @@ export interface PacingSettings {
 export const LIMITS = {
   wpm: { min: 5, max: 200 },
   variation_pct: { min: 0, max: 50 },
-  every_seconds: { min: 60, max: 4 * 3600 },
+  every_seconds: { min: 60, max: 12 * 3600 },
   every_variation_pct: { min: 0, max: 50 },
-  break_seconds: { min: 5, max: 2 * 3600 },
+  break_seconds: { min: 5, max: 8 * 3600 },
 } as const;
 
 /** Characters in one "word" for words-per-minute. */
@@ -110,16 +110,16 @@ export function validatePacing(p: PacingSettings): string | null {
   const b = p.breaks;
   if (b.enabled) {
     if (!within(b.every_seconds, LIMITS.every_seconds.min, LIMITS.every_seconds.max)) {
-      return "Active time between breaks must be between 1 minute and 4 hours.";
+      return "Active time between breaks must be between 1 minute and 12 hours.";
     }
     if (!within(b.every_variation_pct, LIMITS.every_variation_pct.min, LIMITS.every_variation_pct.max)) {
       return `Break interval variation must be between 0 and ${LIMITS.every_variation_pct.max}%.`;
     }
     if (!within(b.min_seconds, LIMITS.break_seconds.min, LIMITS.break_seconds.max)) {
-      return "The shortest break must be between 5 seconds and 2 hours.";
+      return "The shortest break must be between 5 seconds and 8 hours.";
     }
     if (!within(b.max_seconds, b.min_seconds, LIMITS.break_seconds.max)) {
-      return "The longest break must be at least the shortest break and at most 2 hours.";
+      return "The longest break must be at least the shortest break and at most 8 hours.";
     }
     if (!["any", "sentence", "paragraph"].includes(b.align)) return "Choose where breaks may start.";
   }

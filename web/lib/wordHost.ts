@@ -1,23 +1,31 @@
 import type { WordHost } from "../../supabase/functions/_shared/providers/word.ts";
 import { ProviderError } from "../../supabase/functions/_shared/providers/types.ts";
+import type { ChunkFormat, ParagraphKind } from "../../supabase/functions/_shared/markdown.ts";
 
-/* Word's JavaScript API (Office.js, WordApi 1.1), only the parts TypeWit uses. */
+/* Word's JavaScript API (Office.js, WordApi 1.1; styleBuiltIn needs 1.3), only the parts TypeWit uses. */
+interface WordRange {
+  font: { bold: boolean; italic: boolean };
+}
 interface WordParagraph {
   text: string;
-  insertText(text: string, location: "End"): unknown;
+  styleBuiltIn?: string;
+  insertText(text: string, location: "End"): WordRange;
 }
 interface WordContext {
   document: {
     body: {
       paragraphs: { items: WordParagraph[]; load(properties: string): void };
-      insertParagraph(text: string, location: "End"): unknown;
+      insertParagraph(text: string, location: "End"): WordParagraph;
     };
   };
   sync(): Promise<void>;
 }
 interface OfficeGlobal {
   onReady(): Promise<{ host: string | null }>;
-  context: { document: { url?: string | null; mode?: string } };
+  context: {
+    document: { url?: string | null; mode?: string };
+    requirements?: { isSetSupported(name: string, version: string): boolean };
+  };
 }
 declare global {
   interface Window {
@@ -85,18 +93,66 @@ async function paragraphTexts(context: WordContext): Promise<string[]> {
 export const officeWordHost: WordHost = {
   readParagraphs: () => run(paragraphTexts),
 
-  appendIf: (check, lines) =>
+  appendIf: (check, lines, format) =>
     run(async (context) => {
       const paragraphs = context.document.body.paragraphs;
       paragraphs.load("items/text");
       await context.sync();
       if (!check(paragraphs.items.map((p) => p.text))) return null;
-      // The first line continues the last paragraph; each line break starts a new one.
-      if (lines[0]) paragraphs.items[paragraphs.items.length - 1].insertText(lines[0], "End");
-      for (const line of lines.slice(1)) context.document.body.insertParagraph(line, "End");
+      const last = paragraphs.items[paragraphs.items.length - 1];
+      if (!format) {
+        // The first line continues the last paragraph; each line break starts a new one.
+        if (lines[0]) last.insertText(lines[0], "End");
+        for (const line of lines.slice(1)) context.document.body.insertParagraph(line, "End");
+      } else {
+        const styles = headingStylesSupported();
+        const lastWasEmpty = last.text === "";
+        let offset = 0;
+        lines.forEach((line, i) => {
+          const paragraph = i === 0 ? last : context.document.body.insertParagraph("", "End");
+          for (const segment of segments(line, offset, format)) {
+            const range = paragraph.insertText(segment.text, "End");
+            range.font.bold = segment.bold;
+            range.font.italic = segment.italic;
+          }
+          // The person's own paragraph keeps its style; new paragraphs get theirs.
+          const style = format.paragraphs.find((p) => p.start === offset);
+          if (style && styles && (i > 0 || lastWasEmpty)) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
+          offset += line.length + 1;
+        });
+      }
       await context.sync();
       return await paragraphTexts(context);
     }),
 
   isEditable: () => Promise.resolve(window.Office?.context.document.mode !== "readOnly"),
 };
+
+const WORD_STYLE: Record<ParagraphKind, string> = {
+  normal: "Normal",
+  h1: "Heading1",
+  h2: "Heading2",
+  h3: "Heading3",
+  bullet: "ListBullet",
+};
+
+/** Paragraph styles need WordApi 1.3; older Word still gets bold and italic. */
+export function headingStylesSupported(): boolean {
+  return window.Office?.context.requirements?.isSetSupported("WordApi", "1.3") ?? false;
+}
+
+/** A line cut where bold or italic starts or stops. `lineStart` is the line's offset in the unit. */
+export function segments(line: string, lineStart: number, format: ChunkFormat) {
+  const cuts = new Set([0, line.length]);
+  for (const s of format.spans) {
+    for (const at of [s.start - lineStart, s.end - lineStart]) if (at > 0 && at < line.length) cuts.add(at);
+  }
+  const points = [...cuts].sort((a, b) => a - b);
+  const out: { text: string; bold: boolean; italic: boolean }[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = lineStart + points[i];
+    const inSpan = (key: "bold" | "italic") => format.spans.some((s) => s[key] && s.start <= from && from < s.end);
+    out.push({ text: line.slice(points[i], points[i + 1]), bold: inSpan("bold"), italic: inSpan("italic") });
+  }
+  return out;
+}

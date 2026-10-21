@@ -21,7 +21,14 @@
 
 import { type AccessProblem, checkAccess } from "./access.ts";
 import { bodyContent, endsWithTail } from "./doctext.ts";
-import { type DocProvider, type DocState, ProviderError } from "./providers/types.ts";
+import {
+  type DocProvider,
+  type DocState,
+  HEADING_MISSING,
+  HEADING_NO_SPACE,
+  ProviderError,
+} from "./providers/types.ts";
+import type { ChunkFormat } from "./markdown.ts";
 import { backoffSeconds, MIN_GAP_SECONDS, plannedAt } from "./schedule.ts";
 
 export { bodyContent, endsWithTail };
@@ -63,7 +70,8 @@ export type Attention =
   | "document_unavailable"
   | "unreachable"
   | "insert_rejected"
-  | "not_editable";
+  | "not_editable"
+  | "heading_missing";
 
 export const ATTENTION_MESSAGE: Record<Attention, string> = {
   document_changed: "The end of the document no longer matches what TypeWit entered, so it can't tell where the " +
@@ -76,6 +84,8 @@ export const ATTENTION_MESSAGE: Record<Attention, string> = {
   unreachable:
     "The document couldn't be reached for a while. Nothing was entered while it was down. Resume to try again.",
   insert_rejected: "The document refused the insertion.",
+  heading_missing: "TypeWit can't find a place under the heading it was adding text to. Make sure the heading is " +
+    "still in the document and its section ends with an empty line, then resume.",
   not_editable: "The document isn't editable with this Google account (it may be view or comment only). " +
     "Ask for edit access, then resume.",
 };
@@ -86,6 +96,7 @@ const PREFLIGHT_ATTENTION: Partial<Record<AccessProblem, Attention>> = {
   not_found: "document_unavailable",
   not_editable: "not_editable",
   location_uncertain: "document_changed",
+  heading_missing: "heading_missing",
 };
 
 /** The `drips` columns the engine reads. */
@@ -111,10 +122,12 @@ export interface SessionRow {
   document_baseline_length: number | null;
   /** When the Test connection before the first insertion passed. */
   preflight_at: string | null;
+  /** Markdown sessions (Pro): the headings, bold, italic and bullets of each unit. */
+  chunk_formats?: ChunkFormat[] | null;
 }
 
 export type SessionPatch = Partial<
-  Omit<SessionRow, "id" | "user_id" | "document_id" | "chunks" | "total_chunks" | "schedule"> & {
+  Omit<SessionRow, "id" | "user_id" | "document_id" | "chunks" | "total_chunks" | "schedule" | "chunk_formats"> & {
     status: "running" | "paused" | "completed";
     next_run_at: string | null;
     lease_id: string | null;
@@ -232,6 +245,9 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
     const kind = error instanceof ProviderError ? error.kind : "transient";
     const message = error instanceof Error ? error.message : String(error);
     if (kind === "auth") return await pause("reconnect", message);
+    if (error instanceof ProviderError && (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE)) {
+      return await pause("heading_missing");
+    }
     if (kind === "permanent") {
       const status = error instanceof ProviderError ? error.status : undefined;
       return await pause(status === 404 || status === 403 ? "document_unavailable" : "insert_rejected", message);
@@ -403,7 +419,7 @@ export async function runSession(initial: SessionRow, lease: string, deps: Engin
 
     let result: { revisionId: string | null };
     try {
-      result = await provider.insertAtEnd(row.document_id, row.chunks[index], revisionId);
+      result = await provider.insertAtEnd(row.document_id, row.chunks[index], revisionId, row.chunk_formats?.[index]);
     } catch (error) {
       if (error instanceof ProviderError && error.kind !== "transient") {
         // Google refused it outright, so the unit is certainly not in the document.

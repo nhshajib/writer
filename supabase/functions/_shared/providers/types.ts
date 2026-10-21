@@ -1,3 +1,5 @@
+import type { ChunkFormat } from "../markdown.ts";
+
 export interface DocInfo {
   id: string;
   title: string;
@@ -25,6 +27,21 @@ export interface RevisionSummary {
   last_modified: string | null;
 }
 
+/** A heading in a document, for "Insert under a heading". */
+export interface DocHeading {
+  /** The provider's stable id for the heading (Google: paragraphStyle.headingId). */
+  id: string;
+  text: string;
+  level: number;
+}
+
+/** Where a session adds its text: the end of the section under this heading. */
+export interface InsertTarget {
+  heading_id: string;
+  heading_text: string;
+  level: number;
+}
+
 /** A document service the worker can write into (Google Docs, later Word Online). */
 export interface DocProvider {
   readonly name: "google" | "microsoft" | "test";
@@ -35,9 +52,18 @@ export interface DocProvider {
    * Inserts text at the end of the body. With `requiredRevisionId`, the
    * insertion is refused (ProviderError "conflict") if the document changed
    * since that revision, so a check followed by a write can't race an edit.
-   * Returns the revision after the insertion.
+   * Returns the revision after the insertion. With `format` (Pro), the unit's
+   * headings, bold, italic and bullets are applied in the same edit.
+   *
+   * A provider made with an insert target treats the end of that heading's
+   * section as "the end": readDocument returns the text up to there.
    */
-  insertAtEnd(documentId: string, text: string, requiredRevisionId?: string): Promise<{ revisionId: string | null }>;
+  insertAtEnd(
+    documentId: string,
+    text: string,
+    requiredRevisionId?: string,
+    format?: ChunkFormat | null,
+  ): Promise<{ revisionId: string | null }>;
   /** Confirms the account's access works (refreshes tokens), without touching any document. */
   verifyAccount(): Promise<void>;
   /**
@@ -53,7 +79,13 @@ export interface DocProvider {
    * never auto-compressed in the provider's own version history.
    */
   createMilestone?(documentId: string): Promise<void>;
+  /** Optional (Pro): the document's headings, for "Insert under a heading". */
+  listHeadings?(documentId: string): Promise<DocHeading[]>;
 }
+
+/** ProviderError codes for an insert target that can't be used. */
+export const HEADING_MISSING = "heading_missing";
+export const HEADING_NO_SPACE = "heading_no_space";
 
 /**
  * How the worker should react to a failure:
@@ -69,6 +101,8 @@ export class ProviderError extends Error {
     readonly kind: ProviderErrorKind,
     message: string,
     readonly status?: number,
+    /** A more specific reason, such as HEADING_MISSING. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ProviderError";

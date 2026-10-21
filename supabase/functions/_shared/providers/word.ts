@@ -1,3 +1,4 @@
+import type { ChunkFormat } from "../markdown.ts";
 import { type DocInfo, type DocProvider, type DocState, ProviderError } from "./types.ts";
 
 /**
@@ -11,8 +12,14 @@ export interface WordHost {
    * In one batch: reads the paragraphs, and only if `check` accepts them,
    * appends `lines[0]` to the last paragraph and each further line as a new
    * paragraph. Returns the paragraphs afterwards, or null if `check` refused.
+   * With `format` (offsets into the lines joined by "\n"), sets bold, italic
+   * and paragraph styles as it goes.
    */
-  appendIf(check: (paragraphs: string[]) => boolean, lines: string[]): Promise<string[] | null>;
+  appendIf(
+    check: (paragraphs: string[]) => boolean,
+    lines: string[],
+    format?: ChunkFormat | null,
+  ): Promise<string[] | null>;
   /** False when the document is open read-only. */
   isEditable(): Promise<boolean>;
 }
@@ -81,11 +88,12 @@ export class WordDocProvider implements DocProvider {
     return { revisionId: textRevision(text), text };
   }
 
-  async insertAtEnd(documentId: string, text: string, requiredRevisionId?: string) {
+  async insertAtEnd(documentId: string, text: string, requiredRevisionId?: string, format?: ChunkFormat | null) {
     this.ensure(documentId);
     const after = await this.host.appendIf(
       (paragraphs) => requiredRevisionId === undefined || textRevision(wordText(paragraphs)) === requiredRevisionId,
       text.split("\n"),
+      format,
     );
     if (after === null) throw new ProviderError("conflict", "The document changed.", 400);
     return { revisionId: textRevision(wordText(after)) };

@@ -18,6 +18,7 @@
 //   POST /drips/connections/microsoft       the Word add-in's connection (no Microsoft tokens are stored)
 //   POST /drips/:id/engine          the Word add-in runs a Word session through this (claim, update, confirm, log)
 //   POST /drips/documents           create a new document in a connected account
+//   GET  /drips/headings?connection_id=&document_id=  a Google document's headings (Pro: insert under a heading)
 //   POST /drips/account/delete      delete my account and everything TypeWit stores for it
 
 import { requireUser } from "../_shared/auth.ts";
@@ -31,7 +32,7 @@ import { checkCreateLimits, PLAN_LIMITS, type PlanTier, PRO_ONLY_MESSAGES } from
 import { type BreakAlignment, type PacingSettings } from "../_shared/pacing.ts";
 import { planSession, type SessionPlan } from "../_shared/plan.ts";
 import { revokeGoogleToken } from "../_shared/providers/google.ts";
-import { ProviderError } from "../_shared/providers/types.ts";
+import { HEADING_MISSING, HEADING_NO_SPACE, type InsertTarget, ProviderError } from "../_shared/providers/types.ts";
 import { textRevision } from "../_shared/providers/word.ts";
 import { notifyUser } from "../_shared/notifyUser.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
@@ -59,11 +60,11 @@ const DRIP_COLUMNS =
   "chunks_written, interval_seconds, duration_seconds, status, next_run_at, attempts, last_error, " +
   "created_at, updated_at, completed_at, insertion_unit, mode, text_sha256, approved_at, schedule, " +
   "schedule_shift_seconds, session_started_at, paused_at, deadline_at, last_written_at, attention, pending_index, " +
-  "timing_mode, pacing, breaks, retry_at, preflight_at";
+  "timing_mode, pacing, breaks, retry_at, preflight_at, text_format, insert_target";
 
 /** Everything the resume checks need on top of DRIP_COLUMNS. */
 const RESUME_COLUMNS =
-  `${DRIP_COLUMNS}, chunks, pending_revision, pending_doc_length, resync_index, resync_tail, last_revision_id`;
+  `${DRIP_COLUMNS}, chunks, chunk_formats, pending_revision, pending_doc_length, resync_index, resync_tail, last_revision_id`;
 
 const WORD_ONLY_IN_ADDIN =
   "TypeWit's servers can't open Word documents. Run Test connection from the TypeWit add-in in Word.";
@@ -105,6 +106,10 @@ serve(async (req) => {
   }
   if (parts[0] === "account" && parts[1] === "delete" && parts.length === 2 && method === "POST") {
     return await deleteAccount(user.id, user.email, req);
+  }
+  if (parts[0] === "headings" && parts.length === 1 && method === "GET") {
+    await rateLimit(user.id, "check");
+    return await listHeadings(user.id, new URL(req.url).searchParams);
   }
   if (parts[0] === "documents" && parts.length === 1 && method === "POST") {
     await rateLimit(user.id, "document");
@@ -157,6 +162,9 @@ interface CreateDripBody {
   /** One id per Start press; repeating the request returns the same session. */
   request_id?: string;
   approval?: { confirmed?: boolean; text_sha256?: string };
+  text_format?: "plain" | "markdown";
+  /** Pro, Google Docs: add the text at the end of this heading's section. */
+  insert_target?: { heading_id?: unknown; heading_text?: unknown; level?: unknown } | null;
 }
 
 interface PlanBody {
@@ -166,6 +174,7 @@ interface PlanBody {
   mode?: "scheduled" | "as_soon_as_possible";
   schedule_seed?: number;
   pacing?: unknown;
+  text_format?: "plain" | "markdown";
 }
 
 /** Reads pace settings from a request body; shape only, ranges are checked by the planner. */
@@ -207,6 +216,8 @@ function readPlanInput(body: PlanBody) {
   if (mode === "scheduled" && !pacing && (!Number.isFinite(durationMinutes) || durationMinutes < 1)) {
     throw new HttpError(400, "duration_minutes must be a number of at least 1.");
   }
+  const format = body.text_format ?? "plain";
+  if (format !== "plain" && format !== "markdown") throw new HttpError(400, "text_format must be plain or markdown.");
   const seed = body.schedule_seed;
   if (seed !== undefined && !(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff)) {
     throw new HttpError(400, "schedule_seed must be a 32-bit unsigned integer.");
@@ -218,7 +229,23 @@ function readPlanInput(body: PlanBody) {
     pacing,
     durationSeconds: Math.round(durationMinutes * 60),
     seed: seed ?? randomSeed(),
-  };
+    format,
+  } as const;
+}
+
+function readTarget(raw: CreateDripBody["insert_target"]): InsertTarget | null {
+  if (raw === undefined || raw === null) return null;
+  const id = raw.heading_id;
+  const text = raw.heading_text;
+  const level = raw.level;
+  if (typeof id !== "string" || !/^[\w.-]{1,100}$/.test(id)) {
+    throw new HttpError(400, "insert_target.heading_id is invalid.");
+  }
+  if (typeof text !== "string" || text.length > 200) throw new HttpError(400, "insert_target.heading_text is invalid.");
+  if (!Number.isInteger(level) || (level as number) < 0 || (level as number) > 6) {
+    throw new HttpError(400, "insert_target.level is invalid.");
+  }
+  return { heading_id: id, heading_text: text, level: level as number };
 }
 
 async function userPlan(userId: string): Promise<{ plan: PlanTier; agreed: boolean }> {
@@ -232,7 +259,7 @@ async function userPlan(userId: string): Promise<{ plan: PlanTier; agreed: boole
 
 /** The plan as the client sees it: unit lengths instead of the units, so the response stays small. */
 function planResponse(plan: SessionPlan) {
-  const { units, ...rest } = plan;
+  const { units, chunk_formats: _formats, ...rest } = plan;
   return { ...rest, unit_count: units.length, unit_lengths: units.map((u) => u.length) };
 }
 
@@ -271,12 +298,19 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
     throw new HttpError(400, "request_id must be a UUID.");
   }
   readStartAt(body.start_at);
+  const target = readTarget(body.insert_target);
+  if (target && !body.document_id) {
+    throw new HttpError(400, "Choose an existing document to add text under one of its headings.");
+  }
 
   const db = adminClient();
   const connection = await loadConnection(body.connection_id, userId);
   if (!connection) throw new HttpError(404, "Connection not found.");
   if (connection.provider === "microsoft" && !body.document_id) {
     throw new HttpError(400, "Open the Word document in Word and start the session from the TypeWit add-in.");
+  }
+  if (target && connection.provider === "microsoft") {
+    throw new HttpError(400, "Adding text under a heading works with Google Docs for now.");
   }
 
   // A repeated Start (double click, retry after a lost response) returns the
@@ -295,6 +329,8 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (countError) throw new Error(countError.message);
   if (!agreed) throw new HttpError(403, "Please read and agree to the Responsible Use Agreement before writing.");
   if (tier === "free" && body.start_at) throw new HttpError(403, PRO_ONLY_MESSAGES.startLater);
+  if (tier === "free" && target) throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
+  if (tier === "free" && input.format === "markdown") throw new HttpError(403, PRO_ONLY_MESSAGES.formatting);
 
   // Splits the text and builds the complete schedule before anything starts.
   const plan = planSession({ ...input, plan: tier });
@@ -322,7 +358,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   }
 
   try {
-    return await startSession(userId, body, input, plan, tier, connection, textHash);
+    return await startSession(userId, body, input, plan, tier, connection, textHash, target);
   } catch (error) {
     // Let the same Start be retried after a failure.
     if (body.request_id) {
@@ -354,6 +390,7 @@ async function startSession(
   tier: PlanTier,
   connection: NonNullable<Awaited<ReturnType<typeof loadConnection>>>,
   textHash: string,
+  target: InsertTarget | null,
 ): Promise<Response> {
   const db = adminClient();
   const { text } = input;
@@ -366,11 +403,13 @@ async function startSession(
       title: (body.document_title?.trim() || wordTitle(body.document_id!)).slice(0, 200),
       url: /^https?:\/\//.test(body.document_id!) ? body.document_id! : null,
     }
-    : await withProviderErrors(() => {
-      const provider = providerFor(connection);
-      return body.document_id
-        ? provider.getDoc(body.document_id)
-        : provider.createDoc(body.new_document_title!.slice(0, 200));
+    : await withProviderErrors(async () => {
+      const provider = providerFor(connection, target);
+      if (!body.document_id) return await provider.createDoc(body.new_document_title!.slice(0, 200));
+      const info = await provider.getDoc(body.document_id);
+      // Check the heading is there with room under it before anything is reserved.
+      if (target) await provider.readDocument(body.document_id);
+      return info;
     });
 
   const { data: reserved, error: reserveError } = await db.rpc("reserve_words", {
@@ -395,6 +434,9 @@ async function startSession(
       document_url: doc.url,
       text,
       chunks: plan.units,
+      text_format: plan.text_format,
+      chunk_formats: plan.chunk_formats,
+      insert_target: target,
       word_count: plan.words,
       total_chunks: plan.units.length,
       // Kept for older clients: the typical gap between insertions.
@@ -439,6 +481,8 @@ async function startSession(
     words: plan.words,
     insertion_unit: input.unit,
     mode: input.mode,
+    text_format: plan.text_format,
+    under_heading: target?.heading_text ?? null,
   });
   await logEvent(dripId, userId, "created", {
     starts_at: started > approvedAt ? started.toISOString() : null,
@@ -568,7 +612,10 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
   } else if (resumeNeedsDocument(row, options)) {
     const connection = await loadConnection(row.connection_id, userId);
     if (!connection) throw new HttpError(409, "Reconnect the document's account first.");
-    doc = await withProviderErrors(() => providerFor(connection).readDocument(row.document_id));
+    doc = await withProviderErrors(() =>
+      providerFor(connection, (row as { insert_target?: InsertTarget | null }).insert_target ?? null)
+        .readDocument(row.document_id)
+    );
   }
 
   const result = planResume(row, Date.now(), doc, options);
@@ -652,7 +699,7 @@ async function checkConnection(userId: string, req: Request): Promise<Response> 
 /** Test connection for a session, including whether the document still ends with TypeWit's text. */
 async function checkSession(userId: string, id: string): Promise<Response> {
   const { data, error } = await adminClient().from("drips")
-    .select("connection_id, document_id, status, chunks, chunks_written, resync_index, resync_tail")
+    .select("connection_id, document_id, status, chunks, chunks_written, resync_index, resync_tail, insert_target")
     .eq("id", id).eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new HttpError(404, "Drip not found.");
@@ -663,7 +710,11 @@ async function checkSession(userId: string, id: string): Promise<Response> {
   const tail = unfinished
     ? expectedTail(data as { chunks: string[]; resync_index: number; resync_tail: string }, data.chunks_written)
     : null;
-  const report = await checkAccess(providerFor(connection), data.document_id, tail);
+  const report = await checkAccess(
+    providerFor(connection, (data.insert_target ?? null) as InsertTarget | null),
+    data.document_id,
+    tail,
+  );
   return json({ report });
 }
 
@@ -988,6 +1039,25 @@ async function engine(userId: string, id: string, req: Request): Promise<Respons
   throw new HttpError(400, "Unknown op.");
 }
 
+/** A Google document's headings, for choosing where the text goes (Pro). */
+async function listHeadings(userId: string, params: URLSearchParams): Promise<Response> {
+  const connectionId = params.get("connection_id") ?? "";
+  const documentId = params.get("document_id") ?? "";
+  if (!UUID_RE.test(connectionId)) throw new HttpError(400, "connection_id is required.");
+  if (!documentId || documentId.length > 2000) throw new HttpError(400, "document_id is required.");
+  const { plan } = await userPlan(userId);
+  if (plan !== "pro") throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
+  const connection = await loadConnection(connectionId, userId);
+  if (!connection) throw new HttpError(404, "Connection not found.");
+  if (connection.provider === "microsoft") {
+    throw new HttpError(409, "Adding text under a heading works with Google Docs for now.");
+  }
+  const provider = providerFor(connection);
+  if (!provider.listHeadings) return json({ headings: [] });
+  const headings = await withProviderErrors(() => provider.listHeadings!(documentId));
+  return json({ headings });
+}
+
 async function createDocument(userId: string, req: Request): Promise<Response> {
   const body = await readJson<{ connection_id?: string; title?: string }>(req);
   if (!body.connection_id || !UUID_RE.test(body.connection_id)) {
@@ -1008,6 +1078,7 @@ async function withProviderErrors<T>(fn: () => Promise<T>): Promise<T> {
     return await fn();
   } catch (error) {
     if (error instanceof ProviderError) {
+      if (error.code === HEADING_MISSING || error.code === HEADING_NO_SPACE) throw new HttpError(422, error.message);
       if (error.kind === "auth") throw new HttpError(401, `Reconnect your account: ${error.message}`);
       if (error.status === 404) throw new HttpError(404, "Document not found or not shared with TypeWit.");
       if (error.status === 403) throw new HttpError(403, "TypeWit doesn't have access to that document.");

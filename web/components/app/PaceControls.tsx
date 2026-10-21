@@ -126,15 +126,15 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
           {pace.breaksOn && (
             <>
               <div className="slider-grid" style={{ marginTop: "0.5rem" }}>
-                <SliderField label="Active time between breaks" unit="min" unitLabel="minutes" value={pace.everyMinutes} min={1} max={120}
-                  onChange={(v) => onChange({ everyMinutes: v })} hint="Time spent entering text before a break." />
+                <SliderField label="Active time between breaks" unit="min" unitLabel="minutes" value={pace.everyMinutes} min={1} max={720}
+                  onChange={(v) => onChange({ everyMinutes: v })} hint={`Time spent entering text before a break (${span(pace.everyMinutes * 60_000)}). Up to 12 hours.`} />
                 <SliderField label="Variation in that time" unit="%" unitLabel="percent" value={pace.everyVariation} min={0} max={50}
                   onChange={(v) => onChange({ everyVariation: v })}
                   hint={`Each stretch varies within ${pace.everyVariation}% of ${pace.everyMinutes} minutes.`} />
-                <SliderField label="Shortest break" unit="s" unitLabel="seconds" value={pace.minBreakSeconds} min={5} max={1800} step={5}
-                  onChange={(v) => onChange({ minBreakSeconds: v })} hint={span(pace.minBreakSeconds * 1000)} />
-                <SliderField label="Longest break" unit="s" unitLabel="seconds" value={pace.maxBreakSeconds} min={5} max={1800} step={5}
-                  onChange={(v) => onChange({ maxBreakSeconds: v })} hint={span(pace.maxBreakSeconds * 1000)} />
+                <BreakField id="min-break" label="Shortest break" seconds={pace.minBreakSeconds}
+                  onChange={(v) => onChange({ minBreakSeconds: v })} />
+                <BreakField id="max-break" label="Longest break" seconds={pace.maxBreakSeconds}
+                  onChange={(v) => onChange({ maxBreakSeconds: v })} />
               </div>
               <div className="field" style={{ marginTop: "1rem", maxWidth: 320 }}>
                 <label className="label" htmlFor="align">Breaks may start</label>
@@ -147,5 +147,46 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
         </fieldset>
       </details>
     </>
+  );
+}
+
+/** Break lengths go from 5 seconds to 8 hours, so the unit can be chosen. */
+const BREAK_UNITS = [
+  { key: "s", label: "seconds", factor: 1, min: 5, max: 600, step: 5 },
+  { key: "min", label: "minutes", factor: 60, min: 1, max: 480, step: 1 },
+  { key: "h", label: "hours", factor: 3600, min: 0.5, max: 8, step: 0.5 },
+] as const;
+const MIN_BREAK_SECONDS = 5;
+const MAX_BREAK_SECONDS = 8 * 3600;
+
+function BreakField({ id, label, seconds, onChange }: {
+  id: string;
+  label: string;
+  seconds: number;
+  onChange: (seconds: number) => void;
+}) {
+  const [unitKey, setUnitKey] = useState<(typeof BREAK_UNITS)[number]["key"]>(() =>
+    seconds >= 3 * 3600 ? "h" : seconds >= 600 ? "min" : "s"
+  );
+  const unit = BREAK_UNITS.find((u) => u.key === unitKey)!;
+  const inUnit = (s: number, u: (typeof BREAK_UNITS)[number]) =>
+    Math.min(u.max, Math.max(u.min, Math.round(s / u.factor / u.step) * u.step));
+  const toSeconds = (v: number, u: (typeof BREAK_UNITS)[number]) =>
+    Math.min(MAX_BREAK_SECONDS, Math.max(MIN_BREAK_SECONDS, Math.round(v * u.factor)));
+  return (
+    <div className="break-field">
+      <SliderField label={label} unit={unit.key} unitLabel={unit.label} value={inUnit(seconds, unit)} min={unit.min}
+        max={unit.max} step={unit.step} onChange={(v) => onChange(toSeconds(v, unit))} hint={span(seconds * 1000)} />
+      <div className="field break-unit">
+        <label className="label" htmlFor={`${id}-unit`}>{label} in</label>
+        <select id={`${id}-unit`} value={unitKey} onChange={(e) => {
+          const next = BREAK_UNITS.find((u) => u.key === e.target.value)!;
+          setUnitKey(next.key);
+          onChange(toSeconds(inUnit(seconds, next), next));
+        }}>
+          {BREAK_UNITS.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}
+        </select>
+      </div>
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import { adminClient, encryptionKey } from "./env.ts";
 import { googleClientConfig } from "./oauth.ts";
 import { GoogleDocsProvider, refreshAccessToken } from "./providers/google.ts";
 import { TestDocProvider } from "./providers/test.ts";
-import { type DocProvider, ProviderError } from "./providers/types.ts";
+import { type DocProvider, type InsertTarget, ProviderError } from "./providers/types.ts";
 
 export interface ConnectionRow {
   id: string;
@@ -39,10 +39,11 @@ export async function loadConnectionsByIds(ids: string[]): Promise<Map<string, C
   return map;
 }
 
-export function providerFor(connection: ConnectionRow): DocProvider {
+/** With `target` (Pro), the provider adds text at the end of that heading's section. */
+export function providerFor(connection: ConnectionRow, target: InsertTarget | null = null): DocProvider {
   switch (connection.provider) {
     case "google":
-      return new GoogleDocsProvider((force) => googleAccessToken(connection, force));
+      return new GoogleDocsProvider((force) => googleAccessToken(connection, force), fetch, target);
     case "test":
       return new TestDocProvider(adminClient(), connection.user_id);
     case "microsoft":

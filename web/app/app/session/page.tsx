@@ -487,7 +487,7 @@ function SessionView() {
                             const total2 = num(d.total) ?? progress.chunks_total;
                             const chars = num(d.chars) ?? 0;
                             const pct = total2 > 0 ? Math.round(written / total2 * 100) : 0;
-                            label = `Part ${written} of ${total2} entered`;
+                            label = `Insertion ${written} of ${total2}`;
                             sub = `${chars} characters · ${pct}%`;
                             dot = written === total2 ? "dot dot-complete" : "dot";
                           } else if (e.kind === "paused") {

@@ -98,6 +98,7 @@ function planFrom(body: Record<string, unknown>, seed: number) {
     durationSeconds: Math.round(Number(body.duration_minutes) * 60),
     seed,
     plan: profileChanges.plan === "free" ? "free" : "pro",
+    format: body.text_format === "markdown" ? "markdown" : "plain",
   });
 }
 
@@ -243,9 +244,19 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (parts.length === 0 && method === "GET") {
     return send(res, 200, { drips: [...drips.values()].map((d) => view(d, false)) });
   }
+  if (parts[0] === "headings") {
+    if (profileChanges.plan === "free") return send(res, 403, { error: "Adding text under a heading is part of Pro." });
+    return send(res, 200, {
+      headings: [
+        { id: "h.intro", text: "Introduction", level: 1 },
+        { id: "h.method", text: "Method", level: 2 },
+        { id: "h.results", text: "Results", level: 1 },
+      ],
+    });
+  }
   if (parts[0] === "plan") {
     const plan = planFrom(body, typeof body.schedule_seed === "number" ? body.schedule_seed : Math.floor(Math.random() * 2 ** 32));
-    const { units, ...rest } = plan;
+    const { units, chunk_formats: _f, ...rest } = plan;
     return send(res, 200, { plan: { ...rest, unit_count: units.length, unit_lengths: units.map((u) => u.length) } });
   }
   if (parts[0] === "check") {
@@ -276,6 +287,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   }
   if (parts.length === 0 && method === "POST" && profileChanges.plan === "free" && body.start_at) {
     return send(res, 403, { error: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it." });
+  }
+  if (parts.length === 0 && method === "POST" && profileChanges.plan === "free" && body.text_format === "markdown") {
+    return send(res, 403, { error: "Keeping headings, bold, italic and bullets is part of Pro. Use plain text, or upgrade." });
   }
   if (parts.length === 0 && method === "POST") {
     const existing = [...drips.values()].find((d) => body.request_id && d.request_id === body.request_id);

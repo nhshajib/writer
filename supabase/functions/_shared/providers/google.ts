@@ -1,8 +1,13 @@
+import { type ChunkFormat, hasFormatting, type ParagraphKind } from "../markdown.ts";
 import {
   classifyHttpStatus,
+  type DocHeading,
   type DocInfo,
   type DocProvider,
   type DocState,
+  HEADING_MISSING,
+  HEADING_NO_SPACE,
+  type InsertTarget,
   OBJECT_PLACEHOLDER,
   ProviderError,
   type RevisionSummary,
@@ -119,9 +124,14 @@ export async function fetchGoogleEmail(accessToken: string, fetchFn: Fetch = fet
 export class GoogleDocsProvider implements DocProvider {
   readonly name = "google" as const;
 
+  /** Where the last read put the insertion point, so a write at that revision goes to the same place. */
+  private lastRead: { documentId: string; revisionId: string; index: number; atParagraphStart: boolean } | null = null;
+
   constructor(
     private readonly getAccessToken: (forceRefresh: boolean) => Promise<string>,
     private readonly fetchFn: Fetch = fetch,
+    /** Pro: add text at the end of this heading's section instead of the end of the document. */
+    private readonly target: InsertTarget | null = null,
   ) {}
 
   async createDoc(title: string): Promise<DocInfo> {
@@ -145,14 +155,48 @@ export class GoogleDocsProvider implements DocProvider {
       `${DOCS_API}/${encodeURIComponent(documentId)}?fields=revisionId,body`,
       { method: "GET" },
     );
-    return { revisionId: body.revisionId, text: extractText(body.body?.content ?? []) };
+    const content = body.body?.content ?? [];
+    const section = this.target ? sectionEnd(content, this.target) : content.length - 1;
+    const last = content[section];
+    if (last?.paragraph && typeof last.endIndex === "number") {
+      this.lastRead = {
+        documentId,
+        revisionId: body.revisionId,
+        index: last.endIndex - 1,
+        atParagraphStart: last.startIndex === last.endIndex - 1,
+      };
+    } else {
+      this.lastRead = null;
+    }
+    // With a target, "the document" is everything up to the end of that section.
+    return { revisionId: body.revisionId, text: extractText(this.target ? content.slice(0, section + 1) : content) };
+  }
+
+  async listHeadings(documentId: string): Promise<DocHeading[]> {
+    const body = await this.request<{ body?: { content?: StructuralElement[] } }>(
+      `${DOCS_API}/${encodeURIComponent(documentId)}?fields=body`,
+      { method: "GET" },
+    );
+    const headings: DocHeading[] = [];
+    for (const element of body.body?.content ?? []) {
+      const level = headingLevel(element);
+      const id = element.paragraph?.paragraphStyle?.headingId;
+      if (level === null || !id) continue;
+      const text = extractText([element]).replace(/\n$/, "").trim();
+      if (text) headings.push({ id, text: text.slice(0, 200), level });
+    }
+    return headings;
   }
 
   async insertAtEnd(
     documentId: string,
     text: string,
     requiredRevisionId?: string,
+    format?: ChunkFormat | null,
   ): Promise<{ revisionId: string | null }> {
+    if (this.target || hasFormatting(format)) {
+      return await this.insertAt(documentId, text, requiredRevisionId, hasFormatting(format) ? format : null);
+    }
     // endOfSegmentLocation appends at the end of the body, so anything the user
     // typed elsewhere is left in place. requiredRevisionId makes Google refuse
     // the write if the document changed after TypeWit checked it.
@@ -168,6 +212,43 @@ export class GoogleDocsProvider implements DocProvider {
       false,
       Boolean(requiredRevisionId),
     );
+    return { revisionId: body.writeControl?.requiredRevisionId ?? null };
+  }
+
+  /**
+   * Inserts at the insertion point found by the last read (the end of the
+   * body, or of the target section), with any formatting, as one edit.
+   */
+  private async insertAt(
+    documentId: string,
+    text: string,
+    requiredRevisionId: string | undefined,
+    format: ChunkFormat | null,
+  ): Promise<{ revisionId: string | null }> {
+    let point = this.lastRead;
+    if (!point || point.documentId !== documentId || point.revisionId !== requiredRevisionId) {
+      const doc = await this.readDocument(documentId);
+      if (requiredRevisionId && doc.revisionId !== requiredRevisionId) {
+        throw new ProviderError("conflict", "The document changed.", 400);
+      }
+      point = this.lastRead;
+    }
+    if (!point) throw new ProviderError("permanent", "TypeWit couldn't find where to add the text.", 400);
+    const requests: unknown[] = [{ insertText: { text, location: { index: point.index } } }];
+    if (format) requests.push(...formatRequests(format, point.index, text.length, point.atParagraphStart));
+    const body = await this.request<{ writeControl?: { requiredRevisionId?: string } }>(
+      `${DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          requests,
+          ...(requiredRevisionId ? { writeControl: { requiredRevisionId } } : {}),
+        }),
+      },
+      false,
+      Boolean(requiredRevisionId),
+    );
+    this.lastRead = null;
     return { revisionId: body.writeControl?.requiredRevisionId ?? null };
   }
 
@@ -285,7 +366,13 @@ export class GoogleDocsProvider implements DocProvider {
 }
 
 interface StructuralElement {
-  paragraph?: { elements?: { textRun?: { content?: string } }[] };
+  startIndex?: number;
+  endIndex?: number;
+  paragraph?: {
+    elements?: { textRun?: { content?: string } }[];
+    paragraphStyle?: { namedStyleType?: string; headingId?: string };
+    bullet?: unknown;
+  };
   table?: { tableRows?: { tableCells?: { content?: StructuralElement[] }[] }[] };
   tableOfContents?: { content?: StructuralElement[] };
   sectionBreak?: unknown;
@@ -320,4 +407,97 @@ function toDocInfo(body: { documentId: string; title: string }): DocInfo {
     title: body.title,
     url: `https://docs.google.com/document/d/${body.documentId}/edit`,
   };
+}
+
+/** HEADING_1-6 → 1-6; TITLE counts as level 0 so it ends every section. Null for other paragraphs. */
+function headingLevel(element: StructuralElement): number | null {
+  const style = element.paragraph?.paragraphStyle?.namedStyleType ?? "";
+  if (style === "TITLE") return 0;
+  const match = /^HEADING_([1-6])$/.exec(style);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Index in `content` of the last element of the target heading's section: the
+ * element before the next heading of the same or a higher level, or the last
+ * element of the body. The heading is found by its stable id, so renaming it
+ * or editing elsewhere doesn't move the target.
+ */
+function sectionEnd(content: StructuralElement[], target: InsertTarget): number {
+  const at = content.findIndex((e) => e.paragraph?.paragraphStyle?.headingId === target.heading_id);
+  const level = at === -1 ? null : headingLevel(content[at]);
+  if (at === -1 || level === null) {
+    throw new ProviderError(
+      "permanent",
+      "The heading for this session is no longer in the document.",
+      404,
+      HEADING_MISSING,
+    );
+  }
+  let end = content.length - 1;
+  for (let i = at + 1; i < content.length; i++) {
+    const next = headingLevel(content[i]);
+    if (next !== null && next <= level) {
+      end = i - 1;
+      break;
+    }
+  }
+  // Text added right after the heading would join the heading's own line, and
+  // text can't go inside a table, so the section has to end with a normal line.
+  if (end === at || !content[end].paragraph) {
+    throw new ProviderError(
+      "permanent",
+      "Add an empty line at the end of the section under this heading, so TypeWit has a place for the text.",
+      422,
+      HEADING_NO_SPACE,
+    );
+  }
+  return end;
+}
+
+const NAMED_STYLE: Record<ParagraphKind, string> = {
+  normal: "NORMAL_TEXT",
+  h1: "HEADING_1",
+  h2: "HEADING_2",
+  h3: "HEADING_3",
+  bullet: "NORMAL_TEXT",
+};
+
+/**
+ * The style requests for one unit inserted at `index`. Bold and italic are
+ * cleared over the whole unit first, so the style of the text before it isn't
+ * carried on. The first paragraph's style is only set when the unit starts a
+ * new paragraph, so the person's own paragraph is never restyled.
+ */
+export function formatRequests(format: ChunkFormat, index: number, length: number, atParagraphStart: boolean) {
+  const range = (start: number, end: number) => ({ startIndex: index + start, endIndex: index + end });
+  const requests: unknown[] = [];
+  if (length > 0) {
+    requests.push({
+      updateTextStyle: { range: range(0, length), textStyle: { bold: false, italic: false }, fields: "bold,italic" },
+    });
+  }
+  for (const span of format.spans) {
+    const textStyle = span.bold ? { bold: true } : { italic: true };
+    requests.push({
+      updateTextStyle: { range: range(span.start, span.end), textStyle, fields: span.bold ? "bold" : "italic" },
+    });
+  }
+  for (const p of format.paragraphs) {
+    if (p.start === 0 && !atParagraphStart) continue;
+    const r = range(p.start, Math.max(p.end, p.start + 1));
+    requests.push({
+      updateParagraphStyle: {
+        range: r,
+        paragraphStyle: { namedStyleType: NAMED_STYLE[p.kind] },
+        fields: "namedStyleType",
+      },
+    });
+    if (p.kind === "bullet") {
+      requests.push({ createParagraphBullets: { range: r, bulletPreset: "BULLET_DISC_CIRCLE_SQUARE" } });
+    } else if (p.after_bullet) {
+      requests.push({ deleteParagraphBullets: { range: r } });
+    }
+  }
+  return requests;
 }
