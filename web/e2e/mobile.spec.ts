@@ -170,23 +170,21 @@ test("the public homepage on a phone works like an app screen", async ({ page })
   await expect(bar).toHaveAttribute("data-shown", "true");
   await expect(bar.getByRole("link", { name: "Get started free" })).toHaveAttribute("href", "/signup/");
 
-  // Previews: the first can be paused; the dots move between them.
+  // The example session can be paused, and only the example changes.
   const preview = page.getByRole("figure", { name: /Preview · an example session/ });
   await preview.getByRole("button", { name: "Pause the example session" }).click();
   await expect(preview).toContainText("Paused");
-  await page.getByRole("button", { name: "Show preview 3 of 3" }).click();
-  await expect(page.getByRole("button", { name: "Show preview 3 of 3" })).toHaveAttribute("aria-current", "true");
 
-  // Pricing as rows, with the real prices.
-  const prices = page.locator(".price-rows");
-  await expect(prices).toContainText("$0");
-  await expect(prices).toContainText("$5/mo");
-  await expect(prices).toContainText("$6.99 monthly");
+  // One set of plans for every screen, with the real prices.
+  const plans = page.locator(".lp-plans");
+  await expect(plans).toContainText("$0");
+  await expect(plans).toContainText("$4.99");
+  await expect(plans).toContainText("$5");
+  await expect(plans).toContainText("$6.99 monthly");
 
-  const features = page.getByRole("heading", { name: "A clear record" });
-  await expect(features).toBeHidden();
-  await page.getByRole("button", { name: "Show all 6 features" }).click();
-  await expect(features).toBeVisible();
+  // Every feature is on the page, with nothing hidden behind a button.
+  await expect(page.getByRole("heading", { name: "A clear record" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Show all/ })).toHaveCount(0);
   await expectNoAxeViolations(page);
   await page.emulateMedia({ colorScheme: "dark" });
   await expectNoAxeViolations(page);

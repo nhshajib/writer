@@ -37,6 +37,11 @@ Priorities below are qualitative judgments based on product fit and sampled sear
 | auto typer pricing; TypeWit pricing | Transactional/branded | `/pricing/` | Free / $6.99 monthly / $60 yearly; annual charge and savings clearly disclosed. |
 | TypeWit support | Navigational | `/support/` | Account connections, provider issues, billing and help contact. |
 
+| auto typer extension; auto typer Chrome extension vs cloud; auto typer that works when laptop is closed | Commercial investigation | `/guides/auto-typer-extension-vs-cloud/` | Neutral comparison of the two approaches (keeps running, install, permissions, devices). No competitor claims. |
+| auto type text in Word; auto typer for Microsoft Word; Word AutoText/Quick Parts | How-to, secondary | `/guides/auto-type-text-microsoft-word/` | Answer Word’s own snippet and Dictate features first; the add-in for paced entry. |
+| voice typing Google Docs; hands-free typing Google Docs | How-to, accessibility | `/guides/voice-typing-google-docs/` | Google’s own voice typing first; TypeWit for reviewed, paced, hands-free entry. |
+| free auto typer for Google Docs; Google Docs auto typer without Chrome extension; auto typer Google Slides | People-also-ask questions | `/google-docs-auto-typer/` “Questions” | Visible answers only (no FAQPage markup). Slides/Sheets answered honestly as unsupported. |
+
 Do not make separate near-identical pages for “autotyper,” “auto typer,” “human typer” and each variant. Use natural synonyms on the owning page to avoid thin doorway pages and keyword cannibalization. Do not pursue academic cheating, detector bypass, fake authorship or “undetectable” traffic. No meta-keyword stuffing, fabricated reviews, ratings, comparison claims, search-volume numbers or author credentials.
 
 ## Research sources
@@ -54,6 +59,18 @@ Sampled live search results on the audit date showed multiple active product/cat
 - [Google: meta keywords are not used](https://developers.google.com/search/docs/crawling-indexing/special-tags).
 - [Google: sitemap lastmod; priority/changefreq ignored](https://developers.google.com/search/blog/2023/06/sitemaps-lastmod-ping).
 - [Google: FAQ rich-result eligibility changes](https://developers.google.com/search/blog/2023/08/howto-faq-changes).
+
+## Update, 22 October 2026
+
+Public search results for “auto typer for Google Docs” are led by vendor comparison posts, Chrome Web Store listings and vendor how-to blogs. The common angles are free tiers, “no extension”, keeps running after the browser closes, and Word support. Changes made in response:
+
+- Three new guides (extension vs. cloud, auto typing in Word, voice typing) bring the guide cluster to six, each answering a distinct task.
+- Visible “Questions” sections on the Google Docs and Word pages answer the questions above, with internal links to the owning guides. No FAQPage schema, per Google’s 2023 eligibility change.
+- Titles lead with the primary phrase and stay within about 60 characters (“Google Docs Auto Typer, No Extension Needed”).
+- Day Pass pricing is now stated on both provider pages and in the homepage free-plan answer, matching the pricing page and offer schema.
+- Sitemap `lastmod` is per page (`PAGE_UPDATED` in `web/lib/search-content.ts`), and each guide carries its own published/updated dates in the page, Open Graph and Article markup.
+
+Next, once Search Console data exists: compare impressions per query against this map, expand the pages already gaining impressions, and add guides only for questions people actually search. Earning genuine links (accessibility communities, productivity directories, a Product Hunt launch) will matter more for the competitive “auto typer for Google Docs” term than further on-page changes.
 
 ## Launch and measurement
 

@@ -2,12 +2,14 @@
 export const CONTENT_UPDATED = "2026-10-21";
 export interface Guide {
   slug: string; title: string; description: string; summary: string;
+  /** First published and last substantively changed, as YYYY-MM-DD. */
+  published: string; updated: string;
   sections: { heading: string; paragraphs: string[]; steps?: string[] }[];
   sources: { label: string; url: string }[];
 }
 export const GUIDES: Guide[] = [
   {
-    slug: "schedule-text-google-docs", title: "How to Schedule Text Entry in Google Docs",
+    slug: "schedule-text-google-docs", published: "2026-10-21", updated: "2026-10-21", title: "How to Schedule Text Entry in Google Docs",
     description: "Schedule approved text entry into a new or existing Google Doc with TypeWit. Learn about session duration, scheduled starts, pauses and formatting.",
     summary: "Choose when automated entry should run, how long it should take, and which document should receive your approved text. A scheduled start and a session’s duration are two different settings.",
     sections: [
@@ -41,7 +43,7 @@ export const GUIDES: Guide[] = [
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
   },
   {
-    slug: "paste-text-keep-formatting-google-docs", title: "Paste Text into Google Docs Without Losing Formatting",
+    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-10-21", title: "Paste Text into Google Docs Without Losing Formatting",
     description: "Keep headings, bold, italic, bullets and highlights when pasting text. Compare normal Google Docs paste with TypeWit’s scheduled formatted text entry.",
     summary: "For a normal one-time paste, use Google Docs directly. If you need approved text entered over time for testing, TypeWit can preserve its supported formatting without asking you to rewrite it as Markdown.",
     sections: [
@@ -72,7 +74,7 @@ export const GUIDES: Guide[] = [
     ], sources: [{ label: "Google Docs keyboard shortcuts", url: "https://support.google.com/docs/answer/179738" }],
   },
   {
-    slug: "google-docs-version-history", title: "Google Docs Version History and Automated Edits",
+    slug: "google-docs-version-history", published: "2026-10-21", updated: "2026-10-21", title: "Google Docs Version History and Automated Edits",
     description: "Learn how to view Google Docs version history, why edits can be grouped, and how TypeWit’s activity log differs from Google’s document history.",
     summary: "Google Docs version history records changes to a document. TypeWit’s activity log records its own automated actions. These records serve different purposes and do not necessarily contain the same number of entries.",
     sections: [
@@ -102,7 +104,114 @@ export const GUIDES: Guide[] = [
       ] },
     ], sources: [{ label: "Google Docs: find what changed, grouped versions and named versions", url: "https://support.google.com/docs/answer/190843" }],
   },
+  {
+    slug: "auto-typer-extension-vs-cloud", published: "2026-10-22", updated: "2026-10-22",
+    title: "Auto Typer Extension vs. Cloud for Google Docs",
+    description: "Compare browser-extension auto typers with cloud text entry for Google Docs: what keeps running when you close the laptop, permissions, formatting and limits.",
+    summary: "A Google Docs auto typer either runs in your browser as an extension or on a server through Google’s API. The difference decides whether you can close your laptop, what you install, and what the tool can access.",
+    sections: [
+      { heading: "Two ways to type into Google Docs automatically", paragraphs: [
+        "A browser-extension auto typer is installed in Chrome or another browser. It sends simulated keystrokes or edits into the Google Docs tab you have open, so the tab, the browser and the computer usually have to stay awake until it finishes.",
+        "A cloud auto typer runs on the provider’s servers and edits the document through Google’s Docs API, with permission you grant to your Google account. TypeWit works this way: once a session starts, you can close the tab or shut the laptop and entry continues on schedule.",
+      ] },
+      { heading: "Side by side", paragraphs: [
+        "Neither approach is right for everyone. These are the practical differences to check before choosing a tool, whichever product you use.",
+      ], steps: [
+        "Keeps running after you close the laptop: usually not with an extension; yes with cloud entry.",
+        "What you install: an extension with permission to read and change the sites it runs on, versus no install for cloud entry, only a Google permission for specific documents.",
+        "Devices: extensions need a desktop browser that supports them; cloud entry can be started and controlled from any modern browser, including a phone or Chromebook.",
+        "Formatting: depends on the tool. TypeWit keeps supported headings, bold, italic, bullets and highlights from a normal paste.",
+        "Control: check for pause, resume and stop, and for a log of what was entered and when.",
+      ] },
+      { heading: "Permissions are worth reading", paragraphs: [
+        "When you install an extension, Chrome shows the sites and data it can read and change. Read it before installing, and remove extensions you no longer use.",
+        "With cloud entry, the service holds a Google authorization for your account. TypeWit uses Google’s drive.file permission, so it can open only the documents it creates and those you choose in Google’s file picker, not the rest of your Drive. You can disconnect the account at any time from Connected accounts.",
+      ] },
+      { heading: "When a browser extension is the better fit", paragraphs: [
+        "If you only need short, one-off entry while you watch the document, an extension can be quicker to try. It also works in editors that have no public API.",
+        "If entry takes longer than you want to keep a tab open, needs to continue overnight, or has to be paused and resumed from another device, cloud entry is the more dependable choice. Read how to schedule text in Google Docs to set one up.",
+      ] },
+      { heading: "Use either responsibly", paragraphs: [
+        "Both approaches automate typing. Neither proves that a person wrote a document or how long it took, whatever the rhythm looks like in version history. Academic cheating and fabricated writing histories are prohibited by TypeWit’s Responsible Use Agreement and by most institutions’ rules.",
+      ] },
+    ], sources: [
+      { label: "Google Drive API: choose scopes (drive.file)", url: "https://developers.google.com/workspace/drive/api/guides/api-specific-auth" },
+      { label: "Chrome: what extension permissions allow", url: "https://developer.chrome.com/docs/extensions/reference/permissions-list" },
+    ],
+  },
+  {
+    slug: "auto-type-text-microsoft-word", published: "2026-10-22", updated: "2026-10-22",
+    title: "How to Auto Type Text in Microsoft Word",
+    description: "Ways to type text automatically in Microsoft Word: AutoCorrect and Quick Parts for repeated snippets, Dictate for speech, and the TypeWit add-in for paced entry.",
+    summary: "Word already has tools that insert text for you. Use AutoCorrect or Quick Parts for snippets you reuse, Dictate to speak instead of type, and an add-in like TypeWit when approved text should be entered over time.",
+    sections: [
+      { heading: "Pick the tool for the job", paragraphs: [
+        "“Auto typing” means different things. Inserting the same signature or paragraph often is a snippet job. Turning speech into text is dictation. Entering a prepared passage gradually, at a pace you set, is paced entry. Word handles the first two on its own.",
+      ] },
+      { heading: "Reusable snippets: AutoCorrect and Quick Parts", paragraphs: [
+        "AutoCorrect replaces a short code you type, such as an abbreviation, with a longer entry as soon as you press Space or Enter. Quick Parts (AutoText) saves a selected block, including its formatting, so you can insert it from the Insert tab or by typing its name and pressing F3 in Word for Windows.",
+        "Microsoft’s guide to reusable text snippets covers both, with the steps for each version of Word.",
+      ], steps: [
+        "Select the text you want to reuse.",
+        "On the Insert tab, choose Quick Parts, then Save Selection to Quick Part Gallery (or AutoText), and give it a name.",
+        "Insert it later from Quick Parts, or type the name and press F3.",
+      ] },
+      { heading: "Speak instead of typing: Dictate", paragraphs: [
+        "Dictate converts speech to text in Word with a Microsoft 365 subscription. Choose Home → Dictate, allow the microphone, and speak; say punctuation such as “comma” or “new line”. It types what you say as you say it.",
+        "If you dictate into another app first, you can paste the result into TypeWit, review it and then enter it at a chosen pace.",
+      ] },
+      { heading: "Enter prepared text over time: the TypeWit add-in", paragraphs: [
+        "The TypeWit add-in enters text you approve into the open Word document, in word groups, sentences or paragraphs, over a duration you choose. It keeps supported headings, bold, italic, bullets and highlights from a normal paste, and you can pause, resume or stop at any time.",
+        "Word entry runs inside the open add-in, so keep the document and the TypeWit panel open until it finishes. Google Docs sessions are different: they run in the cloud.",
+      ], steps: [
+        "Save the document in OneDrive or SharePoint, then open it in Word on the web.",
+        "Add the TypeWit add-in using the manifest from Connected accounts in your dashboard; your organization can also deploy it to Word for Windows and Mac.",
+        "Open the TypeWit panel, sign in, paste your text, and choose a rhythm and duration.",
+        "Review and approve the text, start, and leave the panel open while it runs.",
+      ] },
+      { heading: "Keep it honest", paragraphs: [
+        "Automated entry is still automation. Don’t use it to misrepresent who wrote a document or how it was drafted, and follow the rules of your school or workplace. TypeWit’s Responsible Use Agreement prohibits academic cheating and fabricated writing histories.",
+      ] },
+    ], sources: [
+      { label: "Microsoft: create reusable text snippets (AutoCorrect and Quick Parts)", url: "https://support.microsoft.com/office/create-reusable-text-snippets-0bc40cab-f49c-4e06-bcb2-cd43c1674d1b" },
+      { label: "Microsoft: dictate in Microsoft 365", url: "https://support.microsoft.com/office/dictate-in-microsoft-365-eab203e1-d030-43c1-84ef-999b0b9675fe" },
+    ],
+  },
+  {
+    slug: "voice-typing-google-docs", published: "2026-10-22", updated: "2026-10-22",
+    title: "Google Docs Voice Typing and Hands-Free Entry",
+    description: "Use Google Docs voice typing to dictate, then let TypeWit enter the reviewed text at your pace. Helpful when typing is hard because of injury or disability.",
+    summary: "Google Docs can type what you say. When you’d rather dictate somewhere else, review the text first, or have it entered gradually without keeping your hands on the keyboard, TypeWit can do the entry for you.",
+    sections: [
+      { heading: "Turn on voice typing in Google Docs", paragraphs: [
+        "Voice typing works in Google Docs in Chrome on a computer. Open a document, choose Tools → Voice typing (or press Ctrl+Shift+S, ⌘+Shift+S on Mac), click the microphone, and start speaking. Say punctuation such as “period” or “new line”.",
+        "Google’s help page lists the supported languages and commands, including editing and formatting commands in some languages.",
+      ] },
+      { heading: "When dictating straight into the document isn’t ideal", paragraphs: [
+        "You might prefer to dictate on your phone, use another speech app, or tidy the text before it reaches the document. You might also want long text entered gradually rather than in one paste, or need to step away while it’s entered.",
+        "In those cases, dictate anywhere, paste the result into TypeWit, and review it. TypeWit only enters text after you approve it.",
+      ] },
+      { heading: "Hands-free entry with TypeWit", paragraphs: [], steps: [
+        "Dictate with your device’s voice input or any speech app, then copy the text.",
+        "In TypeWit, open New session and paste it. Check the words and any headings, bold, italic or bullets.",
+        "Choose a new Google Doc or an existing one, pick a rhythm, and set when it should finish.",
+        "Approve and start. The session runs in the cloud, so you can close the page; pause or stop it from any device.",
+      ] },
+      { heading: "Built for keyboard and screen-reader use", paragraphs: [
+        "TypeWit’s dashboard works with the keyboard alone and with screen readers, with large targets and light and dark modes. Progress can be announced to screen readers every 10%, and status changes such as paused or finished are always announced. You can turn the progress announcements off.",
+      ] },
+      { heading: "Plans and limits", paragraphs: [
+        "Free includes 250 words a day and sessions up to 60 minutes, with no card needed. A $4.99 Day Pass removes the word limit for 24 hours, and Pro allows sessions up to a week with custom pacing and scheduled starts.",
+      ] },
+    ], sources: [{ label: "Google Docs: type with your voice", url: "https://support.google.com/docs/answer/4492226" }],
+  },
 ];
+
+/** When each public page last changed substantively; the sitemap's lastmod. Pages not listed use CONTENT_UPDATED. */
+export const PAGE_UPDATED: Record<string, string> = {
+  "/": "2026-10-22", "/google-docs-auto-typer/": "2026-10-22", "/word-auto-typer/": "2026-10-22", "/guides/": "2026-10-22",
+  ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
+};
 
 export const PUBLIC_PAGES = [
   "/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),

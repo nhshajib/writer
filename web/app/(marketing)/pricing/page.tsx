@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
-import { DAY_PASS_FEATURES, FREE_FEATURES, PLAN_COMPARISON, PRO_FEATURES } from "@/lib/plans";
+import { DAY_PASS_FEATURES, FREE_FEATURES, PLAN_COMPARISON } from "@/lib/plans";
 import { DAY_PASS_PRICE, PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 
@@ -94,7 +94,7 @@ function PricingContent() {
       <section className="container pricing-grid-section" aria-label="Plans and comparison">
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className="pricing-cards">
-          <div className="pricing-intro"><p className="kicker">Your testing toolkit</p><h2>Free, a day, or ongoing Pro.</h2><p className="muted">Monthly and Yearly include the same Pro toolkit. Yearly costs $23.88 less than 12 monthly payments. Day Pass gives you one focused day without a subscription.</p></div>
+          <p className="pricing-intro muted">Monthly and Yearly include the same Pro features; Yearly costs $23.88 less than 12 monthly payments. A Day Pass gives you one day without a subscription.</p>
           <section className="plan" aria-labelledby="free-title">
             <h2 id="free-title">Free</h2><p className="desc">Try a short document session.</p>
             <div className="price"><strong>$0</strong><span>/ month</span></div><p className="price-note">Free forever · no card needed</p>
@@ -129,7 +129,6 @@ function PricingContent() {
             <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Day Pass">{row.day}</td><td data-label="Pro"><strong>{row.pro}</strong></td></tr>)}</tbody>
           </table>
         </div>
-        <details className="more pricing-pro-list"><summary>Explore the Pro toolkit</summary><ul className="ticks">{PRO_FEATURES.map(f => tick(f,f))}</ul></details>
         <p className="hint">For authorized testing only. Simulated edits are automated; Google controls how edits appear in version history. <Link href="/responsible-use/">Read the Responsible Use Agreement</Link>.</p>
       </section>
 
