@@ -556,6 +556,11 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     row.doc += String(body.text ?? "");
     return send(res, 200, {});
   }
+  // Writing stops on an error the session can't recover from.
+  if (path === "/__test/fail") {
+    Object.assign(row, { status: "failed", attention: null, last_error: String(body.message ?? "Google Docs refused the change.") });
+    log(row.id, "failed", { message: row.last_error });
+  }
   if (path === "/__test/attention") {
     Object.assign(row, {
       status: "paused",

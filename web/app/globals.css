@@ -2706,3 +2706,20 @@ button.mk-pause:active { transform: scale(0.98); }
 @media (max-width: 640px) {
   .session-advanced > summary .hint { display: block; margin-top: 0.2rem; font-weight: 450; }
 }
+
+/* Home: Now (live + today), Recent, Your plan */
+.home-sub { font-size: 0.875rem; font-weight: 650; margin: 1.25rem 0 0.5rem; color: var(--text-2); }
+.home-today { border-top: 1px solid var(--separator, var(--border)); margin-top: 1.25rem; }
+.live-more-actions { grid-area: act; display: flex; align-items: center; gap: 0.35rem; position: relative; z-index: 1; }
+.glance-value.small-value { font-size: 0.9375rem; font-weight: 650; letter-spacing: 0; white-space: normal; }
+.home-glance .progress { margin-top: 0.5rem; }
+.home-glance .home-week { margin-top: 1rem; }
+@media (max-width: 767px) {
+  .home-recent { order: 5; } .home-glance { order: 6; }
+}
+.lh-menu { flex: none; }
+@media (max-width: 767px) {
+  .lh-top { position: relative; padding-right: 2.5rem; }
+  .lh-menu { position: absolute; top: 0; right: 0; }
+  .live-more li { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title act" "meta act" "bar pct"; row-gap: 0.35rem; }
+}

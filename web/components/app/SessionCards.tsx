@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Problem } from "@/components/app/Problem";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { friendlyError } from "@/lib/errors";
@@ -32,62 +32,6 @@ export function statusLine(drip: Drip, now: number): string {
 }
 
 export const titleOf = (drip: Drip) => drip.document_title ?? "Untitled document";
-
-/** A running, scheduled or paused session with its controls, so it can be handled without opening it. */
-export function LiveSessionCard({ drip, now, control }: { drip: Drip; now: number; control: ReturnType<typeof useSessionControl> }) {
-  const p = drip.progress;
-  const title = titleOf(drip);
-  const busy = control.busyId === drip.id;
-  const running = drip.status === "running" || drip.status === "scheduled";
-  const error = control.error?.id === drip.id ? control.error.message : null;
-  return (
-    <article className="live-card" aria-labelledby={`live-${drip.id}`}>
-      <div className="live-top">
-        <span className={`doc-icon ${drip.provider === "microsoft" ? "word" : "gdoc"}`} aria-hidden="true"><Icon.doc /></span>
-        <div className="live-title">
-          <Link id={`live-${drip.id}`} href={`/app/session?id=${drip.id}`} className="title">{title}</Link>
-          <span className="meta">
-            {drip.mode === "as_soon_as_possible" ? "All at once" : UNIT_LABEL[drip.insertion_unit].title}
-            {" · "}{p.words_total.toLocaleString()} words
-          </span>
-        </div>
-        <StatusBadge state={stateOf(drip)} />
-      </div>
-      <div className="live-progress">
-        <div className="progress lg" role="progressbar" aria-label={`Progress for ${title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.percent}>
-          <span style={{ width: `${p.percent}%` }} />
-        </div>
-        <span className="pct">{p.percent}%</span>
-      </div>
-      <div className="live-foot">
-        <span className={`live-status${drip.attention ? " warn" : ""}`}>
-          {drip.attention ? <Icon.alert /> : <Icon.clock />}{statusLine(drip, now)}
-        </span>
-        <span className="live-actions">
-          {drip.document_url && (
-            <a className="icon-btn" href={drip.document_url} target="_blank" rel="noopener noreferrer" title={`Open in ${drip.provider === "microsoft" ? "Word" : "Google Docs"}`}>
-              <Icon.external /><span className="sr-only">Open {title} in {drip.provider === "microsoft" ? "Word" : "Google Docs"} (opens in a new tab)</span>
-            </a>
-          )}
-          {running && (
-            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => control.run(drip.id, "pause")}>
-              <Icon.pause />Pause<span className="sr-only"> {title}</span>
-            </button>
-          )}
-          {drip.status === "paused" && !drip.attention && (
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => control.run(drip.id, "resume")}>
-              <Icon.play />Resume<span className="sr-only"> {title}</span>
-            </button>
-          )}
-          {drip.attention && (
-            <Link href={`/app/session?id=${drip.id}`} className="btn btn-primary btn-sm">Fix it<span className="sr-only"> for {title}</span></Link>
-          )}
-        </span>
-      </div>
-      {error && <p className="alert alert-error small" role="alert">{error}</p>}
-    </article>
-  );
-}
 
 /** A session that needs the person, with the quickest fix offered right here. */
 export function AttentionCard({ drip, control }: { drip: Drip; control: ReturnType<typeof useSessionControl> }) {
@@ -127,7 +71,7 @@ export function AttentionCard({ drip, control }: { drip: Drip; control: ReturnTy
 }
 
 /** The main live session on Home: large progress, what happens next, and its controls. */
-export function LiveHero({ drip, now, control }: { drip: Drip; now: number; control: ReturnType<typeof useSessionControl> }) {
+export function LiveHero({ drip, now, control, menu }: { drip: Drip; now: number; control: ReturnType<typeof useSessionControl>; menu?: ReactNode }) {
   const [confirmStop, setConfirmStop] = useState(false);
   const p = drip.progress;
   const title = titleOf(drip);
@@ -146,6 +90,7 @@ export function LiveHero({ drip, now, control }: { drip: Drip; now: number; cont
           </span>
         </div>
         <StatusBadge state={stateOf(drip)} />
+        {menu && <span className="lh-menu">{menu}</span>}
       </div>
       <div className="lh-figures">
         <p className="lh-pct" aria-hidden="true">{p.percent}<span>%</span></p>

@@ -53,20 +53,18 @@ test("Home shows what needs you with the fix right there, and live sessions can 
   await expect(page.locator(".toast")).toHaveText(/Session resumed\./);
   await expect(needs).toBeHidden();
 
-  const live = page.getByRole("region", { name: /Live session/ });
+  const live = page.getByRole("region", { name: /^Now/ });
   await live.getByRole("button", { name: "Pause History essay" }).click();
   await expect(page.locator(".toast")).toHaveText(/Session paused\./);
   await expect(live.getByRole("button", { name: "Resume History essay" })).toBeVisible();
 
-  // The day at a glance, and connections that only claim what is true.
-  await page.getByText("Usage details", { exact: true }).click();
-  const glance = page.getByRole("region", { name: "Today at a glance" });
-  await expect(glance).toContainText("Active sessions");
-  await expect(glance).toContainText("2 / 3");
-  await page.locator("summary").filter({ hasText: "Connected accounts" }).click();
-  const docs = page.getByRole("region", { name: "Connected documents" });
-  await expect(docs.getByRole("link", { name: /Google Docs.*Connected/ })).toBeVisible();
-  await expect(docs.getByRole("link", { name: /Word add-in.*Not set up/ })).toBeVisible();
+  // One plan card instead of folded usage, activity and connection panels.
+  const plan = page.getByRole("region", { name: "Your plan" });
+  await expect(plan).toContainText("Active sessions");
+  await expect(plan).toContainText("2 / 3");
+  await expect(plan).not.toContainText("Compare plans");
+  await expect(page.getByRole("region", { name: "Connected documents" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Get started" })).toHaveCount(0);
 
   // Stop asks first, and keeping it going changes nothing.
   await live.getByRole("button", { name: /^Stop / }).click();
@@ -143,4 +141,51 @@ test("the sessions list pauses in place and shows a quick look without leaving t
   await page.getByRole("button", { name: "More for Quarterly summary" }).click();
   await page.getByRole("link", { name: "Open session" }).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
+});
+
+test("one session menu stops and deletes from the list, and Home's other live sessions can be stopped too", async ({ page }) => {
+  await createSession(page, "Quarterly summary");
+  await createSession(page, "Field notes");
+
+  await page.goto("/app/");
+  const others = page.getByRole("list", { name: "Other live sessions" });
+  await others.getByRole("button", { name: /^More for / }).click();
+  await expect(page.getByRole("button", { name: "Stop…" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/app/sessions/");
+  await page.getByRole("button", { name: "More for Quarterly summary" }).click();
+  await page.getByRole("button", { name: "Stop…" }).click();
+  const stop = page.getByRole("dialog", { name: "Stop this session?" });
+  await stop.getByRole("button", { name: "Stop session" }).click();
+  await expect(page.locator(".toast")).toHaveText(/Session stopped\./);
+
+  await page.getByRole("button", { name: "More for Quarterly summary" }).click();
+  await expect(page.getByRole("link", { name: "Run again…" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete…" }).click();
+  const remove = page.getByRole("dialog", { name: "Delete this session?" });
+  await expectNoAxeViolations(page);
+  await remove.getByRole("button", { name: "Delete session" }).click();
+  await expect(page.locator(".toast")).toHaveText(/Session deleted\./);
+  await expect(page.getByRole("link", { name: "Quarterly summary" })).toHaveCount(0);
+});
+
+test("the Home badge counts a session stopped by an error, like the Needs-you list", async ({ page, request }) => {
+  const id = await createSession(page, "Lab report");
+  await request.post("/__test/fail", { data: { id } });
+  await page.goto("/app/");
+  await expect(page.getByRole("region", { name: "Needs your attention" })).toContainText("Lab report");
+  await expect(page.getByRole("link", { name: "Home" })).toContainText("1");
+});
+
+test("editing settings is offered on every plan: Pro pauses to edit, Free sees why it's locked", async ({ page, request }) => {
+  const id = await createSession(page, "History essay");
+  await page.goto(`/app/session/?id=${id}`);
+  await page.getByRole("button", { name: "Edit text & settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Edit the remaining session/ })).toBeVisible();
+
+  await request.post("/__test/profile", { data: { plan: "free", subscription_status: null } });
+  await page.goto(`/app/session/?id=${id}&edit=1`);
+  await expect(page.getByText("Editing a paused session's text and settings is part of Pro.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Edit the remaining session/ })).toHaveCount(0);
 });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "@/components/app/Popover";
 import { titleOf } from "@/components/app/SessionCards";
+import { SessionActionsMenu } from "@/components/app/SessionActions";
 import { SessionPreview } from "@/components/app/SessionPreview";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
@@ -206,7 +207,6 @@ export default function SessionsPage() {
                       {visible.map((d) => {
                         const title = titleOf(d);
                         const running = d.status === "running" || d.status === "scheduled";
-                        const finished = ["completed", "canceled", "failed"].includes(d.status);
                         return (
                           <tr key={d.id} data-selected={previewId === d.id}>
                             <td>
@@ -238,22 +238,8 @@ export default function SessionsPage() {
                                   <Icon.play /><span className="sr-only">Resume {title}</span>
                                 </button>
                               )}
-                              <Popover label={`More for ${title}`} button={<Icon.more />}>
-                                {(close) => (
-                                  <ul className="menu-list">
-                                    <li><button type="button" onClick={() => { close(); setPreviewId(d.id); }}><Icon.search />Quick look</button></li>
-                                    <li><Link href={`/app/session?id=${d.id}`}><Icon.arrowRight />Open session</Link></li>
-                                    {d.document_url && (
-                                      <li>
-                                        <a href={d.document_url} target="_blank" rel="noopener noreferrer" onClick={close}>
-                                          <Icon.external />Open in {d.provider === "microsoft" ? "Word" : "Google Docs"}<span className="sr-only"> (opens in a new tab)</span>
-                                        </a>
-                                      </li>
-                                    )}
-                                    {finished && d.provider !== "microsoft" && <li><Link href={`/app/new?from=${d.id}`}><Icon.refresh />Run again…</Link></li>}
-                                  </ul>
-                                )}
-                              </Popover>
+                              <SessionActionsMenu drip={d} control={control}
+                                before={(close) => <li><button type="button" onClick={() => { close(); setPreviewId(d.id); }}><Icon.search />Quick look</button></li>} />
                             </td>
                           </tr>
                         );

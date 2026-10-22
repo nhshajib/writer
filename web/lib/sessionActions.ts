@@ -5,11 +5,11 @@ import { useToast } from "@/components/Toast";
 import { api } from "./api";
 import { useDashboard } from "./dashboard";
 
-export type SessionAction = "pause" | "resume" | "cancel";
+export type SessionAction = "pause" | "resume" | "cancel" | "delete";
 
-const DONE: Record<SessionAction, string> = { pause: "Session paused.", resume: "Session resumed.", cancel: "Session stopped." };
+const DONE: Record<SessionAction, string> = { pause: "Session paused.", resume: "Session resumed.", cancel: "Session stopped.", delete: "Session deleted." };
 
-/** Pause, resume or stop a session from a list or card, then refresh the dashboard. */
+/** Pause, resume, stop or delete a session from a list or card, then refresh the dashboard. */
 export function useSessionControl() {
   const { refresh } = useDashboard();
   const toast = useToast();

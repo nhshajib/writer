@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ProgressRing } from "@/components/app/Charts";
 import { statusLine, titleOf } from "@/components/app/SessionCards";
 import { Problem } from "@/components/app/Problem";
+import { SessionActionsMenu } from "@/components/app/SessionActions";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
@@ -86,6 +87,7 @@ export function SessionPreview({ drip, onClose, control }: {
                 {drip.provider === "microsoft" ? "Word" : "Google Docs"} <Icon.external /><span className="sr-only"> (opens in a new tab)</span>
               </a>
             )}
+            <SessionActionsMenu drip={drip} control={control} buttonClass="btn btn-ghost btn-sm btn-icon" />
           </div>
 
           <dl className="facts">

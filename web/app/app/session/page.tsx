@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { ProgressRing } from "@/components/app/Charts";
+import { PlanLock } from "@/components/app/PlanLock";
 import { Popover } from "@/components/app/Popover";
 import { Problem } from "@/components/app/Problem";
 import { StatusBadge } from "@/components/app/StatusBadge";
@@ -37,7 +38,11 @@ const MILESTONE = 10;
 const ANNOUNCE_KEY = "typewit.announceProgress";
 
 function SessionView() {
-  const id = useSearchParams().get("id") ?? "";
+  const params = useSearchParams();
+  const id = params.get("id") ?? "";
+  // "Edit text & settings" in a session's menu links here with &edit=1.
+  const wantsEdit = params.get("edit") === "1";
+  const editHandled = useRef(false);
   const session = useRequireSession();
   const dashboard = useDashboard();
   const progressHeading = useRef<HTMLHeadingElement>(null);
@@ -139,7 +144,7 @@ function SessionView() {
     } catch { /* storage unavailable */ }
   }
 
-  async function control(action: "pause" | "resume" | "cancel", body: Record<string, unknown> = {}) {
+  async function control(action: "pause" | "resume" | "cancel", body: Record<string, unknown> = {}): Promise<boolean> {
     setBusy(true);
     setConfirmStop(false);
     setError(null);
@@ -148,14 +153,30 @@ function SessionView() {
       setNeedsConfirm(false);
       await Promise.all([load(), dashboard.refresh()]);
       setAnnouncement(action === "pause" ? "Session paused." : action === "resume" ? "Session resumed." : "Session stopped.");
+      return true;
     } catch (e) {
       if (e instanceof ApiError && e.attention === "confirm_last_part") setNeedsConfirm(true);
       setError(e instanceof Error ? e.message : "That didn't work. Please try again.");
+      return false;
     } finally {
       setBusy(false);
       // The buttons that had focus may be gone now; keep keyboard users in place.
       progressHeading.current?.focus();
     }
+  }
+
+  // Opened from "Edit text & settings": a paused session opens its editor; a running one points to "Pause to edit".
+  useEffect(() => {
+    if (!wantsEdit || editHandled.current || !drip) return;
+    editHandled.current = true;
+    if (drip.status === "paused" && dashboard.profile.plan === "pro" && !drip.attention && !drip.progress.temporary_edit_active) setEditing(true);
+    else requestAnimationFrame(() => document.getElementById("edit-session")?.focus());
+  }, [wantsEdit, drip, dashboard.profile.plan]);
+
+  /** Pro: open the editor, pausing a running session first. */
+  async function pauseToEdit() {
+    if (drip?.status !== "paused" && !await control("pause")) return;
+    setEditing(true);
   }
 
   async function testConnection() {
@@ -249,6 +270,9 @@ function SessionView() {
     | undefined;
 
   const isPro = dashboard.profile?.plan === "pro";
+  // Remaining text and settings can change while paused; a running Google session can be paused first.
+  const editable = (paused || drip.status === "running" || drip.status === "scheduled") && !attention && drip.provider !== "microsoft"
+    && !drip.progress.temporary_edit_active;
   const etaLabel = drip.status === "completed" ? "Finished" : paused ? "Finish if resumed now" : "Expected completion";
   const eta = drip.status === "completed" && progress.finish_at ? when(progress.finish_at)
     : paused && progress.finish_if_resumed_now ? when(progress.finish_if_resumed_now)
@@ -346,7 +370,23 @@ function SessionView() {
         {offline && <p className="alert alert-info" role="status">Can&apos;t reach TypeWit right now. Showing the last known state; this page retries on its own. The session keeps running on the server.</p>}
       </div>
 
-      {paused && isPro && !attention && !drip.progress.temporary_edit_active && !editing && <p className="mb-6"><button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>Edit remaining text &amp; settings <span className="badge badge-blue pro-badge">Pro</span></button></p>}
+      {editable && !editing && (
+        isPro
+          ? (
+            <p className="mb-6">
+              <button id="edit-session" type="button" className="btn btn-secondary" disabled={busy} onClick={pauseToEdit} aria-describedby={paused ? undefined : "edit-session-hint"}>
+                <Icon.sliders />{paused ? "Edit remaining text & settings" : "Edit text & settings"}
+              </button>
+              {!paused && <span id="edit-session-hint" className="hint"> The session pauses while you edit.</span>}
+            </p>
+          )
+          : (
+            <p id="edit-session" tabIndex={-1} className="hint mb-6 edit-locked">
+              Editing a paused session&apos;s text and settings is part of Pro.<PlanLock plan={dashboard.profile.plan} feature="pausedEdit" />{" "}
+              <Link href="/app/billing/">Compare plans</Link>
+            </p>
+          )
+      )}
       {paused && editing && <PausedSessionEditor drip={drip} onCancel={() => setEditing(false)} onSaved={async () => { setEditing(false); await Promise.all([load(), dashboard.refresh()]); setAnnouncement("Changes saved. The session is still paused. Resume when ready."); }} />}
       <div className="session-grid">
         <div className="stack-6">

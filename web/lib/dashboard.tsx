@@ -57,6 +57,12 @@ export const PLAN_LIMITS = {
 
 export const ACTIVE_STATUSES = new Set(["scheduled", "running", "paused"]);
 
+/** Sessions waiting on the person: paused with a problem, or stopped by an error in the last week. */
+export function needsYouOf(drips: Drip[], now: number): Drip[] {
+  return drips.filter((d) =>
+    (d.status === "paused" && d.attention) || (d.status === "failed" && now - Date.parse(d.created_at) < 7 * 86_400_000));
+}
+
 interface DashboardData {
   session: Session;
   profile: Profile;

@@ -12,7 +12,7 @@ import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { Icon } from "@/components/Icons";
 import { Logo, Wordmark } from "@/components/Logo";
 import { ToastProvider } from "@/components/Toast";
-import { DashboardProvider, PLAN_LIMITS, useDashboardLoader } from "@/lib/dashboard";
+import { DashboardProvider, needsYouOf, PLAN_LIMITS, useDashboardLoader } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
@@ -98,7 +98,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isPro = value.profile.plan === "pro";
   const limit = PLAN_LIMITS.free.dailyWords;
   const used = Math.min(value.wordsToday, limit);
-  const needsYou = value.drips.filter((d) => d.status === "paused" && d.attention).length;
+  // The same sessions Home lists under "Needs your attention", so the badge and the list agree.
+  const needsYou = needsYouOf(value.drips, Date.now()).length;
   // Creating a session is a focused flow: no tab bar, its own Back and Continue.
   const focused = pathname === "/app/new";
 

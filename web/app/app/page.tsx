@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart } from "@/components/app/Charts";
+import { SessionActionsMenu } from "@/components/app/SessionActions";
 import { AttentionCard, LiveHero, statusLine, titleOf } from "@/components/app/SessionCards";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { Icon } from "@/components/Icons";
-import { ACTIVE_STATUSES, connectGoogleDocs, formatRelative, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
+import { ACTIVE_STATUSES, connectGoogleDocs, formatRelative, needsYouOf, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
+import { PLAN_NAME } from "@/lib/plans";
 import { useNow, useSessionControl } from "@/lib/sessionActions";
 import { clock, dailyResetTime, when } from "@/lib/time";
 import { type Drip, stateOf } from "@/lib/types";
@@ -59,15 +61,15 @@ export default function HomePage() {
   // Running sessions come first, so the main card shows one that is moving.
   const live = drips.filter((d) => ACTIVE_STATUSES.has(d.status) && !d.attention)
     .sort((a, b) => Number(a.status === "paused") - Number(b.status === "paused"));
-  const needsYou = drips.filter((d) =>
-    (d.status === "paused" && d.attention) || (d.status === "failed" && now - Date.parse(d.created_at) < 7 * DAY));
-  const recent = drips.filter((d) => !ACTIVE_STATUSES.has(d.status)).slice(0, 4);
+  const needsYou = needsYouOf(drips, now);
+  const recent = drips.filter((d) => !ACTIVE_STATUSES.has(d.status)).slice(0, 5);
   const googleConnected = connections.some((c) => c.provider === "google" && c.connected !== false);
   const googleAccounts = connections.filter((c) => c.provider === "google");
   // Word is only shown as connected when a Word session has actually been run.
   const wordUsed = connections.some((c) => c.provider === "microsoft") || drips.some((d) => d.provider === "microsoft");
   const active = drips.filter((d) => ACTIVE_STATUSES.has(d.status)).length;
-  const isNew = !googleConnected || drips.length === 0;
+  const isNew = drips.length === 0;
+  const reconnect = googleAccounts.some((c) => c.connected === false);
   const usage = limits.dailyWords ? Math.min(100, Math.round((wordsToday / limits.dailyWords) * 100)) : 0;
 
   // Words entered in the sessions started on each of the last 7 days.
@@ -124,18 +126,23 @@ export default function HomePage() {
       {googleStatus === "connected" && <p className="alert alert-success mb-5" role="status">Your Google account is connected.</p>}
       {googleStatus === "error" && <p className="alert alert-error mb-5" role="alert">We couldn&apos;t connect your Google account. Please try again.</p>}
 
+      {reconnect && (
+        <p className="alert alert-info mb-5" role="status">
+          <Icon.alert /><span>A Google account needs reconnecting before its sessions can continue. <Link href="/app/connections">Connected accounts</Link></span>
+        </p>
+      )}
+
       {isNew && (
         <section className="card mb-6 home-setup" aria-labelledby="setup-title">
           <div className="card-head">
             <h2 id="setup-title">Get started</h2>
             <span className="small muted">Takes about two minutes</span>
           </div>
-          <p className="muted">Paste your text, use a ready-made rhythm, and review before starting. Your document updates automatically while you get on with your day.</p>
+          <p className="muted">Paste your text, pick a rhythm, and review before starting. Your document updates automatically while you get on with your day.</p>
           <div className="row mt-4">
-            {googleConnected ? <Link href="/app/new" className="btn btn-primary">Create your first session</Link> : <button type="button" className="btn btn-primary" onClick={connect}>Connect Google Docs</button>}
+            {googleConnected || wordUsed ? <Link href="/app/new" className="btn btn-primary">Create your first session</Link> : <button type="button" className="btn btn-primary" onClick={connect}>Connect Google Docs</button>}
             <Link href="/app/connections#word" className="small">Using Microsoft Word?</Link>
           </div>
-          {profile.plan === "free" && <p className="hint mt-4">Free includes 250 words a day, two ready-made rhythms and sentence pauses. Try a complete short session before deciding whether you need Pro.</p>}
           {connectError && <p className="alert alert-error mt-4" role="alert">{connectError}</p>}
         </section>
       )}
@@ -152,8 +159,8 @@ export default function HomePage() {
           <div className="home-col">
             <section className="card home-live" aria-labelledby="live-title">
               <div className="card-head">
-                <h2 id="live-title">{live.length > 1 ? "Live sessions" : "Live session"}{live.length > 1 && <span className="count-pill">{live.length}</span>}</h2>
-                <span className="small muted">Automated text entry</span>
+                <h2 id="live-title">Now{live.length > 1 && <span className="count-pill">{live.length}</span>}</h2>
+                {live.length > 0 && <span className="small muted">{running} running{live.length - running ? ` · ${live.length - running} paused` : ""}</span>}
               </div>
               {live.length === 0
                 ? (
@@ -161,12 +168,12 @@ export default function HomePage() {
                     <div className="icon"><Icon.play /></div>
                     <h3>Nothing running</h3>
                     <p>Start a session and it shows up here with its progress and controls.</p>
-                    <Link href="/app/new" className="btn btn-primary btn-sm"><Icon.plus /> New session</Link>
                   </div>
                 )
                 : (
                   <>
-                    <LiveHero drip={live[0]} now={now} control={control} />
+                    <LiveHero drip={live[0]} now={now} control={control}
+                      menu={<SessionActionsMenu drip={live[0]} control={control} />} />
                     {live.length > 1 && (
                       <ul className="live-more" aria-label="Other live sessions">
                         {live.slice(1).map((d) => (
@@ -177,82 +184,50 @@ export default function HomePage() {
                               <span style={{ width: `${d.progress.percent}%` }} />
                             </span>
                             <span className="pct">{d.progress.percent}%</span>
-                            {d.status === "paused"
-                              ? (
-                                <button type="button" className="btn btn-secondary btn-sm" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "resume")}>
-                                  <Icon.play />Resume<span className="sr-only"> {titleOf(d)}</span>
-                                </button>
-                              )
-                              : (
-                                <button type="button" className="btn btn-secondary btn-sm" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "pause")}>
-                                  <Icon.pause />Pause<span className="sr-only"> {titleOf(d)}</span>
-                                </button>
-                              )}
+                            <span className="live-more-actions">
+                              {d.status === "paused"
+                                ? (
+                                  <button type="button" className="btn btn-secondary btn-sm" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "resume")}>
+                                    <Icon.play />Resume<span className="sr-only"> {titleOf(d)}</span>
+                                  </button>
+                                )
+                                : (
+                                  <button type="button" className="btn btn-secondary btn-sm" disabled={control.busyId === d.id} onClick={() => control.run(d.id, "pause")}>
+                                    <Icon.pause />Pause<span className="sr-only"> {titleOf(d)}</span>
+                                  </button>
+                                )}
+                              <SessionActionsMenu drip={d} control={control} />
+                            </span>
                           </li>
                         ))}
                       </ul>
                     )}
                   </>
                 )}
+              {moments.length > 0 && (
+                <div className="home-today" aria-labelledby="today-title">
+                  <h3 id="today-title" className="home-sub">Today</h3>
+                  <ol className="timeline">
+                    {moments.map((m) => (
+                      <li key={`${m.drip.id}-${m.label}`} data-past={m.at < now}>
+                        <time dateTime={new Date(m.at).toISOString()}>{when(m.at)}</time>
+                        <span>
+                          <strong>{m.label}</strong>
+                          <Link href={`/app/session?id=${m.drip.id}`}>{titleOf(m.drip)}</Link>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </section>
 
-            {live.length > 0 && <Link href="/app/new/" className="btn btn-primary btn-lg btn-block mobile-only home-new"><Icon.plus /> New session</Link>}
-
-            <details className="home-analytics"><summary>Writing activity</summary>
-            <section className="card home-week" aria-labelledby="week-title">
-              <div className="card-head">
-                <h2 id="week-title">Words this week</h2>
-                <span className="small muted">Grouped by session start date</span>
-              </div>
-              <p className="week-total">{weekTotal.toLocaleString()}</p>
-              <p className="small muted week-note">Total words entered, last 7 days</p>
-              <BarChart data={week} unit="words" caption="Words entered in sessions started each day, last 7 days" />
-            </section>
-            </details>
-          </div>
-
-          <div className="home-col">
-            <details className="home-analytics"><summary>Usage details</summary>
-            <section className="card home-glance" aria-labelledby="glance-title">
-              <h2 id="glance-title" className="card-title">Today at a glance</h2>
-              <ul className="glance">
-                <li>
-                  <span className="glance-icon" aria-hidden="true"><Icon.doc /></span>
-                  <span className="glance-label">
-                    Words entered
-                    <small>
-                      {limits.dailyWords
-                        ? usage >= 80
-                          ? <>Today, of {limits.dailyWords} · resets at {dailyResetTime()} · <Link href="/app/billing">No limit with Pro</Link></>
-                          : `Today, of ${limits.dailyWords} · resets at ${dailyResetTime()}`
-                        : "Today · no daily limit"}
-                    </small>
-                  </span>
-                  <span className="glance-value">{wordsToday.toLocaleString()}</span>
-                </li>
-                <li>
-                  <span className="glance-icon" aria-hidden="true"><Icon.bolt /></span>
-                  <span className="glance-label">Active sessions<small>{running} running{needsYou.length ? ` · ${needsYou.length} need${needsYou.length === 1 ? "s" : ""} you` : ""}</small></span>
-                  <span className="glance-value">{active} <span className="of">/ {limits.activeSessions}</span></span>
-                </li>
-                <li>
-                  <span className="glance-icon" aria-hidden="true"><Icon.chart /></span>
-                  <span className="glance-label">Words this week<small>Last 7 days</small></span>
-                  <span className="glance-value">{weekTotal.toLocaleString()}</span>
-                </li>
-                <li>
-                  <span className="glance-icon" aria-hidden="true"><Icon.checkCircle /></span>
-                  <span className="glance-label">Completed this month<small>{drips.filter((d) => d.status === "completed").length} in total</small></span>
-                  <span className="glance-value">{finishedThisMonth}</span>
-                </li>
-              </ul>
-            </section>
-            </details>
+            <Link href="/app/new/" className="btn btn-primary btn-lg btn-block mobile-only home-new"><Icon.plus /> New session</Link>
 
             <section className="card card-flush home-recent" aria-labelledby="recent-title">
               <div className="card-head">
-                <h2 id="recent-title">Recent sessions</h2>
-                <Link href="/app/sessions" className="small">View all</Link>
+                <h2 id="recent-title">Recent</h2>
+                <Link href="/app/sessions" className="small">All sessions</Link>
               </div>
               {recent.length === 0
                 ? <p className="small muted pad">Finished sessions appear here.</p>
@@ -263,69 +238,68 @@ export default function HomePage() {
                         <span className={`doc-icon ${d.provider === "microsoft" ? "word" : "gdoc"}`} aria-hidden="true"><Icon.doc /></span>
                         <span className="doc-main">
                           <Link href={`/app/session?id=${d.id}`} className="title">{titleOf(d)}</Link>
-                          <span className="meta">{d.provider === "microsoft" ? "Word" : "Google Docs"} · {formatRelative(d.created_at)}</span>
+                          <span className="meta">{d.provider === "microsoft" ? "Word" : "Google Docs"} · {formatRelative(d.created_at)} · {d.progress.words_written.toLocaleString()} words</span>
                         </span>
-                        <span className="doc-words">{d.progress.words_written.toLocaleString()} words</span>
                         <StatusBadge state={stateOf(d)} />
+                        <SessionActionsMenu drip={d} control={control} />
                       </li>
                     ))}
                   </ul>
                 )}
             </section>
+          </div>
 
-            <details className="home-analytics"><summary>Connected accounts</summary>
-            <section className="card card-flush home-docs" aria-labelledby="docs-title">
+          <div className="home-col">
+            <section className="card home-glance" aria-labelledby="plan-title">
               <div className="card-head">
-                <h2 id="docs-title">Connected documents</h2>
-                <Link href="/app/connections" className="small">Manage</Link>
+                <h2 id="plan-title">Your plan</h2>
+                <span className="badge">{PLAN_NAME[profile.plan]}</span>
               </div>
-              <ul className="rows">
-                {googleAccounts.map((c) => (
-                  <li key={c.id}>
-                    <Link href="/app/connections" className="doc-row link-row">
-                      <span className="doc-icon gdoc" aria-hidden="true"><Icon.doc /></span>
-                      <span className="doc-main"><span className="title">Google Docs</span><span className="meta">{c.account_email ?? "Google account"}</span></span>
-                      {c.connected === false
-                        ? <span className="tag warn">Reconnect</span>
-                        : <span className="tag good">Connected</span>}
-                      <Icon.chevronRight />
-                    </Link>
-                  </li>
-                ))}
+              <ul className="glance">
+                {limits.dailyWords
+                  ? (
+                    <li>
+                      <span className="glance-icon" aria-hidden="true"><Icon.doc /></span>
+                      <span className="glance-label">Words left today<small>Of {limits.dailyWords} · resets at {dailyResetTime()}</small></span>
+                      <span className="glance-value">{Math.max(0, limits.dailyWords - wordsToday).toLocaleString()}</span>
+                    </li>
+                  )
+                  : profile.plan === "day_pass" && profile.day_pass_expires_at
+                  ? (
+                    <li>
+                      <span className="glance-icon" aria-hidden="true"><Icon.clock /></span>
+                      <span className="glance-label">Day Pass ends<small>Unlimited words until then</small></span>
+                      <span className="glance-value small-value">{when(profile.day_pass_expires_at)}</span>
+                    </li>
+                  )
+                  : null}
                 <li>
-                  <Link href="/app/connections#word" className="doc-row link-row">
-                    <span className="doc-icon word" aria-hidden="true"><Icon.doc /></span>
-                    <span className="doc-main">
-                      <span className="title">Word add-in</span>
-                      <span className="meta">{wordUsed ? "Used from Microsoft Word" : "Runs inside Word · how to add it"}</span>
-                    </span>
-                    {wordUsed ? <span className="tag good">Connected</span> : <span className="tag">Not set up</span>}
-                    <Icon.chevronRight />
-                  </Link>
+                  <span className="glance-icon" aria-hidden="true"><Icon.bolt /></span>
+                  <span className="glance-label">Active sessions<small>{running} running{needsYou.length ? ` · ${needsYou.length} need${needsYou.length === 1 ? "s" : ""} you` : ""}</small></span>
+                  <span className="glance-value">{active} <span className="of">/ {limits.activeSessions}</span></span>
+                </li>
+                <li>
+                  <span className="glance-icon" aria-hidden="true"><Icon.checkCircle /></span>
+                  <span className="glance-label">Finished this month<small>{drips.filter((d) => d.status === "completed").length} in total</small></span>
+                  <span className="glance-value">{finishedThisMonth}</span>
                 </li>
               </ul>
-            </section>
-            </details>
-
-            {moments.length > 0 && (
-              <section className="card home-today" aria-labelledby="today-title">
-                <div className="card-head">
-                  <h2 id="today-title">Coming up today</h2>
-                  <span className="small muted">{new Date(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}</span>
+              {limits.dailyWords && usage > 0 && (
+                <div className="progress" role="progressbar" aria-label="Words used today" aria-valuemin={0} aria-valuemax={100} aria-valuenow={usage}>
+                  <span style={{ width: `${usage}%` }} />
                 </div>
-                <ol className="timeline">
-                  {moments.map((m) => (
-                    <li key={`${m.drip.id}-${m.label}`} data-past={m.at < now}>
-                      <time dateTime={new Date(m.at).toISOString()}>{when(m.at)}</time>
-                      <span>
-                        <strong>{m.label}</strong>
-                        <Link href={`/app/session?id=${m.drip.id}`}>{titleOf(m.drip)}</Link>
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
+              )}
+              <details className="more home-week">
+                <summary>Words this week: {weekTotal.toLocaleString()}</summary>
+                <BarChart data={week} unit="words" caption="Words entered in sessions started each day, last 7 days" />
+              </details>
+              {profile.plan !== "pro" && (
+                <p className="small mt-3">
+                  {profile.plan === "free" ? "Need more words or longer sessions?" : "Want drafting, custom pace and scheduled starts?"}{" "}
+                  <Link href="/app/billing">Compare plans</Link>
+                </p>
+              )}
+            </section>
           </div>
         </div>
       )}
