@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { toStep } from "./helpers";
+import { showTiming, toStep } from "./helpers";
 const session = {
   access_token: "e2e-token", refresh_token: "e2e-refresh", token_type: "bearer", expires_in: 86400,
   expires_at: Math.floor(Date.now() / 1000) + 86400,
@@ -23,6 +23,9 @@ for (const width of [390, 1280]) {
     expect(plan.ok).toBe(true);
     expect(plan.source_unit_count).toBe(7);
     expect(plan.pacing.word_grouping).toBe("single");
+    // One summary line stays visible; the full breakdown is one click away.
+    await expect(page.locator(".timing-line")).toContainText("7 ");
+    await showTiming(page);
     await expect(page.getByRole("region", { name: "Your rhythm at a glance" })).toContainText("One word");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished)));
@@ -49,7 +52,7 @@ test("recommended Pro settings preserve word grouping and require correction app
   await expect(page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true })).toHaveValue("1");
   await expect(page.getByRole("spinbutton", { name: "False starts", exact: true })).toHaveValue("1");
   await expect(page.getByRole("radio", { name: /^One word at a time/ })).toBeChecked();
-  await page.getByLabel("Final revision pass (Pro)", { exact: true }).check();
+  await page.getByLabel("Final revision pass").check();
   await toStep(page, 5);
   await expect(page.getByText(/I also approve the enabled simulated mistakes/)).toBeVisible();
   await page.getByLabel(/I've read this exact text/).check();

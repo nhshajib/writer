@@ -12,6 +12,7 @@ export async function toStep(page: Page, n: number) {
   if (current === 5) await page.locator(".step-bar").getByRole("button", { name: "Back", exact: true }).click();
   if (n === 1) await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   if (n === 3 || n === 4) await page.locator(".session-advanced").evaluate((el: HTMLDetailsElement) => { el.open = true; });
+  if (n === 4) await showTiming(page);
 
 }
 
@@ -23,9 +24,15 @@ export async function fillNewSession(page: Page, { title, text, atTiming }: { ti
   await toStep(page, 4);
   // Existing session scenarios use an explicit sentence/one-hour fixture.
   await page.getByRole("radio", { name: /^Sentences/ }).check();
-  if (!await page.locator("#duration option[value=\"60\"]").isDisabled()) await page.getByLabel("Total duration", { exact: true }).selectOption("60");
+  if (!await page.locator("#duration option[value=\"60\"]").isDisabled()) await page.getByLabel("Finish within", { exact: true }).selectOption("60");
   if (atTiming) await atTiming();
+  await showTiming(page);
   await expect(page.getByRole("status").filter({ hasText: /one insertion each|automated edits/ })).toBeVisible();
   await toStep(page, 5);
   await page.getByLabel(/I've read this exact text/).check();
+}
+
+/** Unfolds "See the full timing" on the new-session page, where the schedule and rhythm details live. */
+export async function showTiming(page: Page) {
+  await page.locator(".timing-details").evaluate((el: HTMLDetailsElement) => { el.open = true; });
 }

@@ -44,7 +44,7 @@ async function startSession(page: Page, opts: { minutes?: string } = {}) {
     title: "Flood essay",
     text: ESSAY,
     atTiming: async () => {
-      if (opts.minutes) await page.getByLabel("Total duration").selectOption(opts.minutes);
+      if (opts.minutes) await page.getByLabel("Finish within", { exact: true }).selectOption(opts.minutes);
     },
   });
   await page.getByRole("button", { name: "Start session" }).click();
@@ -86,9 +86,9 @@ test("a duration that is too short is explained before starting", async ({ page 
   await toStep(page, 3);
   await page.getByRole("radio", { name: /^Characters/ }).check();
   await toStep(page, 4);
-  await page.getByLabel("Total duration").selectOption("5");
-  await expect(page.getByText(/characters need at least/).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText(/60 edits a minute/).filter({ visible: true })).toBeVisible();
+  await page.getByLabel("Finish within", { exact: true }).selectOption("5");
+  await expect(page.getByText(/characters need at least/).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText(/60 edits a minute/).filter({ visible: true }).first()).toBeVisible();
   // Each step size shows whether it fits.
   await toStep(page, 3);
   await expect(page.getByRole("radio", { name: /^Characters.*needs at least 1[0-9] minutes/ })).toBeVisible();
@@ -98,7 +98,7 @@ test("a duration that is too short is explained before starting", async ({ page 
   await toStep(page, 4);
   await page.locator(".step-bar").getByRole("button", { name: /^Review session/ }).click();
   await expect(page.locator(".step-bar .alert-error")).toContainText("need at least");
-  await expect(page.getByLabel("Total duration")).toBeFocused();
+  await expect(page.getByLabel("Finish within", { exact: true })).toBeFocused();
   await expect(page.locator("form[data-step]")).toHaveAttribute("data-step", "1");
 });
 

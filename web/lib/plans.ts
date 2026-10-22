@@ -1,4 +1,45 @@
 import { PRO_PRICE } from "@/lib/site";
+import { PLAN_LIMITS as SERVER_PLAN_LIMITS, type PlanTier } from "../../supabase/functions/_shared/limits";
+
+export type PaidPlan = Exclude<PlanTier, "free">;
+
+/**
+ * The lowest plan that includes each gated feature, so every lock in the app names the right plan.
+ * The server enforces the same rules (supabase/functions/_shared/limits.ts, plan.ts, drips/index.ts).
+ */
+export const FEATURE_PLAN = {
+  unlimitedWords: "day_pass",
+  writingHours: "day_pass",
+  drafting: "pro",
+  typingSpeed: "pro",
+  customPace: "pro",
+  presets: "pro",
+  revisionPass: "pro",
+  startLater: "pro",
+  headingPlacement: "pro",
+  import: "pro",
+  pausedEdit: "pro",
+  playback: "pro",
+} as const satisfies Record<string, PaidPlan>;
+export type Feature = keyof typeof FEATURE_PLAN;
+
+const RANK: Record<PlanTier, number> = { free: 0, day_pass: 1, pro: 2 };
+export const PLAN_NAME: Record<PlanTier, string> = { free: "Free", day_pass: "Day Pass", pro: "Pro" };
+
+/** Whether `plan` includes everything `required` does. */
+export function includes(plan: PlanTier, required: PlanTier): boolean {
+  return RANK[plan] >= RANK[required];
+}
+
+/** Whether `plan` includes `feature`. */
+export function canUse(plan: PlanTier, feature: Feature): boolean {
+  return includes(plan, FEATURE_PLAN[feature]);
+}
+
+/** The lowest plan whose longest session fits `minutes`. */
+export function planForMinutes(minutes: number): PlanTier {
+  return (["free", "day_pass", "pro"] as const).find((p) => SERVER_PLAN_LIMITS[p].maxDurationSeconds >= minutes * 60) ?? "pro";
+}
 
 /**
  * What each plan includes, in one place so the homepage, pricing page and app say the same thing.

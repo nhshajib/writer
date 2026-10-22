@@ -130,7 +130,7 @@ test("Pro breaks can be set in hours, up to 8", async ({ page }) => {
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("One sentence. Another sentence. A third one.");
   await toStep(page, 4);
-  await page.getByLabel("Total duration").selectOption("1440");
+  await page.getByLabel("Finish within", { exact: true }).selectOption("1440");
   await page.getByLabel("Longest break in").selectOption("h");
   await page.getByRole("spinbutton", { name: "Longest break" }).fill("3");
   await page.getByRole("spinbutton", { name: "Longest break" }).blur();

@@ -2683,3 +2683,26 @@ button.mk-pause:active { transform: scale(0.98); }
   .rhythm-preview { padding: 1rem; }
   .rhythm-preview dl { gap: 0.85rem; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Plan locks: one badge style naming the lowest plan, one upgrade note per screen
+ * ------------------------------------------------------------------------- */
+.plan-lock { margin-left: 0.45rem; height: 20px; padding: 0 0.4rem; font-size: 0.6875rem; vertical-align: 2px; background: var(--surface-2); color: var(--text-2); gap: 0.25rem; }
+.plan-lock svg { width: 11px; height: 11px; }
+.choice:has(input:disabled) .plan-lock, .rhythm-card:disabled .plan-lock, .check:has(input:disabled) .plan-lock { opacity: 1; }
+.text-actions .btn .plan-lock { margin-left: 0.35rem; }
+.upgrade-note { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0; padding: 0.85rem 1rem; border-radius: 12px; background: var(--accent-soft); color: var(--text-2); font-size: 0.875rem; line-height: 1.55; }
+.upgrade-note > svg { flex: none; width: 16px; height: 16px; margin-top: 0.15rem; color: var(--accent); }
+.upgrade-note strong { color: var(--text); }
+.quick-session .upgrade-section { border-top: 1px solid var(--border); }
+
+/* New session: compact destination row, one timing line, editable review */
+.destination-options > summary .summary-action { margin-left: 0.5rem; color: var(--accent); font-weight: 550; }
+.timing-line { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; font-weight: 550; color: var(--text); }
+.timing-line svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.timing-details .rhythm-preview { margin-top: 0.75rem; }
+.review-list dd { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+.review-list .review-edit { flex: none; font-size: 0.8125rem; font-weight: 500; }
+@media (max-width: 640px) {
+  .session-advanced > summary .hint { display: block; margin-top: 0.2rem; font-weight: 450; }
+}

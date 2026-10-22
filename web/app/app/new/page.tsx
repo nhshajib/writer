@@ -4,6 +4,8 @@ import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { WorkWindowControls } from "@/components/app/WorkWindowControls";
 import type { WorkWindow } from "../../../../supabase/functions/_shared/workWindow";
 import { RichTextEditor } from "@/components/app/RichTextEditor";
+import { PlanLock, UpgradeNote } from "@/components/app/PlanLock";
+import { canUse, PLAN_NAME, planForMinutes } from "@/lib/plans";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,14 +38,11 @@ import {
 
 type Timing = TimingMode | "asap";
 
-/** Two stages: setup with optional details, then exact-text approval. Server checks still run on Start. */
-const STEP_NAMES = ["Set up", "Review & start"];
-/** The field to focus when a step has a problem. */
-const STEP_FIELDS: Record<number, string[]> = { 1: ["title", "doc"], 2: ["text"], 3: ["heading"], 4: ["custom-minutes", "duration", "start-at"] };
 type Target = "new" | "existing";
 type Place = "end" | "heading";
 interface DocHeading { id: string; text: string; level: number }
-
+/** Where a setup problem lives, so the page can open and focus it. */
+interface SetupProblem { message: string; field: string; open?: "destination" | "more" }
 
 const DURATIONS: { minutes: number; label: string }[] = [
   { minutes: 5, label: "5 minutes" },
@@ -85,12 +84,18 @@ function localInputValue(date: Date): string {
 }
 
 const UNITS: { value: InsertionUnit; hint: string }[] = [
-  { value: "sentence", hint: "One sentence at a time. Recommended." },
-  { value: "word", hint: "Choose single words or random 1–5-word groups above." },
-  { value: "character", hint: "One character at a time." },
+  { value: "word", hint: "Single words or random 1–5-word groups. Recommended." },
+  { value: "sentence", hint: "One sentence at a time." },
   { value: "paragraph", hint: "One paragraph at a time." },
+  { value: "character", hint: "One character at a time." },
   { value: "chunk", hint: "Equal groups of words, about once a minute." },
 ];
+
+const RHYTHMS = [
+  ["natural", "Natural", "Varied timing and short pauses between sentences."],
+  ["steady", "Steady", "Fewer pauses for a simpler, consistent pace."],
+  ["drafting", "Drafting", "Adds occasional temporary typos and false starts, then corrects them."],
+] as const;
 
 function countWords(text: string): number {
   return (text.match(/\S+/g) ?? []).length;
@@ -138,7 +143,6 @@ export default function NewSessionPage() {
   const [customMinutes, setCustomMinutes] = useState("90");
   const [pace, updatePace] = usePace();
   const [rhythm, setRhythm] = useState<SessionRhythm>("natural");
-  const [advanced, setAdvanced] = useState(false);
   const [autoDuration, setAutoDuration] = useState(true);
   useEffect(() => {
     try {
@@ -175,13 +179,14 @@ export default function NewSessionPage() {
   useEffect(() => { if (timing === "asap") setRevisionSweep(false); }, [timing]);
   const [startLater, setStartLater] = useState(false);
   const [startAt, setStartAt] = useState(() => localInputValue(new Date(Date.now() + 60 * 60 * 1000)));
+  const [destinationOpen, setDestinationOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [stepError, setStepError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const stepHeading = useRef<HTMLParagraphElement>(null);
   // One id per Start press, so a repeated request can't start a second session.
   const requestId = useRef<string>(crypto.randomUUID());
   // Set synchronously, so two clicks in the same moment can't both submit.
@@ -253,12 +258,12 @@ export default function NewSessionPage() {
   }, [dashboard.drips, pastDocs, connections, updatePace]);
 
   useEffect(() => {
-    if (plan !== "pro" && timing === "speed") setTiming("duration");
-    if (plan !== "pro" && revisionSweep) setRevisionSweep(false);
-    if (plan === "free" && workWindow) setWorkWindow(null);
-    if (plan !== "pro" && startLater) setStartLater(false);
-    if (plan !== "pro" && place !== "end") setPlace("end");
-    // Start on the longest duration the plan allows, never on a Pro-only one.
+    if (!canUse(plan, "typingSpeed") && timing === "speed") setTiming("duration");
+    if (!canUse(plan, "revisionPass") && revisionSweep) setRevisionSweep(false);
+    if (!canUse(plan, "writingHours") && workWindow) setWorkWindow(null);
+    if (!canUse(plan, "startLater") && startLater) setStartLater(false);
+    if (!canUse(plan, "headingPlacement") && place !== "end") setPlace("end");
+    // Start on the longest duration the plan allows, never on a locked one.
     const allowed = PLAN_LIMITS[plan].maxMinutes;
     if (preset !== "custom" && Number(preset) > allowed) {
       setPreset(String(DURATIONS.filter((d) => d.minutes <= allowed).at(-1)?.minutes ?? allowed));
@@ -288,24 +293,30 @@ export default function NewSessionPage() {
   }, [text, format]);
 
   const isPro = plan === "pro";
-  const limits = { words: PLAN_LIMITS[plan].dailyWords ?? Infinity, minutes: PLAN_LIMITS[plan].maxMinutes };
+  const dailyWords = PLAN_LIMITS[plan].dailyWords;
+  // The server checks the day's remaining words, not the plan's daily total.
+  const wordsLeft = dailyWords === null ? Infinity : Math.max(0, dailyWords - dashboard.wordsToday);
+  const limits = { words: wordsLeft, minutes: PLAN_LIMITS[plan].maxMinutes };
   const parsed = useMemo(() => parseFormatted(text, format), [format, text]);
   // The document gets the text without Markdown markers; counts and steps are of that text.
   const plainText = parsed ? parsed.plain : text;
   const words = countWords(plainText);
   const overWords = words > limits.words;
+  const wordLimitMessage = `That's more than the ${limits.words.toLocaleString()} ${limits.words === 1 ? "word" : "words"} left today on ${PLAN_NAME[plan]}. Shorten the text, or get unlimited words with a Day Pass or Pro.`;
   const minutes = preset === "custom" ? Number(customMinutes) : Number(preset);
-  const minutesValid = Number.isFinite(minutes) && minutes >= 1 && minutes <= 10080;
+  const minutesValid = Number.isFinite(minutes) && minutes >= 1 && minutes <= limits.minutes;
   const allDocs = [...pastDocs, ...picked.filter((p) => !pastDocs.some((d) => d.key === p.key))];
   const docsForAccount = allDocs.filter((d) => d.connectionId === connectionId);
   const chosenDoc = allDocs.find((d) => d.key === pastDocKey);
   const heading = headings?.find((h) => h.id === headingId) ?? null;
   const placeLabel = place === "heading" && heading ? `At the end of the "${heading.text}" section` : "At the end of the document";
 
-  // Free sessions use the standard pace (the server does the same); custom timing is Pro.
+  // Free and Day Pass sessions use the ready-made rhythms (the server does the same); custom timing is Pro.
   const rhythmPace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE)
     : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
   const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping };
+  // All at once has no pacing, so it's sent as a custom rhythm whatever card is chosen.
+  const sentRhythm: SessionRhythm = timing === "asap" ? "custom" : rhythm;
   const sessionTitle = title.trim() || plainText.trim().split(/\n|(?<=[.!?])\s/)[0]?.slice(0, 80) || "Untitled session";
   useEffect(() => {
     if (!autoDuration || timing !== "duration") return;
@@ -314,10 +325,11 @@ export default function NewSessionPage() {
     setPreset(String((allowed.find((d) => d.minutes >= desired) ?? allowed[allowed.length - 1]).minutes));
   }, [words, autoDuration, timing, limits.minutes, unit, pace.wordGrouping]);
   function chooseRhythm(next: SessionRhythm) {
-    if (next === "drafting" && !isPro) return;
+    if (next === "drafting" && !canUse(plan, "drafting")) return;
     rememberRhythm(next);
     setApproved(false);
-    if (next !== "custom") { setTiming("duration"); setUnit("word"); }
+    // The ready-made rhythms are planned for a finish time, not a typing speed.
+    if (next !== "custom" && timing === "speed") setTiming("duration");
   }
   function customize(change: Partial<typeof pace>) {
     updatePace({ ...effectivePace, ...change });
@@ -329,7 +341,7 @@ export default function NewSessionPage() {
   const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const pacingKey = JSON.stringify(pacing);
   const windowKey = JSON.stringify(workWindow);
-  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, rhythm, seed ?? null, windowKey, revisionSweep, startLater ? startAt : null]);
+  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, sentRhythm, seed ?? null, windowKey, revisionSweep, startLater ? startAt : null]);
   useEffect(() => setApproved(false), [windowKey, revisionSweep]);
   const current = preview !== null && previewKey === inputKey;
   const ready = text.trim() !== "" && (timing !== "duration" || minutesValid);
@@ -347,7 +359,7 @@ export default function NewSessionPage() {
           method: "POST",
           body: {
             text,
-            rhythm,
+            rhythm: sentRhythm,
             text_format: format,
             work_window: workWindow,
             revision_sweep: revisionSweep,
@@ -364,7 +376,7 @@ export default function NewSessionPage() {
         // Keep this timing while the user keeps editing, until they ask for another.
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
-        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, rhythm, kept, windowKey, revisionSweep, startLater ? startAt : null]));
+        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, sentRhythm, kept, windowKey, revisionSweep, startLater ? startAt : null]));
       } catch (e) {
         if (!stale) setPreviewError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -373,7 +385,7 @@ export default function NewSessionPage() {
       stale = true;
       clearTimeout(handle);
     };
-  }, [text, format, unit, timing, pacingKey, rhythm, ready, seed, windowKey, revisionSweep, startLater, startAt]);
+  }, [text, format, unit, timing, pacingKey, sentRhythm, ready, seed, windowKey, revisionSweep, startLater, startAt]);
 
   // The chosen document's headings, for "Under a heading" (Pro, Google Docs).
   const headingDoc = place === "heading" && target === "existing" && chosenDoc ? chosenDoc : null;
@@ -458,6 +470,20 @@ export default function NewSessionPage() {
     if (approved) setApproved(false);
   }
 
+  function restoreDraft() {
+    try {
+      const saved = JSON.parse(draft);
+      if (saved && typeof saved.text === "string" && ["plain", "markdown", "rich"].includes(saved.format)) {
+        parseFormatted(saved.text, saved.format);
+        changeText(saved.text);
+        setFormat(saved.format);
+      } else changeText(draft);
+    } catch {
+      changeText(draft);
+    }
+    setDraft("");
+  }
+
   function fail(message: string, list: PlanProblem[] = []) {
     setError(message);
     setProblems(list);
@@ -487,34 +513,41 @@ export default function NewSessionPage() {
     }
   }
 
-  /** What's missing in one step, checked only when moving on from it (phones). */
-  function stepProblem(n: number): string | null {
-    if (n === 1) {
-      if (!connectionId) return "Connect your Google account first.";
-
-      if (target === "existing" && !chosenDoc) return "Choose a document.";
-      if (target === "existing" && chosenDoc?.busy) return "That document already has an unfinished session.";
+  /** The first thing stopping this session, in page order. Server checks still run on Start. */
+  function setupProblem(): SetupProblem | null {
+    if (!connectionId) return { message: "Connect your Google account first.", field: "account", open: "destination" };
+    if (words === 0) return { message: "Add the text you want entered.", field: "text" };
+    if (overWords) return { message: wordLimitMessage, field: "text" };
+    if (target === "existing" && !chosenDoc) return { message: "Choose a document.", field: "doc", open: "destination" };
+    if (target === "existing" && chosenDoc?.busy) return { message: "That document already has an unfinished session.", field: "doc", open: "destination" };
+    if (place === "heading") {
+      if (target !== "existing") return { message: "Choose an existing document under Destination to add text under one of its headings.", field: "heading", open: "more" };
+      if (!headingId) return { message: "Choose a heading.", field: "heading", open: "more" };
     }
-    if (n === 2) {
-      if (words === 0) return "Add the text you want entered.";
-      if (overWords) return `Your plan allows ${limits.words} words a day. Shorten the text or upgrade to Pro.`;
+    if (timing === "duration" && !minutesValid) {
+      return { message: `Choose a finish time between 1 minute and ${span(limits.minutes * 60 * 1000)}.`, field: preset === "custom" ? "custom-minutes" : "duration" };
     }
-    if (n === 3 && place === "heading") {
-      if (target !== "existing") return "Choose an existing document in Destination to add text under one of its headings.";
-      if (!headingId) return "Choose a heading.";
-    }
-    if (n === 4) {
-      if (timing === "duration" && !minutesValid) return "Choose a duration between 1 minute and 1 week.";
-      const startTime = startLater ? new Date(startAt) : null;
-      if (startTime && !(startTime.getTime() > Date.now())) return "Choose a start time in the future.";
-      if (startTime && startTime.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) return "Sessions can be scheduled up to 7 days ahead.";
-      if (current && !preview.ok) return preview.problems.map((p) => p.message).join(" ");
-    }
+    const startTime = startLater ? new Date(startAt) : null;
+    if (startTime && !(startTime.getTime() > Date.now())) return { message: "Choose a start time in the future.", field: "start-at", open: "more" };
+    if (startTime && startTime.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) return { message: "Sessions can be scheduled up to 7 days ahead.", field: "start-at", open: "more" };
+    if (current && !preview.ok) return { message: preview.problems.map((p) => p.message).join(" "), field: "duration" };
     return null;
   }
 
-  function goToStep(next: number) {
-    next = next === 5 ? 5 : 1;
+  /** Shows a part of the setup, opening its section first if it's folded away. */
+  function reveal(field: string, open?: "destination" | "more") {
+    if (open === "destination") setDestinationOpen(true);
+    if (open === "more") setMoreOpen(true);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(field);
+      if (el && el.offsetParent !== null) {
+        el.scrollIntoView({ block: "center" });
+        el.focus();
+      }
+    });
+  }
+
+  function goToStep(next: 1 | 2) {
     setDirection(next < step ? "back" : "forward");
     setStep(next);
     setStepError(null);
@@ -522,50 +555,41 @@ export default function NewSessionPage() {
     requestAnimationFrame(() => document.getElementById("new-title")?.focus());
   }
 
-
+  /** From the review, back to the setting to change. */
+  function edit(field: string, open?: "destination" | "more") {
+    goToStep(1);
+    reveal(field, open);
+  }
 
   function cancel() {
     if (text.trim() || title.trim()) setLeaving(true);
-    else router.push("/app/sessions/");
+    else router.push("/app/");
   }
 
   function continueStep() {
-    const invalid = [1, 2, 3, 4].find((n) => stepProblem(n));
-    const problem = invalid ? stepProblem(invalid) : null;
+    const problem = setupProblem();
     if (problem) {
-      setStepError(problem);
-      if (invalid === 1) { const destination = document.querySelector<HTMLDetailsElement>(".destination-options"); if (destination) destination.open = true; }
-      if (invalid === 3 || invalid === 4) setAdvanced(true);
-      const field = (STEP_FIELDS[invalid ?? 2] ?? []).map((id) => document.getElementById(id)).find((el) => el && el.offsetParent !== null);
-      field?.focus();
+      setStepError(problem.message);
+      reveal(problem.field, problem.open);
       return;
     }
     if (!current) { setStepError("Checking your schedule. Please try again in a moment."); return; }
-    goToStep(5);
+    goToStep(2);
   }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (step !== 5) { continueStep(); return; }
+    if (step !== 2) { continueStep(); return; }
     if (starting.current) return;
     setError(null);
     setProblems([]);
 
-    if (!connectionId) return fail("Connect your Google account first.");
-
-    if (target === "existing" && !chosenDoc) return fail("Choose a document.");
-    if (chosenDoc?.busy && target === "existing") return fail("That document already has an unfinished session.");
-    if (words === 0) return fail("Add the text you want entered.");
-    if (overWords) return fail(`Your plan allows ${limits.words} words a day. Shorten the text or upgrade to Pro.`);
-    const placeProblem = stepProblem(3);
-    if (placeProblem) return fail(placeProblem);
-    if (timing === "duration" && !minutesValid) return fail("Choose a duration between 1 minute and 1 week.");
+    const problem = setupProblem();
+    if (problem) return fail(problem.message);
     if (!current) return fail("The schedule is still being checked. Try again in a moment.");
     if (!preview.ok) return fail("This session can't run as set up:", preview.problems);
     if (!approved) return fail("Read your text and tick the box to approve it.");
     const startTime = startLater ? new Date(startAt) : null;
-    if (startTime && !(startTime.getTime() > Date.now())) return fail("Choose a start time in the future.");
-    if (startTime && startTime.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) return fail("Sessions can be scheduled up to 7 days ahead.");
 
     starting.current = true;
     setBusy(true);
@@ -576,7 +600,7 @@ export default function NewSessionPage() {
           connection_id: connectionId,
           ...(target === "new" ? { new_document_title: sessionTitle } : { document_id: chosenDoc!.documentId }),
           text,
-          rhythm,
+          rhythm: sentRhythm,
           text_format: format,
           work_window: workWindow,
           revision_sweep: revisionSweep,
@@ -598,7 +622,6 @@ export default function NewSessionPage() {
     } catch (e) {
       const list = e instanceof ApiError ? e.problems : [];
       fail(e instanceof Error ? e.message : "Couldn't start the session.", list);
-      // A different Start press after a failure gets a new id.
       // A refused Start gets a new id; a duplicate (409) or one with no response (0) keeps it, so a retry can't start twice.
       if (!(e instanceof ApiError && (e.status === 409 || e.status === 0))) requestId.current = crypto.randomUUID();
       starting.current = false;
@@ -630,6 +653,28 @@ export default function NewSessionPage() {
     ? `${span(preview.duration_seconds * 1000)}${preview.break_seconds ? ` (${span(preview.active_seconds * 1000)} entering, ${span(preview.break_seconds * 1000)} of breaks)` : ""}${timing === "speed" ? ", estimated" : ""}`
     : timing === "asap" ? "All at once" : "—";
   const docLabel = target === "new" ? `New Google Doc "${sessionTitle}"` : chosenDoc?.title ?? "Choose a document";
+  const entryLabel = timing === "asap" ? "All at once, in one edit"
+    : unit !== "word" ? UNIT_LABEL[unit].title
+    : effectivePace.wordGrouping === "single" ? "One word at a time" : "Random groups of 1–5 words";
+  const rhythmLabel = timing === "asap" ? "None (all at once)"
+    : rhythm === "custom" ? "Custom pace"
+    : rhythm === "drafting" ? "Drafting, with simulated corrections"
+    : rhythm === "natural" ? "Natural" : "Steady";
+  const timingLabel = timing === "asap" ? "All at once" : timing === "speed" ? `Typing speed, ${effectivePace.wpm} WPM` : `Finish within ${span(minutes * 60 * 1000)}`;
+  // What's been changed in More options, so a folded section still says what it holds.
+  const changed = [
+    place === "heading" && "under a heading",
+    unit !== "word" && UNIT_LABEL[unit].title.toLowerCase(),
+    timing === "speed" && "typing speed",
+    timing === "asap" && "all at once",
+    rhythm === "custom" && timing !== "asap" && "custom pace",
+    workWindow && "writing hours",
+    startLater && "starts later",
+    revisionSweep && "revision pass",
+  ].filter(Boolean) as string[];
+  const quickSummary = current && preview.ok && timing !== "asap"
+    ? `${timing === "speed" ? "About " : ""}${span(preview.duration_seconds * 1000)} · ${steps.toLocaleString()} ${UNIT_LABEL[preview.unit][steps === 1 ? "one" : "many"]}${preview.breaks.length ? ` · ${preview.breaks.length} ${preview.breaks.length === 1 ? "break" : "breaks"}` : ""}`
+    : null;
 
   return (
     <>
@@ -638,26 +683,25 @@ export default function NewSessionPage() {
         <div>
           <h1 id="new-title" tabIndex={-1}>New session</h1>
           {isMobile
-            ? <p className="step-indicator" ref={stepHeading} tabIndex={-1} aria-live="polite">Step {step === 5 ? 2 : 1} of 2 · {STEP_NAMES[step === 5 ? 1 : 0]}</p>
-            : <p className="new-sub">Paste your text, choose a rhythm, then review and start.</p>}
+            ? <p className="step-indicator" tabIndex={-1} aria-live="polite">Step {step} of 2 · {step === 1 ? "Set up" : "Review & start"}</p>
+            : <p className="new-sub">Paste your text, pick a rhythm, then review and start.</p>}
         </div>
       </div>
       {!isMobile && <ol className="session-stages" aria-label="Steps">
-        <li aria-current={step !== 5 ? "step" : undefined}><button type="button" onClick={() => goToStep(1)}>1. Set up</button></li>
-        <li aria-current={step === 5 ? "step" : undefined}>2. Review &amp; start</li>
+        <li aria-current={step === 1 ? "step" : undefined}><button type="button" onClick={() => goToStep(1)}>1. Set up</button></li>
+        <li aria-current={step === 2 ? "step" : undefined}>2. Review &amp; start</li>
       </ol>}
       {fromNote && <p className="alert alert-info mb-4" role="status">{fromNote}</p>}
 
-      <form className="new-grid quick-session" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-step={step} data-direction={direction}>
+      <form className="new-grid quick-session" onSubmit={onSubmit} noValidate aria-labelledby="new-title" data-step={step === 2 ? 5 : 1} data-direction={direction}>
         <div className="card card-flush new-main">
-        <div className="form-section" data-step-section="2">
-          <h2><span className="step-n" aria-hidden="true">2</span>Add your text</h2>
-          <p className="muted">Paste your text with its formatting, choose a document, then review and start.</p>
+        <div className="form-section" data-step-section="1">
+          <h2>Your text</h2>
           <div className="field">
             {draft && !text && (
               <p className="alert alert-info" style={{ marginBottom: "0.75rem" }}>
-                <span>You have unsent text from before (saved in this browser), saved in this browser.</span>{" "}
-                <button type="button" className="link-btn" onClick={() => { try { const saved = JSON.parse(draft); if (saved && typeof saved.text === "string" && ["plain", "markdown", "rich"].includes(saved.format)) { parseFormatted(saved.text, saved.format); changeText(saved.text); setFormat(saved.format); } else changeText(draft); } catch { changeText(draft); } setDraft(""); }}>Restore it</button>{" "}
+                <span>You have unsent text from before, saved in this browser.</span>{" "}
+                <button type="button" className="link-btn" onClick={restoreDraft}>Restore it</button>{" "}
                 <button type="button" className="link-btn" onClick={() => { writeDraft(""); setDraft(""); }}>Discard</button>
               </p>
             )}
@@ -665,36 +709,31 @@ export default function NewSessionPage() {
               <label className="label" htmlFor="text">Text to enter</label>
               <div className="text-actions">
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
-                  disabled={!isPro || importing} aria-describedby={isPro ? undefined : "import-pro"}>
-                  <Icon.doc />{importing ? "Importing…" : "Import file"}{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}
+                  disabled={!canUse(plan, "import") || importing}>
+                  <Icon.doc />{importing ? "Importing…" : "Import file"}<PlanLock plan={plan} feature="import" />
                 </button>
                 <input ref={fileInput} type="file" accept={IMPORT_ACCEPT} hidden data-testid="import-file"
                   onChange={(e) => onImport(e.target.files?.[0])} />
               </div>
             </div>
-            {!isPro && <span id="import-pro" className="sr-only">Importing .docx, .md and .txt files is part of Pro.</span>}
             {importNote && <p className="hint" role="status">{importNote}</p>}
             <RichTextEditor text={text} format={format} onChange={(next, kind) => { changeText(next); changeFormat(kind); }} />
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span id="text-count" className={overWords ? "error-text" : "hint"}>
                 {words.toLocaleString()} {words === 1 ? "word" : "words"} · {plainText.length.toLocaleString()} characters
-                {plan === "free" && ` · ${limits.words} words a day on Free`}
+                {Number.isFinite(limits.words) && ` · ${limits.words.toLocaleString()} left today on ${PLAN_NAME[plan]}`}
               </span>
-              {overWords && <Link href="/app/billing" className="small">Pro has no daily limit</Link>}
+              {overWords && <Link href="/app/billing" className="small">Get unlimited words</Link>}
             </div>
-
           </div>
         </div>
 
-        <details className="destination-options" open><summary>Destination: {docLabel}</summary>
-        <fieldset className="form-section" data-step-section="1">
+        <details className="destination-options" data-step-section="1" open={destinationOpen} onToggle={(e) => setDestinationOpen(e.currentTarget.open)}>
+        <summary>Destination: {docLabel} <span className="summary-action">{destinationOpen ? "Done" : "Change"}</span></summary>
+        <fieldset className="form-section">
           <legend className="sr-only">Document</legend>
-          <h2 aria-hidden="true"><span className="step-n">1</span>Choose a document</h2>
           <p className="muted">
-            Where the text should go. TypeWit adds it at the end of the document, or with Pro, under a heading you choose.
-            Existing and shared drafts stay in the same document. Choose one from Google Drive, or name a new document below.
-            Writing in Microsoft Word? Start
-            from the <Link href="/app/connections#word">TypeWit add-in in Word</Link>.
+            Writing in Microsoft Word? Start from the <Link href="/app/connections#word">TypeWit add-in in Word</Link>.
           </p>
           {connections.length > 1 && (
             <div className="field" style={{ marginBottom: "1rem", maxWidth: 420 }}>
@@ -711,7 +750,7 @@ export default function NewSessionPage() {
             </label>
             <label className="choice">
               <input type="radio" name="target" value="existing" checked={target === "existing"} onChange={() => { setTarget("existing"); setReport(null); }} />
-              <span><strong>Existing document</strong><small>Any Google Doc you choose from your Drive. Continue an ongoing draft in the same document; TypeWit adds text at the end and pauses if the insertion point changes.</small></span>
+              <span><strong>Existing document</strong><small>Continue a draft. Text goes at the end; the session pauses if that spot changes.</small></span>
             </label>
           </div>
           <div className="field" style={{ marginTop: "1rem", maxWidth: 520 }}>
@@ -737,8 +776,7 @@ export default function NewSessionPage() {
                     </button>
                   </div>
                   <span id="doc-hint" className="hint">
-                    Choosing a document in Google&apos;s file picker lets TypeWit open that one document, nothing else in your
-                    Drive. A document can have one unfinished session at a time.
+                    TypeWit can open only the document you pick, nothing else in your Drive. One unfinished session per document.
                   </span>
                   {pickError && <p className="alert alert-error small" role="alert" style={{ marginTop: "0.5rem" }}>{pickError}</p>}
                 </>
@@ -754,45 +792,76 @@ export default function NewSessionPage() {
           <div aria-live="polite">{report && <ConnectionReport report={report} />}</div>
           </details>
         </fieldset>
-
         </details>
-        <section className="form-section rhythm-setup" data-step-section="2" aria-labelledby="rhythm-title">
-          <h2 id="rhythm-title">Choose a rhythm</h2>
-          <p className="muted">Choose a starting point. Natural is ready to use; advanced settings are optional.</p>
+
+        <section className="form-section rhythm-setup" data-step-section="1" aria-labelledby="rhythm-title">
+          <h2 id="rhythm-title">Rhythm</h2>
+          {timing === "asap"
+            ? (
+              <p className="alert alert-info">
+                <span>All at once is on: the whole text goes in as one edit, with no rhythm.{" "}
+                  <button type="button" className="link-btn" onClick={() => { setTiming("duration"); setApproved(false); }}>Use a rhythm instead</button></span>
+              </p>
+            )
+            : <p className="muted">How your text arrives. Natural works well for most writing.</p>}
           <div className="rhythm-cards" role="group" aria-label="Writing rhythm">
-            {([
-              ["natural", "Natural", "Recommended", "Varied timing and short pauses between sentences."],
-              ["steady", "Steady", "Free", "Fewer pauses for a simpler, consistent pace."],
-              ["drafting", "Drafting", "Pro", "Adds occasional temporary typos and false starts, then corrects them."],
-            ] as const).map(([key, name, badge, description]) => <button key={key} type="button" className="rhythm-card" aria-pressed={rhythm === key} disabled={key === "drafting" && !isPro} onClick={() => chooseRhythm(key)}>
-              <strong>{name}<span className="badge badge-blue">{badge}</span></strong><span>{description}</span>
-            </button>)}
+            {RHYTHMS.map(([key, name, description]) => (
+              <button key={key} type="button" className="rhythm-card" aria-pressed={timing !== "asap" && rhythm === key}
+                disabled={timing === "asap" || key === "drafting" && !canUse(plan, "drafting")} onClick={() => chooseRhythm(key)}>
+                <strong>{name}{key === "natural" && <span className="badge badge-blue">Recommended</span>}{key === "drafting" && <PlanLock plan={plan} feature="drafting" />}</strong>
+                <span>{description}</span>
+              </button>
+            ))}
           </div>
-          {rhythm !== "custom" && <p className="hint mobile-only" aria-live="polite">{rhythm === "natural" ? "Varied timing and short pauses between sentences." : rhythm === "steady" ? "Fewer pauses for a simpler, consistent pace." : "Occasional temporary typos and false starts are entered, then corrected."}</p>}
-          {rhythm === "custom" && <p className="hint">Custom rhythm selected. Choose Natural to return to the recommended settings.</p>}
+          {timing !== "asap" && rhythm !== "custom" && <p className="hint mobile-only" aria-live="polite">{RHYTHMS.find(([key]) => key === rhythm)?.[2]}</p>}
+          {timing !== "asap" && rhythm === "custom" && (
+            <p className="hint">
+              Using your custom pace from More options.{" "}
+              <button type="button" className="link-btn" onClick={() => chooseRhythm("natural")}>Switch back to Natural</button>
+            </p>
+          )}
+          {timing === "duration" && (
+            <div className="row duration-row" style={{ marginTop: "1rem", alignItems: "flex-end", gap: "1rem" }}>
+              <div className="field" style={{ maxWidth: 320, marginBottom: 0 }}>
+                <label className="label" htmlFor="duration">Finish within</label>
+                <select id="duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }} aria-describedby="duration-hint">
+                  {DURATIONS.map((d) => (
+                    <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>
+                      {d.label}{d.minutes > limits.minutes ? ` (${PLAN_NAME[planForMinutes(d.minutes)]})` : ""}
+                    </option>
+                  ))}
+                  <option value="custom">Custom…</option>
+                </select>
+              </div>
+              {preset === "custom" && (
+                <div className="field" style={{ maxWidth: 180, marginBottom: 0 }}>
+                  <label className="label" htmlFor="custom-minutes">Minutes</label>
+                  <input id="custom-minutes" type="number" inputMode="numeric" min={1} max={limits.minutes} step={1}
+                    value={customMinutes} onChange={(e) => { setCustomMinutes(e.target.value); setAutoDuration(false); }} aria-invalid={!minutesValid} />
+                </div>
+              )}
+              <p id="duration-hint" className="hint" style={{ flexBasis: "100%", margin: 0 }}>
+                {autoDuration ? "Suggested for your text. " : ""}Breaks included. You can close this page after starting.
+                {plan === "day_pass" && dashboard.profile.day_pass_expires_at && ` Your Day Pass ends ${when(dashboard.profile.day_pass_expires_at)}, so the session must finish before then.`}
+              </p>
+            </div>
+          )}
+          {timing === "speed" && <p className="hint" style={{ marginTop: "1rem" }}>Typing at {effectivePace.wpm} WPM, set in More options. The finish time is an estimate.</p>}
           {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
-          {timing === "duration" && <div className="field" style={{ marginTop: "1rem", maxWidth: 320 }}>
-            <label className="label" htmlFor="quick-duration">Finish within</label>
-            <select id="quick-duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }}>
-              {DURATIONS.map((d) => <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>{d.label}{d.minutes > limits.minutes ? " (Pro)" : ""}</option>)}
-              {preset === "custom" && <option value="custom">Custom time</option>}
-            </select>
-            <p className="hint">{autoDuration ? "Suggested for your text. " : ""}Includes pauses and breaks. You can close this page after starting.</p>
-          </div>}
-          <RhythmPreview pace={effectivePace} unit={unit} allAtOnce={timing === "asap"} revisionSweep={revisionSweep} />
-          {!isPro && <p className="upgrade-inline">Natural and Steady are included on Free. <Link href="/app/billing/">Get corrected mistakes, custom rhythms and longer sessions with Pro.</Link></p>}
-          {current && !preview.ok && !advanced && <p className="alert alert-error" role="alert">{preview.problems.map((p) => p.message).join(" ")}</p>}
-          {previewError && !advanced && <p className="alert alert-error" role="alert">{previewError}</p>}
-          <details className="more"><summary>Preview the timing</summary>
+          {current && !preview.ok && <p className="alert alert-error" role="alert">{preview.problems.map((p) => p.message).join(" ")}</p>}
+          {previewError && <p className="alert alert-error" role="alert">{previewError}</p>}
+          {quickSummary && <p className="timing-line"><Icon.clock /><span><span className="sr-only">Planned: </span>{quickSummary}</span></p>}
+          <details className="more timing-details"><summary>See the full timing</summary>
+            <RhythmPreview pace={effectivePace} unit={unit} allAtOnce={timing === "asap"} revisionSweep={revisionSweep} />
             <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing} onReshuffle={() => setSeed(undefined)} />
           </details>
         </section>
-        <details className="session-advanced" open={advanced} onToggle={(e) => setAdvanced(e.currentTarget.open)}><summary>Advanced settings <span className="hint"> · placement, pace, corrections &amp; schedule</span></summary>
-        <p className="advanced-intro">Happy with the preview? You can leave these settings alone. Changes update the schedule before you approve it.</p>
-        <nav className="settings-nav" aria-label="Advanced settings sections"><a href="#entry-settings">Placement &amp; steps</a><a href="#timing-settings">Pace &amp; schedule</a></nav>
-        <fieldset id="entry-settings" className="form-section" data-step-section="3">
-          <legend className="sr-only">Insertion mode</legend>
-          <h2 aria-hidden="true"><span className="step-n">3</span>Choose how it&apos;s entered</h2>
+
+        <details className="session-advanced" data-step-section="1" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
+        <summary>More options <span className="hint"> · {changed.length ? `Changed: ${changed.join(", ")}` : "placement, steps, timing, writing hours, start time"}</span></summary>
+        <p className="advanced-intro">All optional. Changes update the schedule before you approve it.</p>
+        <fieldset id="entry-settings" className="form-section">
+          <legend className="sr-only">Placement and steps</legend>
           <h3 className="review-sub" id="place-title">Where the text goes</h3>
           <div className="choices" role="radiogroup" aria-labelledby="place-title">
             <label className="choice">
@@ -800,18 +869,17 @@ export default function NewSessionPage() {
               <span><strong>End of the document</strong><small>After everything already in it.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="place" value="heading" checked={place === "heading"} onChange={() => setPlace("heading")} disabled={!isPro} />
+              <input type="radio" name="place" value="heading" checked={place === "heading"} onChange={() => setPlace("heading")} disabled={!canUse(plan, "headingPlacement")} />
               <span>
-                <strong>Under a heading{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong>
+                <strong>Under a heading<PlanLock plan={plan} feature="headingPlacement" /></strong>
                 <small>At the end of a section of an existing Google Doc.</small>
               </span>
             </label>
           </div>
-          {!isPro && <p className="hint">Adding text under a heading is part of <Link href="/app/billing/">Pro</Link>.</p>}
           {place === "heading" && (
             <div className="field" style={{ marginTop: "0.75rem", maxWidth: 520 }}>
               {target !== "existing" || !chosenDoc
-                ? <p className="alert alert-info small">Choose an existing document in Destination to see its headings.</p>
+                ? <p className="alert alert-info small">Choose an existing document under Destination to see its headings.</p>
                 : headingsError
                 ? <p className="alert alert-error small" role="alert">{headingsError}</p>
                 : headings === null
@@ -824,7 +892,7 @@ export default function NewSessionPage() {
                     <select id="heading" value={headingId} onChange={(e) => setHeadingId(e.target.value)} aria-describedby="heading-hint">
                       <option value="">Choose a heading</option>
                       {headings.map((h) => (
-                        <option key={h.id} value={h.id}>{`${"\u2002".repeat(Math.max(0, h.level - 1))}${h.text}`}</option>
+                        <option key={h.id} value={h.id}>{`${" ".repeat(Math.max(0, h.level - 1))}${h.text}`}</option>
                       ))}
                     </select>
                     <span id="heading-hint" className="hint">
@@ -835,8 +903,8 @@ export default function NewSessionPage() {
                 )}
             </div>
           )}
-          <h3 className="review-sub">Insertion steps</h3>
-          <p className="muted">What each insertion adds to the document.</p>
+          <h3 className="review-sub">Steps</h3>
+          <p className="muted">How much text each edit adds.</p>
           <div className="choices" role="radiogroup" aria-label="Insert one">
             {UNITS.map((u) => {
               const option = optionFor(u.value);
@@ -847,89 +915,52 @@ export default function NewSessionPage() {
                   <input type="radio" name="unit" value={u.value} checked={unit === u.value} onChange={() => setUnit(u.value)} />
                   <span>
                     <strong>{UNIT_LABEL[u.value].title}</strong>
-                    <small>{count ? `${count}${tooSlow}` : u.hint}{count && u.value === "word" ? effectivePace.wordGrouping === "single" ? " · One word per step." : " · Random groups of 1–5 words." : ""}</small>
+                    <small>{count ? `${count}${tooSlow}` : u.hint}</small>
                   </span>
                 </label>
               );
             })}
           </div>
-          {unit === "word" && <p className="hint">Change single words or random groups under “How words arrive” above.</p>}
         </fieldset>
 
-        <fieldset id="timing-settings" className="form-section" data-step-section="4">
+        <fieldset id="timing-settings" className="form-section">
           <legend className="sr-only">Timing</legend>
-          <h2 aria-hidden="true"><span className="step-n">4</span>Set the timing</h2>
-          <p className="muted">Pick a total time, or a typing speed. Breaks and variation apply to both.</p>
-          {plan === "day_pass" && dashboard.profile.day_pass_expires_at && <p className="hint">Your Day Pass ends {when(dashboard.profile.day_pass_expires_at)}. Choose a duration shorter than the remaining access, including any waiting outside writing hours.</p>}
+          <h3 className="review-sub">Timing</h3>
           <div className="choices" role="radiogroup" aria-label="Timing mode">
             <label className="choice">
               <input type="radio" name="timing" value="duration" checked={timing === "duration"} onChange={() => setTiming("duration")} />
-              <span><strong>Target duration</strong><small>Fit everything, breaks included, into a set time.</small></span>
+              <span><strong>Finish time</strong><small>Fit everything, breaks included, into the time chosen under Rhythm.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => { updatePace(effectivePace); rememberRhythm("custom"); setTiming("speed"); }} disabled={!isPro} />
-              <span><strong>Typing speed{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</strong><small>Set words per minute; see how long it takes.</small></span>
+              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => { updatePace(effectivePace); rememberRhythm("custom"); setTiming("speed"); }} disabled={!canUse(plan, "typingSpeed")} />
+              <span><strong>Typing speed<PlanLock plan={plan} feature="typingSpeed" /></strong><small>Set words per minute; see how long it takes.</small></span>
             </label>
             <label className="choice">
-              <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => { setTiming("asap"); setRhythm("custom"); }} />
-              <span><strong>All at once</strong><small>One insertion, no pacing.</small></span>
+              <input type="radio" name="timing" value="asap" checked={timing === "asap"} onChange={() => setTiming("asap")} />
+              <span><strong>All at once</strong><small>One edit, no pacing.</small></span>
             </label>
           </div>
+          <p className="hint">The finish time is a target: Google Docs delays can make it later, and TypeWit never rushes to catch up.</p>
 
-          {timing === "duration" && (
-            <div className="row" style={{ marginTop: "1rem", alignItems: "flex-end", gap: "1rem" }}>
-              <div className="field" style={{ maxWidth: 260, marginBottom: 0 }}>
-                <label className="label" htmlFor="duration">Total duration</label>
-                <select id="duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }} aria-describedby="duration-hint">
-                  {DURATIONS.map((d) => (
-                    <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>
-                      {d.label}{d.minutes > limits.minutes ? " (Pro)" : ""}
-                    </option>
-                  ))}
-                  <option value="custom">Custom…</option>
-                </select>
-              </div>
-              {preset === "custom" && (
-                <div className="field" style={{ maxWidth: 180, marginBottom: 0 }}>
-                  <label className="label" htmlFor="custom-minutes">Minutes</label>
-                  <input id="custom-minutes" type="number" inputMode="numeric" min={1} max={limits.minutes} step={1}
-                    value={customMinutes} onChange={(e) => setCustomMinutes(e.target.value)} aria-invalid={!minutesValid} />
-                </div>
-              )}
-              <p id="duration-hint" className="hint" style={{ flexBasis: "100%", margin: 0 }}>
-                Breaks are part of this time, and the last insertion is planned for the very end. It is a target: Google
-                Docs outages or delays can make it finish later, and TypeWit never rushes to catch up.
-              </p>
-            </div>
-          )}
+          <h3 className="review-sub">Pace &amp; corrections{!isPro && <PlanLock plan={plan} feature="customPace" />}</h3>
+          {timing === "asap"
+            ? <p className="hint">Not used for All at once.</p>
+            : isPro
+            ? (
+              <>
+                <PacePresets timing={timing === "speed" ? "speed" : "duration"} minutes={minutes} pace={effectivePace} onApply={applyPreset} />
+                <PaceControls timing={timing} pace={effectivePace} onChange={customize} collapsed={isMobile} />
+              </>
+            )
+            : <p className="hint">Natural and Steady set the pace for you. Custom speed, pauses, breaks, corrected mistakes and saved presets come with Pro.</p>}
 
-          {timing !== "asap" && isPro && (
-            <PacePresets timing={timing === "speed" ? "speed" : "duration"} minutes={minutes} pace={effectivePace} onApply={applyPreset} />
-          )}
-          {timing !== "asap" && isPro && <PaceControls timing={timing} pace={effectivePace} onChange={customize} collapsed={isMobile} />}
-          {timing !== "asap" && !isPro && (
-            <div className="pro-note">
-              <p>
-                <strong>Your free rhythm is ready.</strong> Natural includes short sentence pauses; Steady uses fewer pauses. Both support single words or random groups, with longer breaks when they fit. <Link href="/app/billing/">Pro</Link> adds custom speed, adjustable pauses, simulated corrections and saved presets.
-              </p>
-            </div>
-          )}
-
-          <WorkWindowControls value={workWindow} onChange={setWorkWindow} enabled={plan !== "free"} />
-          <label className="check" style={{ marginTop: "1rem" }}><input type="checkbox" checked={revisionSweep} disabled={!isPro || timing === "asap"} onChange={e => setRevisionSweep(e.target.checked)} />Final revision pass (Pro)</label>
-          <p className="hint">Optional. After entry, TypeWit briefly revisits up to three ending words, restoring each before the next. Tiny or non-English endings use a space-and-delete review. Your exact approved wording and formatting are restored. Try it when testing revision behavior. It never rewrites your ideas or edits a collaborator&apos;s text. Keep the session running until correction finishes.</p>
-          <div className="plan-preview">
-            <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
-              onReshuffle={() => setSeed(undefined)} />
-          </div>
+          <WorkWindowControls value={workWindow} onChange={setWorkWindow} enabled={canUse(plan, "writingHours")} plan={plan} />
 
           <div className="field" style={{ marginTop: "1.25rem" }}>
             <label className="check" htmlFor="start-later">
-              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} disabled={!isPro}
-                aria-describedby={isPro ? undefined : "start-later-pro"} />
-              <span>Start later instead of now{!isPro && <span className="badge badge-blue pro-badge">Pro</span>}</span>
+              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} disabled={!canUse(plan, "startLater")} />
+              <span>Start later instead of now<PlanLock plan={plan} feature="startLater" /></span>
             </label>
-            {!isPro && <span id="start-later-pro" className="hint">Scheduling a start time is part of <Link href="/app/billing/">Pro</Link>.</span>}
             {startLater && (
               <div className="field" style={{ maxWidth: 280, marginBottom: 0 }}>
                 <label className="label" htmlFor="start-at">Start at (your time)</label>
@@ -943,32 +974,41 @@ export default function NewSessionPage() {
             )}
           </div>
 
+          <div className="field" style={{ marginTop: "1rem" }}>
+            <label className="check" htmlFor="revision-sweep">
+              <input id="revision-sweep" type="checkbox" checked={revisionSweep} disabled={!canUse(plan, "revisionPass") || timing === "asap"} onChange={e => setRevisionSweep(e.target.checked)} />
+              <span>Final revision pass<PlanLock plan={plan} feature="revisionPass" /></span>
+            </label>
+            <span className="hint">After entry, briefly revisits up to three ending words, then restores your exact approved text. Keep the session running until it finishes.</span>
+          </div>
         </fieldset>
-
         </details>
+
+        <div className="form-section upgrade-section" data-step-section="1">
+          <UpgradeNote plan={plan} />
+        </div>
+
         <div className="form-section" data-step-section="5">
-          <h2><span className="step-n" aria-hidden="true">5</span>Review and approve</h2>
+          <h2>Review and approve</h2>
           <p className="muted">TypeWit enters exactly this text. Editing it clears your approval.</p>
           <div className="preview" tabIndex={0} role="region" aria-label="Text to approve">
             {parsed && text.trim() ? <MarkdownPreview parsed={parsed} /> : text || <span className="pending">Your text will appear here.</span>}
           </div>
           {steps > 1 && current && <StepList text={plainText} plan={preview} />}
           <h3 className="review-sub">Before you start</h3>
-          <dl className="summary-list" aria-label="Before you start">
-            <dt>Document</dt><dd>{docLabel}</dd>
-            {place === "heading" && <><dt>Insertion location</dt><dd>{placeLabel}</dd></>}
-            <dt>Word entry</dt><dd>{timing === "asap" ? "All at once" : unit !== "word" ? UNIT_LABEL[unit].title : effectivePace.wordGrouping === "single" ? "One word at a time" : "Random groups of 1–5 words"}</dd>
-            <dt>Rhythm</dt><dd>{timing === "asap" ? "All at once" : rhythm === "custom" ? "Custom" : rhythm === "drafting" ? "Drafting with simulated corrections" : rhythm === "natural" ? "Natural" : "Steady"}</dd>
-            {format !== "plain" && <><dt>Formatting</dt><dd>Headings, bold, italic, bullets and highlights kept</dd></>}
-            {startLater && <><dt>Starts</dt><dd>{when(new Date(startAt).getTime())}</dd></>}
-            <dt>Text length</dt><dd>{words.toLocaleString()} words, {plainText.length.toLocaleString()} characters</dd>
-            {unit !== "word" && <><dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}</dd></>}
-
-            {revisionSweep && <><dt>Final revision pass</dt><dd>A small temporary edit to the session-owned suffix, then your exact approved text is restored.</dd></>}
-            {workWindow && <><dt>Writing hours</dt><dd>{workWindow.start}–{workWindow.end} · {workWindow.time_zone}. Waiting may move the finish later.</dd></>}
-            {simulatedDrafting && <><dt>Automated simulated edits</dt><dd>Neighbor-key typos {effectivePace.typoRate}%, false starts {effectivePace.falseStartRate}% per eligible English word; temporary text is deleted and corrected.</dd></>}
-            <dt>Planned duration</dt>
-            <dd>{plannedDuration}</dd>
+          <dl className="summary-list review-list" aria-label="Before you start">
+            <ReviewRow label="Document" value={docLabel} onEdit={() => edit(target === "new" ? "title" : "doc", "destination")} />
+            {place === "heading" && <ReviewRow label="Insertion location" value={placeLabel} onEdit={() => edit("heading", "more")} />}
+            <ReviewRow label="Word entry" value={entryLabel} onEdit={() => edit(unit === "word" && timing !== "asap" ? "rhythm-title" : "entry-settings", unit === "word" && timing !== "asap" ? undefined : "more")} />
+            <ReviewRow label="Rhythm" value={rhythmLabel} onEdit={() => edit("rhythm-title")} />
+            <ReviewRow label="Timing" value={timingLabel} onEdit={() => edit(timing === "duration" ? "duration" : "timing-settings", timing === "duration" ? undefined : "more")} />
+            {format !== "plain" && <ReviewRow label="Formatting" value="Headings, bold, italic, bullets and highlights kept" />}
+            {startLater && <ReviewRow label="Starts" value={when(new Date(startAt).getTime())} onEdit={() => edit("start-at", "more")} />}
+            {workWindow && <ReviewRow label="Writing hours" value={`${workWindow.start}–${workWindow.end} · ${workWindow.time_zone}. Waiting may move the finish later.`} onEdit={() => edit("timing-settings", "more")} />}
+            {revisionSweep && <ReviewRow label="Final revision pass" value="A small temporary edit at the end, then your exact approved text is restored." onEdit={() => edit("revision-sweep", "more")} />}
+            {simulatedDrafting && <ReviewRow label="Simulated edits" value={`Neighbor-key typos ${effectivePace.typoRate}%, false starts ${effectivePace.falseStartRate}% per eligible English word; temporary text is deleted and corrected.`} />}
+            <ReviewRow label="Text length" value={`${words.toLocaleString()} words, ${plainText.length.toLocaleString()} characters`} />
+            <ReviewRow label="Planned duration" value={plannedDuration} />
           </dl>
           <label className="check approve-check" htmlFor="approve">
             <input id="approve" type="checkbox" checked={approved} disabled={words === 0} onChange={(e) => setApproved(e.target.checked)} />
@@ -980,12 +1020,14 @@ export default function NewSessionPage() {
               {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
             </div>
           )}
-          <p className="hint">
-            Each insertion is a real edit made through the Google Docs API at its scheduled time, using your Google
-            account. Enabled drafting simulations make temporary edits and correct them; they are automated, and Google controls version-history grouping. It runs on TypeWit&apos;s servers, so
-            you can close this page. Your text and its schedule are stored with TypeWit until you delete the session
-            (Settings → Your data); the activity log records times and counts, not your text.
-          </p>
+          <details className="more" style={{ marginTop: "1rem" }}><summary>What happens when I start?</summary>
+            <p className="hint">
+              Each step is a real edit made through the Google Docs API at its scheduled time, using your Google
+              account. Enabled drafting simulations make temporary edits and correct them; they are automated, and Google controls version-history grouping. It runs on TypeWit&apos;s servers, so
+              you can close this page. Your text and its schedule are stored with TypeWit until you delete the session
+              (Settings → Your data); the activity log records times and counts, not your text.
+            </p>
+          </details>
         </div>
         </div>
 
@@ -998,7 +1040,7 @@ export default function NewSessionPage() {
                 {step > 1 ? "Back" : "Exit"}
               </button>
             )}
-            {step < 5
+            {step === 1
               // Different keys: the press on Continue must not land on a submit button swapped into its place.
               ? (
                 <button key="continue" type="button" className="btn btn-primary btn-lg" onClick={continueStep} disabled={words > 0 && !current && !previewError}>
@@ -1021,6 +1063,19 @@ export default function NewSessionPage() {
           <button type="button" className="btn btn-secondary btn-lg btn-block" onClick={() => router.push("/app/")}>Leave</button>
         </div>
       </Sheet>
+    </>
+  );
+}
+
+/** One line of the review, with a way back to the setting it shows. */
+function ReviewRow({ label, value, onEdit }: { label: string; value: string; onEdit?: () => void }) {
+  return (
+    <>
+      <dt>{label}</dt>
+      <dd>
+        <span>{value}</span>
+        {onEdit && <button type="button" className="link-btn review-edit" onClick={onEdit} aria-label={`Change ${label.toLowerCase()}`}>Change</button>}
+      </dd>
     </>
   );
 }

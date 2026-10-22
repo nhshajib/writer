@@ -146,7 +146,7 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
     <>
       <details className="advanced-timing" open={!collapsed}>
         <summary>
-          Pace &amp; corrections <span className="badge badge-blue pro-badge">Pro</span>
+          Pace &amp; corrections
           <span className="hint"> · remembered in this browser</span>
         </summary>
         <button type="button" className="btn btn-secondary btn-sm pace-reset" onClick={() => onChange({ ...DEFAULT_PACE, wordGrouping: pace.wordGrouping, typoRate: 1, falseStartRate: 1, sentencePauseSeconds: 2, sentencePauseVariation: 25 })}>Use recommended settings</button>
@@ -158,10 +158,10 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
             {timing === "speed" ? <SliderField label="Typing speed (adjustable cadence)" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={20} max={150}
               onChange={(v) => onChange({ wpm: v })}
               hint={'How fast text is added: 20 is slower and 150 is faster. Start at 40 WPM, then adjust to your preferred pace. A "word" means 5 characters; corrections and API limits can make the session take longer.'} />
-              : <p className="hint">Choose Typing speed above to use the remembered {pace.wpm} WPM setting. Target duration uses your selected finish time.</p>}
+              : <p className="hint">Choose Typing speed above to use the remembered {pace.wpm} WPM setting. Finish time uses the time you chose.</p>}
             <SliderField label="Timing variation" unit="%" unitLabel="percent" value={pace.variation} min={0} max={50}
               onChange={(v) => onChange({ variation: v })}
-              hint={`Waits between edits can be shorter or longer by up to ${pace.variation}%. Start at 25% for a changing rhythm; 0% gives even spacing. This also applies to Target duration.`} />
+              hint={`Waits between edits can be shorter or longer by up to ${pace.variation}%. Start at 25% for a changing rhythm; 0% gives even spacing. This also applies to a finish time.`} />
           </div>
         </fieldset>
         <fieldset className="settings-group">

@@ -17,7 +17,7 @@ test("Day Pass shows its expiry, keeps advanced Pro features gated and sends wri
     await page.getByLabel("Writing time zone",{exact:true}).fill("UTC");
     await page.getByLabel("Write from",{exact:true}).fill("00:00");
     await page.getByLabel("Write until",{exact:true}).fill("23:59");
-    await expect(page.getByLabel("Final revision pass (Pro)",{exact:true})).toBeDisabled();
+    await expect(page.getByLabel("Final revision pass")).toBeDisabled();
   }});
   await page.getByRole("button",{name:"Start session",exact:true}).click();
   await page.waitForURL(/\/app\/session\/?\?id=/);
@@ -29,7 +29,7 @@ test("Day Pass shows its expiry, keeps advanced Pro features gated and sends wri
 test("Pro approves final revisions and replays only confirmed actions without document writes", async ({page,request})=>{
   await page.goto("/app/new/");
   await fillNewSession(page,{title:"Replay fixture",text:"Approved sentence. Final sentence.",atTiming:async()=>{
-    await page.getByLabel("Final revision pass (Pro)",{exact:true}).check();
+    await page.getByLabel("Final revision pass").check();
   }});
   await expect(page.getByText(/I also approve the enabled simulated mistakes/)).toBeVisible();
   await page.getByRole("button",{name:"Start session",exact:true}).click();
@@ -54,7 +54,7 @@ test("Free mobile keeps work hours gated and pricing exposes the nonrenewing $4.
   await page.goto("/app/new/");
   await toStep(page,4);
   await expect(page.getByLabel("Write only during chosen hours")).toBeDisabled();
-  await expect(page.getByLabel("Final revision pass (Pro)",{exact:true})).toBeDisabled();
+  await expect(page.getByLabel("Final revision pass")).toBeDisabled();
   await page.goto("/pricing/");
   await expect(page.getByText("$4.99",{exact:true}).first()).toBeVisible();
   await expect(page.getByText(/no renewal/i).first()).toBeVisible();

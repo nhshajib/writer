@@ -59,7 +59,8 @@ test("Run again starts a new session from a finished one's text, settings and do
   await page.getByRole("link", { name: "Run again…" }).click();
   await page.waitForURL(/\/app\/new\/?\?from=/);
   await expect(page.getByText(/Started from "Lab report"/)).toBeVisible();
-  await expect(page.getByRole("radio", { name: /Existing document/ })).toBeChecked();
+  // The destination stays folded, but its summary names the same document.
+  await expect(page.locator(".destination-options > summary")).toContainText("Destination: Lab report");
   await toStep(page, 2);
   await expect(page.getByLabel("Text to enter")).toHaveText(TEXT);
   // A fresh approval is always needed.
@@ -194,13 +195,17 @@ test("Free shows what Pro adds without blocking the free flow, and the server re
   await page.getByLabel("Title").fill("Short note");
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill("w ".repeat(251).trim());
-  await expect(page.getByText(/250 words a day on Free/)).toBeVisible();
+  await expect(page.getByText(/250 left today on Free/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get unlimited words" })).toBeVisible();
   await page.getByLabel("Text to enter").fill(TEXT);
   await toStep(page, 4);
   await expect(page.getByRole("radio", { name: /Typing speed/ })).toBeDisabled();
   await expect(page.getByLabel(/Start later instead of now/)).toBeDisabled();
-  await expect(page.getByText(/Your free rhythm is ready\./)).toBeVisible();
-  await expect(page.locator("#duration option", { hasText: "2 hours (Pro)" })).toBeDisabled();
+  await expect(page.getByText(/Natural and Steady set the pace for you/)).toBeVisible();
+  // Each lock names the lowest plan that includes it: up to a day is Day Pass, longer is Pro.
+  await expect(page.locator("#duration option", { hasText: "2 hours (Day Pass)" })).toBeDisabled();
+  await expect(page.locator("#duration option", { hasText: "3 days (Pro)" })).toBeDisabled();
+  await expect(page.locator(".upgrade-note")).toHaveCount(1);
   await expect(page.getByRole("spinbutton", { name: "Timing variation" })).toHaveCount(0);
   await expectNoAxeViolations(page);
 
@@ -216,15 +221,15 @@ test("Pro saves pace presets and applies one in a click", async ({ page }) => {
   await toStep(page, 2);
   await page.getByLabel("Text to enter").fill(TEXT);
   await toStep(page, 4);
-  await page.getByLabel("Total duration").selectOption("120");
+  await page.getByLabel("Finish within", { exact: true }).selectOption("120");
   await page.getByRole("button", { name: "Save as preset…" }).click();
   await page.getByLabel("Preset name").fill("Essay, 2 hours");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText('Saved "Essay, 2 hours".')).toBeVisible();
 
-  await page.getByLabel("Total duration").selectOption("30");
+  await page.getByLabel("Finish within", { exact: true }).selectOption("30");
   await page.locator("#preset").selectOption("Essay, 2 hours");
-  await expect(page.getByLabel("Total duration")).toHaveValue("120");
+  await expect(page.getByLabel("Finish within", { exact: true })).toHaveValue("120");
   await page.getByRole("button", { name: "Delete preset" }).click();
   await expect(page.getByText('Deleted "Essay, 2 hours".')).toBeVisible();
 });

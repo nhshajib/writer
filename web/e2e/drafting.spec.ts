@@ -124,7 +124,7 @@ test("switching from All at once to paced drafting requires renewed approval", a
   await toStep(page, 5);
   await page.getByRole("checkbox", { name: /I've read this exact text/ }).check();
   await toStep(page, 4);
-  await page.getByRole("radio", { name: /^Target duration/ }).check();
+  await page.getByRole("radio", { name: /^Finish time/ }).check();
   await ready(page);
   await toStep(page, 5);
   await expect(page.getByRole("checkbox", { name: /I've read this exact text/ })).not.toBeChecked();
