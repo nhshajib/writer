@@ -1,4 +1,6 @@
 "use client";
+import { WordGroupingControls } from "./WordGroupingControls";
+import { RhythmPreview } from "./RhythmPreview";
 
 import { RichTextEditor } from "./RichTextEditor";
 import { WorkWindowControls } from "./WorkWindowControls";
@@ -60,7 +62,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
         <div className="field">
           <label className="label" htmlFor="edit-unit">Insertion steps</label>
           <select id="edit-unit" value={unit} onChange={(e) => change(() => setUnit(e.target.value as InsertionUnit))}>
-            {Object.entries(UNIT_LABEL).map(([value, label]) => <option key={value} value={value}>{label.title}{value === "word" ? " (random groups of 1–5 words)" : ""}</option>)}
+            {Object.entries(UNIT_LABEL).map(([value, label]) => <option key={value} value={value}>{label.title}{value === "word" ? " (choose grouping below)" : ""}</option>)}
           </select>
         </div>
         <div className="field">
@@ -74,6 +76,8 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
           <label className="label" htmlFor="edit-minutes">Minutes after resuming</label>
           <input id="edit-minutes" type="number" min={1} max={10080} required value={minutes} onChange={(e) => change(() => setMinutes(Number(e.target.value)))} />
         </div>}
+        {unit === "word" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => change(() => setPace(p => ({ ...p, wordGrouping })))} />}
+        <RhythmPreview pace={pace} unit={unit} allAtOnce={false} revisionSweep={revisionSweep} />
         <PaceControls timing={timing} pace={pace} onChange={(update) => change(() => setPace((p) => { const next = { ...p, ...update }; if (next.maxBreakSeconds < next.minBreakSeconds) { if ("minBreakSeconds" in update) next.maxBreakSeconds = next.minBreakSeconds; else next.minBreakSeconds = next.maxBreakSeconds; } return sanitizePace(next); }))} />
         <WorkWindowControls value={workWindow} onChange={v => change(() => setWorkWindow(v))} enabled />
         <label className="check"><input type="checkbox" checked={revisionSweep} onChange={e => change(() => setRevisionSweep(e.target.checked))} />Final revision pass (restore exact approved text)</label>

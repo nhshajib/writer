@@ -250,3 +250,19 @@ test("Word detects a concurrent edit after its write and recovers without a dupl
   expect(text.split("Approved testing text.").length - 1).toBe(1);
   expect(text).toContain("Concurrent testing note.");
 });
+
+test("Free Word offers strict single-word entry without premium pacing controls", async ({ page, request }) => {
+  await request.post("/__test/profile", { data: { plan: "free" } });
+  await useFakeWord(page, { host: "Word", url: DOC_URL });
+  await page.goto("/word/");
+  await page.getByLabel("Insert one", { exact: true }).selectOption("word");
+  await page.getByLabel("Text to enter").fill("One approved sentence. Another follows.");
+  const response = page.waitForResponse(r => r.url().endsWith("/drips/plan") && r.request().postDataJSON()?.pacing?.word_grouping === "single");
+  await page.getByRole("radio", { name: /^One word at a time/ }).check();
+  const { plan } = await (await response).json();
+  expect(plan.ok).toBe(true);
+  expect(plan.pacing.word_grouping).toBe("single");
+  expect(plan.source_unit_count).toBe(5);
+  await expect(page.getByRole("region", { name: "Your rhythm at a glance" })).toContainText("One word");
+  await expect(page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true })).toHaveCount(0);
+});

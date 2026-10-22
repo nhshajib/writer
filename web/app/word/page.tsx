@@ -1,4 +1,6 @@
 "use client";
+import { WordGroupingControls } from "@/components/app/WordGroupingControls";
+import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { effectivePlan, type PlanTier } from "../../../supabase/functions/_shared/limits";
 import type { WorkWindow } from "../../../supabase/functions/_shared/workWindow";
 import { WorkWindowControls } from "@/components/app/WorkWindowControls";
@@ -229,7 +231,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const starting = useRef(false);
 
   const isPro = tier === "pro";
-  const effectivePace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE) : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
+  const rhythmPace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE) : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
+  const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping };
   const simulatedDrafting = isPro && timing !== "asap" && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0 || revisionSweep);
   useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
@@ -327,7 +330,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
       <div className="field">
         <label className="label" htmlFor="pane-unit">Insert one</label>
         <select id="pane-unit" value={unit} onChange={(e) => setUnit(e.target.value as InsertionUnit)}>
-          {(["sentence", "word", "character", "paragraph"] as const).map((u) => <option key={u} value={u}>{UNIT_LABEL[u].one} at a time</option>)}
+          {(["sentence", "word", "character", "paragraph"] as const).map((u) => <option key={u} value={u}>{u === "word" ? "words (choose grouping below)" : `${UNIT_LABEL[u].one} at a time`}</option>)}
         </select>
       </div>
 
@@ -362,6 +365,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           </span>
         </div>
       )}
+      {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
+      <RhythmPreview pace={effectivePace} unit={unit} allAtOnce={timing === "asap"} revisionSweep={revisionSweep} />
       <WorkWindowControls value={workWindow} onChange={v => { setWorkWindow(v); setApproved(false); }} enabled={tier !== "free"} />
       <label className="check"><input type="checkbox" checked={revisionSweep} disabled={!isPro || timing === "asap"} onChange={e => { setRevisionSweep(e.target.checked); setApproved(false); }} />Final revision pass (Pro; restores approved text)</label>
       {timing !== "asap" && isPro && <PaceControls timing={timing} pace={effectivePace} onChange={(change) => { updatePace({ ...effectivePace, ...change }); setRhythm("custom"); }} />}

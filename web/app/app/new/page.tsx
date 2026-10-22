@@ -1,4 +1,6 @@
 "use client";
+import { WordGroupingControls } from "@/components/app/WordGroupingControls";
+import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { WorkWindowControls } from "@/components/app/WorkWindowControls";
 import type { WorkWindow } from "../../../../supabase/functions/_shared/workWindow";
 import { RichTextEditor } from "@/components/app/RichTextEditor";
@@ -84,7 +86,7 @@ function localInputValue(date: Date): string {
 
 const UNITS: { value: InsertionUnit; hint: string }[] = [
   { value: "sentence", hint: "One sentence at a time. Recommended." },
-  { value: "word", hint: "Random groups of 1–5 words per insertion." },
+  { value: "word", hint: "Choose single words or random 1–5-word groups above." },
   { value: "character", hint: "One character at a time." },
   { value: "paragraph", hint: "One paragraph at a time." },
   { value: "chunk", hint: "Equal groups of words, about once a minute." },
@@ -301,15 +303,16 @@ export default function NewSessionPage() {
   const placeLabel = place === "heading" && heading ? `At the end of the "${heading.text}" section` : "At the end of the document";
 
   // Free sessions use the standard pace (the server does the same); custom timing is Pro.
-  const effectivePace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE)
+  const rhythmPace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE)
     : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
+  const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping };
   const sessionTitle = title.trim() || plainText.trim().split(/\n|(?<=[.!?])\s/)[0]?.slice(0, 80) || "Untitled session";
   useEffect(() => {
     if (!autoDuration || timing !== "duration") return;
-    const desired = Math.max(5, Math.ceil(words / 25));
+    const desired = Math.max(5, Math.ceil(words / (unit === "word" && pace.wordGrouping === "single" ? 10 : 25)));
     const allowed = DURATIONS.filter((d) => d.minutes <= limits.minutes);
     setPreset(String((allowed.find((d) => d.minutes >= desired) ?? allowed[allowed.length - 1]).minutes));
-  }, [words, autoDuration, timing, limits.minutes]);
+  }, [words, autoDuration, timing, limits.minutes, unit, pace.wordGrouping]);
   function chooseRhythm(next: SessionRhythm) {
     if (next === "drafting" && !isPro) return;
     rememberRhythm(next);
@@ -755,18 +758,19 @@ export default function NewSessionPage() {
         </details>
         <section className="form-section rhythm-setup" data-step-section="2" aria-labelledby="rhythm-title">
           <h2 id="rhythm-title">Choose a rhythm</h2>
-          <p className="muted">Start with Natural. You can adjust the details if you need to.</p>
+          <p className="muted">Choose a starting point. Natural is ready to use; advanced settings are optional.</p>
           <div className="rhythm-cards" role="group" aria-label="Writing rhythm">
             {([
-              ["natural", "Natural", "Recommended", "Small word groups, varied timing and short sentence pauses."],
-              ["steady", "Steady", "Free", "Small word groups with fewer pauses for a simpler pace."],
+              ["natural", "Natural", "Recommended", "Varied timing and short pauses between sentences."],
+              ["steady", "Steady", "Free", "Fewer pauses for a simpler, consistent pace."],
               ["drafting", "Drafting", "Pro", "Adds occasional temporary typos and false starts, then corrects them."],
             ] as const).map(([key, name, badge, description]) => <button key={key} type="button" className="rhythm-card" aria-pressed={rhythm === key} disabled={key === "drafting" && !isPro} onClick={() => chooseRhythm(key)}>
               <strong>{name}<span className="badge badge-blue">{badge}</span></strong><span>{description}</span>
             </button>)}
           </div>
-          {rhythm !== "custom" && <p className="hint mobile-only" aria-live="polite">{rhythm === "natural" ? "Small word groups, varied timing and short sentence pauses." : rhythm === "steady" ? "Small word groups with fewer pauses for a simpler pace." : "Occasional temporary typos and false starts are entered, then corrected."}</p>}
+          {rhythm !== "custom" && <p className="hint mobile-only" aria-live="polite">{rhythm === "natural" ? "Varied timing and short pauses between sentences." : rhythm === "steady" ? "Fewer pauses for a simpler, consistent pace." : "Occasional temporary typos and false starts are entered, then corrected."}</p>}
           {rhythm === "custom" && <p className="hint">Custom rhythm selected. Choose Natural to return to the recommended settings.</p>}
+          {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
           {timing === "duration" && <div className="field" style={{ marginTop: "1rem", maxWidth: 320 }}>
             <label className="label" htmlFor="quick-duration">Finish within</label>
             <select id="quick-duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }}>
@@ -775,6 +779,7 @@ export default function NewSessionPage() {
             </select>
             <p className="hint">{autoDuration ? "Suggested for your text. " : ""}Includes pauses and breaks. You can close this page after starting.</p>
           </div>}
+          <RhythmPreview pace={effectivePace} unit={unit} allAtOnce={timing === "asap"} revisionSweep={revisionSweep} />
           {!isPro && <p className="upgrade-inline">Natural and Steady are included on Free. <Link href="/app/billing/">Get corrected mistakes, custom rhythms and longer sessions with Pro.</Link></p>}
           {current && !preview.ok && !advanced && <p className="alert alert-error" role="alert">{preview.problems.map((p) => p.message).join(" ")}</p>}
           {previewError && !advanced && <p className="alert alert-error" role="alert">{previewError}</p>}
@@ -782,8 +787,10 @@ export default function NewSessionPage() {
             <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing} onReshuffle={() => setSeed(undefined)} />
           </details>
         </section>
-        <details className="session-advanced" open={advanced} onToggle={(e) => setAdvanced(e.currentTarget.open)}><summary>Advanced settings <span className="hint"> · optional</span></summary>
-        <fieldset className="form-section" data-step-section="3">
+        <details className="session-advanced" open={advanced} onToggle={(e) => setAdvanced(e.currentTarget.open)}><summary>Advanced settings <span className="hint"> · placement, pace, corrections &amp; schedule</span></summary>
+        <p className="advanced-intro">Happy with the preview? You can leave these settings alone. Changes update the schedule before you approve it.</p>
+        <nav className="settings-nav" aria-label="Advanced settings sections"><a href="#entry-settings">Placement &amp; steps</a><a href="#timing-settings">Pace &amp; schedule</a></nav>
+        <fieldset id="entry-settings" className="form-section" data-step-section="3">
           <legend className="sr-only">Insertion mode</legend>
           <h2 aria-hidden="true"><span className="step-n">3</span>Choose how it&apos;s entered</h2>
           <h3 className="review-sub" id="place-title">Where the text goes</h3>
@@ -840,15 +847,16 @@ export default function NewSessionPage() {
                   <input type="radio" name="unit" value={u.value} checked={unit === u.value} onChange={() => setUnit(u.value)} />
                   <span>
                     <strong>{UNIT_LABEL[u.value].title}</strong>
-                    <small>{count ? `${count}${tooSlow}` : u.hint}{count && u.value === "word" ? " · Random groups of 1–5 words." : ""}</small>
+                    <small>{count ? `${count}${tooSlow}` : u.hint}{count && u.value === "word" ? effectivePace.wordGrouping === "single" ? " · One word per step." : " · Random groups of 1–5 words." : ""}</small>
                   </span>
                 </label>
               );
             })}
           </div>
+          {unit === "word" && <p className="hint">Change single words or random groups under “How words arrive” above.</p>}
         </fieldset>
 
-        <fieldset className="form-section" data-step-section="4">
+        <fieldset id="timing-settings" className="form-section" data-step-section="4">
           <legend className="sr-only">Timing</legend>
           <h2 aria-hidden="true"><span className="step-n">4</span>Set the timing</h2>
           <p className="muted">Pick a total time, or a typing speed. Breaks and variation apply to both.</p>
@@ -902,14 +910,14 @@ export default function NewSessionPage() {
           {timing !== "asap" && !isPro && (
             <div className="pro-note">
               <p>
-                <strong>Your free rhythm is ready.</strong> Natural includes short sentence pauses; Steady uses fewer pauses. Both include varied word groups and breaks. <Link href="/app/billing/">Pro</Link> adds custom speed, adjustable pauses, simulated corrections and saved presets.
+                <strong>Your free rhythm is ready.</strong> Natural includes short sentence pauses; Steady uses fewer pauses. Both support single words or random groups, with longer breaks when they fit. <Link href="/app/billing/">Pro</Link> adds custom speed, adjustable pauses, simulated corrections and saved presets.
               </p>
             </div>
           )}
 
           <WorkWindowControls value={workWindow} onChange={setWorkWindow} enabled={plan !== "free"} />
           <label className="check" style={{ marginTop: "1rem" }}><input type="checkbox" checked={revisionSweep} disabled={!isPro || timing === "asap"} onChange={e => setRevisionSweep(e.target.checked)} />Final revision pass (Pro)</label>
-          <p className="hint">Optional. After entry, TypeWit makes a small temporary edit to its own text and restores your exact approved wording. Try it when testing revision behavior. It never rewrites your ideas or edits a collaborator&apos;s text. Keep the session running until correction finishes.</p>
+          <p className="hint">Optional. After entry, TypeWit briefly revisits up to three ending words, restoring each before the next. Tiny or non-English endings use a space-and-delete review. Your exact approved wording and formatting are restored. Try it when testing revision behavior. It never rewrites your ideas or edits a collaborator&apos;s text. Keep the session running until correction finishes.</p>
           <div className="plan-preview">
             <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
               onReshuffle={() => setSeed(undefined)} />
@@ -949,6 +957,7 @@ export default function NewSessionPage() {
           <dl className="summary-list" aria-label="Before you start">
             <dt>Document</dt><dd>{docLabel}</dd>
             {place === "heading" && <><dt>Insertion location</dt><dd>{placeLabel}</dd></>}
+            <dt>Word entry</dt><dd>{timing === "asap" ? "All at once" : unit !== "word" ? UNIT_LABEL[unit].title : effectivePace.wordGrouping === "single" ? "One word at a time" : "Random groups of 1–5 words"}</dd>
             <dt>Rhythm</dt><dd>{timing === "asap" ? "All at once" : rhythm === "custom" ? "Custom" : rhythm === "drafting" ? "Drafting with simulated corrections" : rhythm === "natural" ? "Natural" : "Steady"}</dd>
             {format !== "plain" && <><dt>Formatting</dt><dd>Headings, bold, italic, bullets and highlights kept</dd></>}
             {startLater && <><dt>Starts</dt><dd>{when(new Date(startAt).getTime())}</dd></>}

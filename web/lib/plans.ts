@@ -9,7 +9,7 @@ export const FREE_FEATURES = [
   "Sessions up to 60 minutes",
   "Natural and Steady rhythms, ready to use",
   "Paste formatted text without Markdown",
-  "Random word groups, sentence pauses and accessibility tools",
+  "Single words or random groups, sentence pauses and accessibility tools",
 ];
 
 export const PRO_FEATURES = [
@@ -61,6 +61,7 @@ const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Background Google Docs entry", free: "Yes", pro: "Yes" },
   { feature: "Custom duration within your plan limit", free: "Yes", pro: "Yes" },
   { feature: "Writing hours (work window)", free: "No", pro: "Yes, with time zone" },
+  { feature: "Single-word or random 1–5-word entry", free: "Both included", pro: "Both included" },
   { feature: "Final revision pass", free: "No", pro: "Optional, exact text restored" },
   { feature: "Session playback", free: "Activity log", pro: "Replay confirmed actions" },
   { feature: "Queue dispatch", free: "Standard", pro: "Priority, with fair scheduling" },

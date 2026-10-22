@@ -108,6 +108,8 @@ export interface DraftingSettings {
 }
 
 export interface PacingSettings {
+  /** Omitted by older clients: random groups of 1–5 words. */
+  word_grouping?: "random" | "single";
   timing: TimingMode;
   duration_seconds?: number;
   wpm?: number;

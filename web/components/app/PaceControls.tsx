@@ -13,6 +13,7 @@ const ALIGN: { value: BreakAlignment; label: string }[] = [
 
 /** The pace controls, remembered in this browser between sessions. */
 export interface Pace {
+  wordGrouping: "random" | "single";
   wpm: number;
   variation: number;
   breaksOn: boolean;
@@ -28,6 +29,7 @@ export interface Pace {
 }
 
 export const DEFAULT_PACE: Pace = {
+  wordGrouping: "random",
   wpm: 40,
   variation: 25,
   breaksOn: true,
@@ -51,6 +53,7 @@ export function sanitizePace(raw: unknown): Pace {
     return typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : DEFAULT_PACE[key] as number;
   };
   const next: Pace = {
+    wordGrouping: p.wordGrouping === "single" ? "single" : "random",
     wpm: number("wpm", 20, 150), variation: number("variation", 0, 50),
     breaksOn: typeof p.breaksOn === "boolean" ? p.breaksOn : DEFAULT_PACE.breaksOn,
     everyMinutes: number("everyMinutes", 1, 720), everyVariation: number("everyVariation", 0, 50),
@@ -65,6 +68,7 @@ export function sanitizePace(raw: unknown): Pace {
 
 export function paceFromSettings(pacing: PacingSettings): Partial<Pace> {
   return {
+    wordGrouping: pacing.word_grouping === "single" ? "single" : "random",
     ...(pacing.wpm ? { wpm: pacing.wpm } : {}), variation: pacing.variation_pct,
     breaksOn: pacing.breaks.enabled, everyMinutes: pacing.breaks.every_seconds / 60,
     everyVariation: pacing.breaks.every_variation_pct, minBreakSeconds: pacing.breaks.min_seconds,
@@ -107,6 +111,7 @@ export function usePace(): [Pace, (change: Partial<Pace>) => void] {
 /** The pacing a session is planned with. */
 export function pacingFor(timing: TimingMode, minutes: number, pace: Pace): PacingSettings {
   return {
+    word_grouping: pace.wordGrouping,
     timing,
     ...(timing === "duration" ? { duration_seconds: Math.round(minutes * 60) } : { wpm: pace.wpm }),
     variation_pct: pace.variation,
@@ -141,13 +146,14 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
     <>
       <details className="advanced-timing" open={!collapsed}>
         <summary>
-          Drafting rhythm <span className="badge badge-blue pro-badge">Pro</span>
+          Pace &amp; corrections <span className="badge badge-blue pro-badge">Pro</span>
           <span className="hint"> · remembered in this browser</span>
         </summary>
+        <button type="button" className="btn btn-secondary btn-sm pace-reset" onClick={() => onChange({ ...DEFAULT_PACE, wordGrouping: pace.wordGrouping, typoRate: 1, falseStartRate: 1, sentencePauseSeconds: 2, sentencePauseVariation: 25 })}>Use recommended settings</button>
         <p className="hint">Choose how quickly text arrives, how often a temporary mistake is corrected, and when to pause. These automated edits create a varied drafting rhythm; completed text still matches the text you approve. Google Docs decides which edits appear together in version history.</p>
         <fieldset className="settings-group">
-          <legend>Typing rhythm and corrections</legend>
-          <p className="hint"><strong>Where to start:</strong> Choose Typing speed above for a words-per-minute pace, or Target duration to finish within a chosen time. Try 40 WPM with 25% timing variation, a 1% typo rate, a 1% false-start rate, and a 2-second sentence pause with 25% pause variation. These are starting suggestions; adjust them after checking the schedule preview.</p>
+          <legend>1. Pace and variation</legend>
+          <p className="hint">Use your finish time above, or choose Typing speed for a WPM target. Start with 25% variation so edits do not arrive at identical intervals.</p>
           <div className="slider-grid">
             {timing === "speed" ? <SliderField label="Typing speed (adjustable cadence)" unit="WPM" unitLabel="words per minute" value={pace.wpm} min={20} max={150}
               onChange={(v) => onChange({ wpm: v })}
@@ -156,12 +162,24 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
             <SliderField label="Timing variation" unit="%" unitLabel="percent" value={pace.variation} min={0} max={50}
               onChange={(v) => onChange({ variation: v })}
               hint={`Waits between edits can be shorter or longer by up to ${pace.variation}%. Start at 25% for a changing rhythm; 0% gives even spacing. This also applies to Target duration.`} />
+          </div>
+        </fieldset>
+        <fieldset className="settings-group">
+          <legend>2. Temporary mistakes</legend>
+          <p className="hint">Optional. Keep both at 0% for clean entry, or start at 1% for occasional corrected mistakes. These effects use English words and a QWERTY keyboard.</p>
+          <div className="slider-grid">
             <SliderField label="Neighbor-key typos" unit="%" unitLabel="percent of eligible words" value={pace.typoRate} min={0} max={20}
               onChange={(v) => onChange({ typoRate: v })}
               hint="Occasionally inserts a letter from a nearby keyboard key, then deletes and corrects it. Start at 1%: roughly 1 in 100 eligible English words may get a typo, not 1 in 100 letters. Higher rates add more corrections and time. Set 0% to turn off." />
             <SliderField label="False starts" unit="%" unitLabel="percent of eligible words" value={pace.falseStartRate} min={0} max={20}
               onChange={(v) => onChange({ falseStartRate: v })}
               hint="Occasionally adds a temporary wrong word, pauses, deletes it, and enters your approved word. Start at 1% for occasional detours: roughly 1 in 100 eligible English words. The count varies per session. Set 0% to turn off." />
+          </div>
+        </fieldset>
+        <fieldset className="settings-group">
+          <legend>3. Thinking pauses</legend>
+          <p className="hint">Start with 2 seconds and 25% variation. Longer pauses leave more breathing room between sentences.</p>
+          <div className="slider-grid">
             <SliderField label="Natural breaks after sentences" unit="s" unitLabel="seconds" value={pace.sentencePauseSeconds} min={0} max={30}
               onChange={(v) => onChange({ sentencePauseSeconds: v })}
               hint="Adds a short wait after a sentence ends, like a moment to think before continuing. Start at 2 seconds; increase it for more breathing room. Set 0 seconds to turn off. These pauses are included in the schedule preview." />
@@ -175,11 +193,12 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
 
       <details className="advanced-timing" open={!collapsed}>
         <summary>
-          Advanced timing
+          Longer breaks
           <span className="hint"> · {pace.breaksOn ? `breaks every ${pace.everyMinutes} min` : "no longer breaks"}</span>
         </summary>
         <fieldset className="settings-group">
-          <legend>Breaks</legend>
+          <legend>4. Time away from typing</legend>
+          <p className="hint">Try a 20–120 second break after about 8 minutes of entry. Short sessions may finish before a longer break fits.</p>
           <label className="check">
             <input type="checkbox" checked={pace.breaksOn} onChange={(e) => onChange({ breaksOn: e.target.checked })} />
             <span>Take breaks</span>
