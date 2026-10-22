@@ -61,3 +61,13 @@ test("Free mobile keeps work hours gated and pricing exposes the nonrenewing $4.
   await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished)));
   expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21a","wcag21aa"]).analyze()).violations).toEqual([]);
 });
+
+test("Day Pass receipts remain available without a recurring subscription", async ({page,request})=>{
+  await request.post("/__test/profile",{data:{plan:"free",subscription_status:null,day_pass_expires_at:new Date(Date.now()+86400000).toISOString()}});
+  await page.route("**/functions/v1/billing/summary",route=>route.fulfill({json:{subscription:null,card:null,email:"fixture@example.invalid",invoices:[{id:"fixture-invoice",number:"fixture",created:Math.floor(Date.now()/1000),amount:499,currency:"usd",status:"paid",description:"TypeWit Day Pass",pdf:"https://payments.example.invalid/receipt.pdf",url:null}]}}));
+  await page.goto("/app/billing/manage/");
+  await expect(page.getByRole("heading",{name:"Your Day Pass is active"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Invoices",exact:true})).toBeVisible();
+  await expect(page.getByRole("cell",{name:"$4.99",exact:true})).toBeVisible();
+  await expect(page.getByRole("link",{name:/Download invoice/})).toHaveAttribute("href","https://payments.example.invalid/receipt.pdf");
+});

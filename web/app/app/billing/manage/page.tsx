@@ -109,6 +109,42 @@ export default function ManageBillingPage() {
   const yearly = sub?.interval === "year";
   const live = sub && sub.status !== "canceled";
 
+  const invoicePanel = summary && (
+          <section className="card card-flush billing-invoices" aria-labelledby="inv-title">
+            <div className="card-head">
+              <div>
+                <h2 id="inv-title">Invoices</h2>
+                <p className="small muted">Your recent payments.</p>
+              </div>
+              <button type="button" className="link-btn" onClick={() => openPortal("all")} disabled={opening !== null}>View all</button>
+            </div>
+            {summary.invoices.length === 0
+              ? <p className="small muted pad">No invoices yet.</p>
+              : (
+                <table className="table invoice-table">
+                  <thead><tr><th scope="col">Date</th><th scope="col">Description</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col">Invoice</th></tr></thead>
+                  <tbody>
+                    {summary.invoices.map((inv) => (
+                      <tr key={inv.id}>
+                        <td data-label="Date">{shortDate(inv.created)}</td>
+                        <td data-label="Description">{inv.description ?? "TypeWit payment"}</td>
+                        <td data-label="Amount">{moneyExact(inv.amount, inv.currency)}</td>
+                        <td data-label="Status">
+                          {inv.status === "paid" ? <span className="tag info"><Icon.check />Paid</span> : <span className="tag warn">{inv.status === "open" ? "Due" : inv.status ?? "—"}</span>}
+                        </td>
+                        <td data-label="Invoice">
+                          {inv.pdf
+                            ? <a href={inv.pdf} target="_blank" rel="noopener noreferrer" className="dl-link"><Icon.download />Download<span className="sr-only"> invoice from {shortDate(inv.created)} (PDF, opens in a new tab)</span></a>
+                            : inv.url ? <a href={inv.url} target="_blank" rel="noopener noreferrer">View<span className="sr-only"> invoice from {shortDate(inv.created)} (opens in a new tab)</span></a> : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+          </section>
+  );
+
   return (
     <>
       <nav className="crumbs" aria-label="Breadcrumb">
@@ -135,11 +171,13 @@ export default function ManageBillingPage() {
       {summary && !sub && (
         <section className="card empty" aria-labelledby="free-title">
           <div className="icon"><Icon.card /></div>
-          <h2 id="free-title">You&apos;re on the Free plan</h2>
-          <p>There&apos;s nothing to manage yet. Pro removes the daily word limit and starts with 7 days free.</p>
+          <h2 id="free-title">{profile.plan === "day_pass" ? "Your Day Pass is active" : profile.day_pass_expires_at ? "Your Day Pass has ended" : "You’re on the Free plan"}</h2>
+          <p>{profile.plan === "day_pass" ? "Your pass does not renew. View your payment receipt below, or upgrade to Pro for ongoing access." : profile.day_pass_expires_at ? "Your payment history remains available below. Renew access or explore Pro in Plan & usage." : "There’s nothing to manage yet. Pro removes the daily word limit and starts with 7 days free."}</p>
           <Link href="/app/billing/" className="btn btn-primary btn-sm">See Pro</Link>
         </section>
       )}
+
+      {summary && !sub && invoicePanel}
 
       {notice && <p className="alert alert-success mb-5" role="status">{notice}</p>}
 
@@ -233,39 +271,7 @@ export default function ManageBillingPage() {
             </section>
           </div>
 
-          <section className="card card-flush billing-invoices" aria-labelledby="inv-title">
-            <div className="card-head">
-              <div>
-                <h2 id="inv-title">Invoices</h2>
-                <p className="small muted">Your recent payments.</p>
-              </div>
-              <button type="button" className="link-btn" onClick={() => openPortal("all")} disabled={opening !== null}>View all</button>
-            </div>
-            {summary.invoices.length === 0
-              ? <p className="small muted pad">No invoices yet.</p>
-              : (
-                <table className="table invoice-table">
-                  <thead><tr><th scope="col">Date</th><th scope="col">Description</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col">Invoice</th></tr></thead>
-                  <tbody>
-                    {summary.invoices.map((inv) => (
-                      <tr key={inv.id}>
-                        <td data-label="Date">{shortDate(inv.created)}</td>
-                        <td data-label="Description">{inv.description ?? "TypeWit Pro"}</td>
-                        <td data-label="Amount">{moneyExact(inv.amount, inv.currency)}</td>
-                        <td data-label="Status">
-                          {inv.status === "paid" ? <span className="tag info"><Icon.check />Paid</span> : <span className="tag warn">{inv.status === "open" ? "Due" : inv.status ?? "—"}</span>}
-                        </td>
-                        <td data-label="Invoice">
-                          {inv.pdf
-                            ? <a href={inv.pdf} target="_blank" rel="noopener noreferrer" className="dl-link"><Icon.download />Download<span className="sr-only"> invoice from {shortDate(inv.created)} (PDF, opens in a new tab)</span></a>
-                            : inv.url ? <a href={inv.url} target="_blank" rel="noopener noreferrer">View<span className="sr-only"> invoice from {shortDate(inv.created)} (opens in a new tab)</span></a> : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-          </section>
+          {invoicePanel}
 
           <div className="billing-help">
             <section className="card" aria-labelledby="change-title">
