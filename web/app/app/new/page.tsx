@@ -373,7 +373,6 @@ export default function NewSessionPage() {
   const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, sentRhythm, seed ?? null, windowKey, revisionSweep, startLater ? startAt : null]);
   useEffect(() => setApproved(false), [windowKey, revisionSweep]);
   const current = preview !== null && previewKey === inputKey;
-  const visiblePlanError = current && !preview.ok ? preview.problems.map(planProblemText).join(" ") : previewError;
   useEffect(() => setStepError(null), [inputKey]);
   const ready = text.trim() !== "" && (timing !== "duration" || minutesValid);
 
@@ -881,7 +880,7 @@ export default function NewSessionPage() {
           {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
           {timing !== "asap" && <WritingBlockControls value={blocksFromPace(effectivePace)} plan={plan} expiresAt={dashboard.profile.day_pass_expires_at} onChange={value => { updatePace(blockPace(value)); setApproved(false); }} />}
           <WritingBlockSummary plan={current ? preview : null} />
-          {current && !preview.ok && <p className="alert alert-error" role="alert">{preview.problems.map(planProblemText).join(" ")}</p>}
+          {current && !preview.ok && stepError !== preview.problems.map(planProblemText).join(" ") && <p className="alert alert-error" role="alert">{preview.problems.map(planProblemText).join(" ")}</p>}
           {previewError && <p className="alert alert-error" role="alert">{previewError}</p>}
           {quickSummary && <p className="timing-line"><Icon.clock /><span><span className="sr-only">Planned: </span>{quickSummary}</span></p>}
           <details className="more timing-details"><summary>See the full timing</summary>
@@ -1074,7 +1073,7 @@ export default function NewSessionPage() {
         </div>
 
         <div className="step-bar">
-          {stepError && stepError !== visiblePlanError && <p className="alert alert-error" role="alert">{stepError}</p>}
+          {stepError && <p className="alert alert-error" role="alert">{stepError}</p>}
           <div className="step-bar-row">
             {!isMobile && <button type="button" className="btn btn-ghost btn-lg step-cancel" onClick={cancel}>Cancel</button>}
             {(step > 1 || isMobile) && (

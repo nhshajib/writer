@@ -19,10 +19,10 @@ export function WritingBlockControls({ value, onChange, plan, expiresAt }: {
   return <fieldset className="writing-block-controls">
     <legend className="label">Writing blocks<PlanLock plan={plan} feature="writingBlocks" /></legend>
     <label className="check" {...(!enabled ? { "data-locked": "writingBlocks" } : {})}>
-      <input type="checkbox" checked={enabled && Boolean(value)} aria-disabled={!enabled || undefined} onChange={e => { if (enabled) onChange(e.target.checked ? { block_seconds: 3600, break_seconds: 10800 } : null); }} />
+      <input type="checkbox" checked={enabled && Boolean(value)} aria-describedby={!enabled ? "writing-block-plan-hint" : undefined} onChange={e => { if (enabled) onChange(e.target.checked ? { block_seconds: 3600, break_seconds: 10800 } : null); }} />
       <span>Take a long break between writing blocks</span>
     </label>
-    <p className="hint">Optional. Enter text for a while, rest, then continue automatically. Sentence pauses stay on; these breaks replace the usual longer-break schedule.</p>
+    <p id="writing-block-plan-hint" className="hint">Optional. Enter text for a while, rest, then continue automatically. Sentence pauses stay on; these breaks replace the usual longer-break schedule.</p>
     {enabled && value && <>
       <div className="block-duration-grid">
         <DurationChoice label="Write for about" value={value.block_seconds / 60} min={5} max={720} options={[5, 15, 30, 60, 120, 240, 360, 480, 720]} onChange={minutes => onChange({ ...value, block_seconds: minutes * 60 })} />
