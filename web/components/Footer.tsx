@@ -14,7 +14,6 @@ export function Footer() {
           <div className="footer-brand">
             <Link href="/" className="brand" aria-label="TypeWit home"><Logo /><Wordmark /></Link>
             <p className="footer-about">Your approved text, entered into Google Docs and Microsoft Word on your schedule.</p>
-            <span className="footer-origin">Made with care in Bangladesh.</span>
           </div>
           <nav aria-labelledby="f-product">
             <h2 id="f-product">Explore</h2>
