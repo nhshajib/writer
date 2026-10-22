@@ -191,6 +191,7 @@ async function checkout(
       "metadata[user_id]": user.id,
     };
     if (dayPass) {
+      delete params.payment_method_collection; // Payment mode already requires payment; this option is subscription-only.
       delete params["line_items[0][price]"];
       params["line_items[0][price_data][currency]"] = "usd";
       params["line_items[0][price_data][unit_amount]"] = "499";

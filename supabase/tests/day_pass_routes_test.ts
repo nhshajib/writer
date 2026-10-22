@@ -106,6 +106,7 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
     assertEquals((await send("checkout", { interval: "day" })).status, 200);
     const params = saved as unknown as URLSearchParams;
     assertEquals(params.get("mode"), "payment");
+    assertEquals(params.get("payment_method_collection"), null);
     assertEquals(params.get("line_items[0][price_data][unit_amount]"), "499");
     assertEquals(params.get("line_items[0][price_data][currency]"), "usd");
     assertEquals(params.get("subscription_data[trial_period_days]"), null);
