@@ -1105,6 +1105,8 @@ kbd { font: inherit; font-size: 0.6875rem; font-weight: 600; padding: 0.1rem 0.4
   font-size: 0.75rem; font-weight: 700; background: var(--accent-soft); color: var(--accent);
 }
 .new-main .form-section { padding: 1.5rem 1.75rem; }
+/* Native heading-picker focus must be immediate across picker open/close. */
+.quick-session #heading { transition: none; }
 @media (max-width: 1099px) {
   .new-grid { grid-template-columns: minmax(0, 1fr); }
 }
