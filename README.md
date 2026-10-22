@@ -53,7 +53,7 @@ pages: `/privacy`, `/terms`, `/support` (support address in `web/lib/site.ts`).
 ## Launch checklist
 
 1. **Stripe:** create a Pro product with a $6.99 monthly and a $60 yearly price (keep `PRO_PRICE` in `web/lib/site.ts` in step). Add Edge Function secrets
-   `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`. Create a webhook to
+   `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_DAY`. Create a webhook to
    `https://<project-ref>.supabase.co/functions/v1/stripe-webhook` for `customer.subscription.created`,
    `.updated` and `.deleted`, and add its signing secret as `STRIPE_WEBHOOK_SECRET`. Enable the Customer Portal.
 2. **Deploy `web/` to Netlify.** The app is a static export (`npm run build` writes `web/out`). Base directory `web`; `web/netlify.toml` sets the build command and publish directory `out`. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as environment variables.
@@ -445,8 +445,10 @@ actual tier using `effectivePlan(profile)`, which also checks the service-only
 unfinished sessions without deleting document text. Renewals extend access and a
 Pro upgrade clears the session expiry. Old sessions have no new expiry imposed.
 
-Day Pass checkout uses Stripe payment mode with a server-defined USD 499-cent
-price. Before creating a payment link, billing verifies the existing TypeWit
+Day Pass checkout uses Stripe payment mode with `STRIPE_PRICE_DAY` (legacy lowercase
+`stripe_price_day` is also accepted). Set it to an active Stripe **Price ID** (`price_…`)
+for a fixed, one-time USD $4.99 payment, not a Product ID. The server verifies the
+price amount, currency, nonrecurring type and product before preparing checkout. Before creating a payment link, billing verifies the existing TypeWit
 webhook endpoint and adds payment-completion/refund events while preserving its
 subscription events. A missing endpoint prevents checkout. Webhook fulfillment
 and the authenticated checkout-return verification share an idempotent grant;

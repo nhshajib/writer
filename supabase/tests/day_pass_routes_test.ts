@@ -2,7 +2,14 @@ import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
 import { grantDayPass } from "../functions/_shared/dayPass.ts";
 type Handler = (req: Request) => Promise<Response>;
 Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and verifies the returning owner", async () => {
-  const names = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "STRIPE_SECRET_KEY", "APP_URL"];
+  const names = [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "STRIPE_SECRET_KEY",
+    "APP_URL",
+    "STRIPE_PRICE_DAY",
+    "stripe_price_day",
+  ];
   const before = names.map((n) => Deno.env.get(n));
   const originalFetch = globalThis.fetch, serve = Deno.serve;
   const owner = crypto.randomUUID();
@@ -11,6 +18,7 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
   let grants = 0, refunds = 0, configured = 0;
   let paid = true, wrongOwner = false, refunded = false, failEndpoint = false;
   let saved: URLSearchParams | null = null;
+  let amount = 499, currency = "usd", recurring = false, active = true;
   const session = () => ({
     id: "cs_fixture_pass",
     mode: "payment",
@@ -22,9 +30,9 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
     metadata: { typewit_price: "typewit-day-pass-499-usd", user_id: wrongOwner ? crypto.randomUUID() : owner },
   });
   try {
-    ["http://database.invalid", "fixture-service", "fixture-stripe", "https://app.example.invalid"].forEach((v, i) =>
-      Deno.env.set(names[i], v)
-    );
+    ["http://database.invalid", "fixture-service", "fixture-stripe", "https://app.example.invalid", "price_fixture_day"]
+      .forEach((v, i) => Deno.env.set(names[i], v));
+    Deno.env.delete("stripe_price_day");
     globalThis.fetch = (async (input, init) => {
       await Promise.resolve();
       const url = new URL(String(input));
@@ -56,6 +64,16 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
         return Response.json(null);
       }
       if (url.pathname === "/v1/subscriptions") return Response.json({ data: [], has_more: false });
+      if (url.pathname === "/v1/prices/price_fixture_day") {
+        return Response.json({
+          active,
+          currency,
+          unit_amount: amount,
+          type: recurring ? "recurring" : "one_time",
+          recurring: recurring ? { interval: "month" } : null,
+          product: { active: true },
+        });
+      }
       if (url.pathname === "/v1/webhook_endpoints") {
         return Response.json({
           data: failEndpoint ? [] : [{
@@ -107,12 +125,33 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
     const params = saved as unknown as URLSearchParams;
     assertEquals(params.get("mode"), "payment");
     assertEquals(params.get("payment_method_collection"), null);
-    assertEquals(params.get("line_items[0][price_data][unit_amount]"), "499");
-    assertEquals(params.get("line_items[0][price_data][currency]"), "usd");
+    assertEquals(params.get("line_items[0][price]"), "price_fixture_day");
+    assertEquals(params.get("line_items[0][price_data][unit_amount]"), null);
     assertEquals(params.get("subscription_data[trial_period_days]"), null);
     assertEquals(params.get("line_items[0][price_data][recurring][interval]"), null);
     assert(params.get("success_url")?.includes("{CHECKOUT_SESSION_ID}"));
     assertEquals(configured, 1);
+    for (const invalid of ["amount", "currency", "recurring", "inactive", "product_id", "missing"]) {
+      amount = invalid === "amount" ? 599 : 499;
+      currency = invalid === "currency" ? "eur" : "usd";
+      recurring = invalid === "recurring";
+      active = invalid !== "inactive";
+      if (invalid === "product_id") Deno.env.set("STRIPE_PRICE_DAY", "prod_fixture");
+      if (invalid === "missing") Deno.env.delete("STRIPE_PRICE_DAY");
+      saved = null;
+      assertEquals((await send("checkout", { interval: "day" })).status, 503);
+      assertEquals(saved, null);
+      Deno.env.set("STRIPE_PRICE_DAY", "price_fixture_day");
+    }
+    amount = 499;
+    currency = "usd";
+    recurring = false;
+    active = true;
+    Deno.env.delete("STRIPE_PRICE_DAY");
+    Deno.env.set("stripe_price_day", "price_fixture_day");
+    assertEquals((await send("checkout", { interval: "day" })).status, 200);
+    Deno.env.set("STRIPE_PRICE_DAY", "price_fixture_day");
+    Deno.env.delete("stripe_price_day");
     expire = new Date(Date.now() + 10000).toISOString();
     assertEquals((await send("checkout", { interval: "day" })).status, 409);
     expire = null;

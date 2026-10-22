@@ -1,6 +1,6 @@
 // Stripe billing for signed-in users.
 //
-//   POST /billing/checkout   { interval: "month" | "year" }  ->  { url }
+//   POST /billing/checkout   { interval: "month" | "year" | "day" }  ->  { url }
 //   POST /billing/portal     { flow?: PortalFlow }           ->  { url }
 //   POST /billing/summary                                    ->  { subscription, card, invoices, email, current_price, outdated_price }
 //   POST /billing/reprice    moves a subscription on an older, higher price to today's price
@@ -69,9 +69,10 @@ async function checkout(
     : interval === "month"
     ? requireEnv("STRIPE_PRICE_MONTHLY")
     : interval === "day"
-    ? "typewit-day-pass-499-usd"
+    ? (Deno.env.get("STRIPE_PRICE_DAY") ?? Deno.env.get("stripe_price_day") ?? "")
     : null;
   const dayPass = interval === "day";
+  if (dayPass && !price) throw new HttpError(503, "Day Pass payments are not configured yet.");
   if (!price) throw new HttpError(400, 'interval must be "month", "year" or "day".');
   if (!user.email) throw new HttpError(400, "Your account has no email address.");
 
@@ -130,7 +131,28 @@ async function checkout(
       throw new HttpError(409, "You already have Pro. Use “Manage billing” to change your plan.");
     }
 
-    if (dayPass) await ensureDayPassEvents(secretKey, checkoutFetch);
+    if (dayPass) {
+      if (!/^price_[A-Za-z0-9_]{1,200}$/.test(price)) {
+        throw new HttpError(503, "Day Pass needs a Stripe Price ID, not a Product ID.");
+      }
+      const configured = await stripeGet<
+        {
+          active: boolean;
+          currency: string;
+          unit_amount: number | null;
+          type: string;
+          recurring: unknown;
+          product: { active: boolean };
+        }
+      >(secretKey, `prices/${encodeURIComponent(price)}`, { "expand[]": "product" }, checkoutFetch);
+      if (
+        !configured.active || configured.currency !== "usd" || configured.unit_amount !== 499 ||
+        configured.type !== "one_time" || configured.recurring || !configured.product?.active
+      ) {
+        throw new HttpError(503, "Day Pass requires an active $4.99 USD one-time price. Please contact support.");
+      }
+      await ensureDayPassEvents(secretKey, checkoutFetch);
+    }
     const customerId = customer ?? await createCustomer(user, secretKey, checkoutFetch);
 
     const open = await stripeGet<
@@ -161,7 +183,10 @@ async function checkout(
       session.mode === "subscription" || session.metadata?.typewit_price === "typewit-day-pass-499-usd"
     );
     const same = pending.find((session) =>
-      (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price && session.url
+      (dayPass
+        ? session.metadata?.typewit_price === "typewit-day-pass-499-usd" &&
+          session.line_items?.data[0]?.price?.id === price
+        : (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price) && session.url
     );
     // Retire older links when switching the selected billing interval, so only
     // one TypeWit checkout can be completed. Reuse an identical open checkout.
@@ -187,15 +212,11 @@ async function checkout(
       cancel_url: `${appUrl}/pricing?checkout=canceled`,
       // Always collect a card, including for the trial.
       payment_method_collection: "always",
-      "metadata[typewit_price]": price,
+      "metadata[typewit_price]": dayPass ? "typewit-day-pass-499-usd" : price,
       "metadata[user_id]": user.id,
     };
     if (dayPass) {
       delete params.payment_method_collection; // Payment mode already requires payment; this option is subscription-only.
-      delete params["line_items[0][price]"];
-      params["line_items[0][price_data][currency]"] = "usd";
-      params["line_items[0][price_data][unit_amount]"] = "499";
-      params["line_items[0][price_data][product_data][name]"] = "TypeWit Day Pass — 24 hours";
       params["payment_intent_data[metadata][user_id]"] = user.id;
       params["payment_intent_data[metadata][typewit_offer]"] = "day_pass";
       params["invoice_creation[enabled]"] = "true";
