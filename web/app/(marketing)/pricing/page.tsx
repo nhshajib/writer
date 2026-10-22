@@ -122,10 +122,11 @@ function PricingContent() {
         </div>
         <p className="hint pricing-disclosure">Eligible new Pro subscribers get 7 days free with a card. Then $6.99/month or $60/year, paid upfront and renewed automatically until canceled. Cancel before the trial ends to avoid the first charge. Taxes may apply. Existing subscribers can manage their plan in <Link href="/app/billing/">Plan &amp; usage</Link>.</p>
         <h2 id="compare-title" className="section-title">Compare every feature</h2>
+        <p id="compare-note" className="pricing-compare-note">Compare three levels of access: Free, Day Pass and Pro. <strong>Monthly and yearly Pro include exactly the same features.</strong> Choose monthly for flexibility, or yearly to save 28%.</p>
         <div className="compare-wrap pricing-comparison">
-          <table className="compare">
-            <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Day Pass</th><th scope="col">Monthly</th><th scope="col">Yearly</th></tr></thead>
-            <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Day Pass">{row.day}</td><td data-label="Monthly">{row.pro}</td><td data-label="Yearly"><strong>{row.pro}</strong></td></tr>)}</tbody>
+          <table className="compare" aria-labelledby="compare-title" aria-describedby="compare-note">
+            <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Day Pass</th><th scope="col">Pro<span className="compare-tier-note">Monthly or yearly</span></th></tr></thead>
+            <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Day Pass">{row.day}</td><td data-label="Pro"><strong>{row.pro}</strong></td></tr>)}</tbody>
           </table>
         </div>
         <details className="more pricing-pro-list"><summary>Explore the Pro toolkit</summary><ul className="ticks">{PRO_FEATURES.map(f => tick(f,f))}</ul></details>
