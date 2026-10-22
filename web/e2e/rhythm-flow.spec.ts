@@ -29,7 +29,7 @@ for (const width of [390, 1280]) {
     expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations).toEqual([]);
     if (width === 390) await page.screenshot({ path: testInfo.outputPath("rhythm-mobile.png"), fullPage: true });
     await toStep(page, 5);
-    await expect(page.getByText("One word at a time", { exact: true })).toBeVisible();
+    await expect(page.locator("dl.summary-list").getByText("One word at a time", { exact: true })).toBeVisible();
     await page.getByLabel(/I've read this exact text/).check();
     await page.getByRole("button", { name: "Start session", exact: true }).click();
     await expect(page).toHaveURL(/\/app\/session/);
