@@ -16,7 +16,8 @@ const SESSION = {
 const FIXTURES = path.join(__dirname, "fixtures");
 
 async function expectNoAxeViolations(page: Page) {
-  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished)));
+  // Wait for animations to settle; one cancelled mid-way (its element hidden or removed) rejects "finished" and counts as settled.
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 }

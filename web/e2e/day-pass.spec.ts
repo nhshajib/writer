@@ -58,7 +58,7 @@ test("Free mobile keeps work hours gated and pricing exposes the nonrenewing $4.
   await page.goto("/pricing/");
   await expect(page.getByText("$4.99",{exact:true}).first()).toBeVisible();
   await expect(page.getByText(/no renewal/i).first()).toBeVisible();
-  await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished)));
+  await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
   expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21a","wcag21aa"]).analyze()).violations).toEqual([]);
 });
 
