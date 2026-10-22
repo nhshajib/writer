@@ -44,12 +44,12 @@ export function PrivacyBody() {
       <h3>Text and activity</h3>
       <ul>
         <li>The text and supported formatting you submit for each session, its steps, selected rhythm, timing, simulated corrections and pauses, and your approval (including a fingerprint of the exact submitted content). Paused Pro edits replace the remaining approved content and update settings; already entered text and activity remain part of the session record.</li>
-        <li>An activity log of execution, approvals, settings changes, pauses, resumes and stops. Temporary typo and false-start actions can be written into your chosen document and remain in Google or Microsoft history even after correction.</li>
+        <li>An activity log of execution, approvals, settings changes, pauses, resumes and stops. Temporary typo, false-start and final-review actions can be written into your chosen document and remain in Google or Microsoft history even after correction. Pro playback reads the same stored execution actions; it does not obtain extra Google history or publish a recording. Writing-hours settings include your selected IANA time zone, hours and optional weekdays.</li>
       </ul>
       <h3>Billing</h3>
       <ul>
         <li>
-          If you subscribe to Pro, Stripe processes your payment. We receive your Stripe customer ID, your plan and
+          If you subscribe to Pro or buy a Day Pass, Stripe processes your payment. For passes we keep the checkout/payment identifiers, activation and expiry, and any refund status to provide and reconcile access. We receive your Stripe customer ID, your plan and
           subscription status. <strong>We never see or store your card number.</strong>
         </li>
         <li>To make sure each person gets one free trial, we keep a record of trial use linked to a normalised form of your email address.</li>

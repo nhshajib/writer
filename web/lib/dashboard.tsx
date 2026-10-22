@@ -8,10 +8,12 @@ import { recordPendingAge, recordPendingAgreement } from "./googleAuth";
 import { supabase } from "./supabase";
 import { CURRENT_TERMS_VERSION } from "./terms";
 import type { Connection, Drip } from "./types";
+import { effectivePlan, type PlanTier, PLAN_LIMITS as SERVER_PLAN_LIMITS } from "../../supabase/functions/_shared/limits";
 import { useRequireSession } from "./useRequireSession";
 
 export interface Profile {
-  plan: "free" | "pro";
+  plan: PlanTier;
+  day_pass_expires_at?: string | null;
   subscription_status: string | null;
   email_notifications: boolean;
   /** Per kind of update; missing until the column exists (treated as on). */
@@ -48,7 +50,8 @@ export interface AppNotification {
 
 /** Plan limits. The server enforces the same values (supabase/functions/_shared/limits.ts). */
 export const PLAN_LIMITS = {
-  free: { dailyWords: 150, maxMinutes: 30, activeSessions: 1 },
+  free: { dailyWords: SERVER_PLAN_LIMITS.free.dailyWords!, maxMinutes: 60, activeSessions: 1 },
+  day_pass: { dailyWords: null, maxMinutes: 24 * 60, activeSessions: 1 },
   pro: { dailyWords: null, maxMinutes: 7 * 24 * 60, activeSessions: 3 },
 } as const;
 
@@ -96,7 +99,7 @@ export function useDashboardLoader() {
       const client = supabase();
       const [{ data: profile, error: profileError }, conns, list, { data: notes }] = await Promise.all([
         client.from("profiles")
-          .select("plan, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date, age_confirmed_at, birth_year, birth_month, pace_presets")
+          .select("plan, day_pass_expires_at, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date, age_confirmed_at, birth_year, birth_month, pace_presets")
           .maybeSingle(),
         api<{ connections: Connection[] }>("drips/connections"),
         api<{ drips: Drip[] }>("drips"),
@@ -108,6 +111,7 @@ export function useDashboardLoader() {
         plan: "free", subscription_status: null, email_notifications: true, agreed_terms_version: null,
         words_used_today: 0, usage_date: "",
       }) as Profile;
+      current = { ...current, plan: effectivePlan(current) };
       // Someone who ticked the agreement before choosing Google has it recorded now.
       if (current.agreed_terms_version !== CURRENT_TERMS_VERSION && await recordPendingAgreement()) {
         current = { ...current, agreed_terms_version: CURRENT_TERMS_VERSION };
@@ -169,6 +173,12 @@ export function useDashboardLoader() {
   }, [session, refresh]);
 
   const hasActive = state.status === "ready" && state.drips.some((d) => ACTIVE_STATUSES.has(d.status));
+  const passExpiry = state.status === "ready" && state.profile.plan === "day_pass" ? state.profile.day_pass_expires_at : null;
+  useEffect(() => {
+    if (!passExpiry) return;
+    const timer = setTimeout(refresh, Math.max(0, Math.min(2_147_000_000, Date.parse(passExpiry) - Date.now() + 250)));
+    return () => clearTimeout(timer);
+  }, [passExpiry, refresh]);
   useEffect(() => {
     if (!hasActive) return;
     const poll = setInterval(refresh, 30_000);

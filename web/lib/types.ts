@@ -54,9 +54,12 @@ export type Attention =
   | "document_unavailable"
   | "unreachable"
   | "insert_rejected"
-  | "not_editable";
+  | "not_editable"
+  | "access_expired";
 
 export interface Drip {
+  work_window?: { start: string; end: string; time_zone: string; days?: number[] } | null;
+  access_expires_at?: string | null;
   id: string;
   provider: Connection["provider"];
   connection_id: string;
@@ -97,6 +100,7 @@ export type BreakAlignment = "any" | "sentence" | "paragraph";
 
 export type DraftActionKind = "insert" | "typo" | "false_start" | "backspace" | "correction";
 export interface DraftingSettings {
+  revision_sweep?: boolean;
   typo_rate_pct: number;
   false_start_rate_pct: number;
   sentence_pause_seconds: number;
@@ -218,6 +222,7 @@ export const UNIT_LABEL: Record<InsertionUnit, { one: string; many: string; titl
 };
 
 export const ATTENTION_TITLE: Record<Attention, string> = {
+  access_expired: "Day Pass expired",
   document_changed: "The end of the document changed",
   confirm_last_part: "Check the last part",
   reconnect: "Reconnect Google",

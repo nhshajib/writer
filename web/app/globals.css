@@ -2514,7 +2514,7 @@ button.mk-pause:active { transform: scale(0.98); }
 /* Highlights keep the colour the document will get, with dark text so they stay readable in dark mode. */
 .rich-editor [style*="background"], .md-preview mark { color: #0a0a0b; border-radius: 3px; padding: 0 0.1em; }
 .pricing-grid-section { margin-top:3rem; padding-bottom:2rem; }
-.pricing-cards { display:grid; grid-template-columns:1.05fr repeat(3,1fr); gap:1.25rem; align-items:stretch; }
+.pricing-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.25rem; align-items:stretch; }
 .pricing-cards .plan { padding:1.5rem; border-radius:var(--r-xl); min-width:0; display:flex; flex-direction:column; }
 .pricing-cards .plan .price { margin-top:auto; padding-top:1.5rem; }
 .pricing-cards .plan .ticks { margin-top:1.5rem; margin-bottom:0; font-size:.875rem; }
@@ -2523,7 +2523,7 @@ button.mk-pause:active { transform: scale(0.98); }
 .pricing-cards .plan.featured { box-shadow:0 12px 32px color-mix(in srgb, var(--accent) 12%, transparent); border:2px solid var(--accent); }
 .pricing-cards .price { flex-wrap:wrap; gap:.25rem; }
 .pricing-cards .price strong { font-size:2.5rem; }
-.pricing-intro { align-self:center; padding-right:.5rem; }
+.pricing-intro { grid-column:1/-1; align-self:center; padding-right:.5rem; }
 .pricing-intro h2 { font-size:1.6rem; line-height:1.3; }
 .pricing-disclosure { max-width:860px; margin:1.5rem auto 3rem; text-align:center; }
 .pricing-comparison table { width:100%; table-layout:fixed; }
@@ -2531,7 +2531,7 @@ button.mk-pause:active { transform: scale(0.98); }
 .pricing-comparison td:last-child { background:color-mix(in srgb, var(--accent) 5%, transparent); }
 .pricing-pro-list { margin:2rem 0 1rem; }
 @media (max-width:1000px) {
-  .pricing-cards { grid-template-columns:repeat(3,1fr); }
+  .pricing-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .pricing-intro { grid-column:1/-1; text-align:center; }
   .pricing-cards .plan { padding:1.1rem; }
 }

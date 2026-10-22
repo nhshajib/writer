@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PausedSessionEditor } from "@/components/app/PausedSessionEditor";
+import { SessionPlayback } from "@/components/app/SessionPlayback";
 import { Skeleton } from "@/components/app/Skeleton";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -541,6 +542,7 @@ function SessionView() {
                   </div>
                 ),
               },
+              { title: <><Icon.play />Playback</>, content: <SessionPlayback id={drip.id} pro={isPro} recorded={drip.progress.chunks_written} /> },
             ]} />
           </section>
         </div>
@@ -575,6 +577,9 @@ function SessionView() {
               <div><dt>Document</dt><dd>{drip.document_url ? <a href={drip.document_url} target="_blank" rel="noopener noreferrer">{title}<span className="sr-only"> (opens in a new tab)</span></a> : title} <span className="muted">· {docName}</span></dd></div>
               <div><dt>Steps</dt><dd>{drip.mode === "as_soon_as_possible" ? "All at once" : `${unit.title} (${progress.chunks_total})`}</dd></div>
               <div><dt>Timing</dt><dd>{drip.timing_mode === "speed" ? `Typing speed, ${drip.pacing?.wpm ?? "?"} WPM` : drip.mode === "as_soon_as_possible" ? "As soon as possible" : `Over ${span(drip.duration_seconds * 1000)}`}</dd></div>
+              {drip.work_window && <div><dt>Writing hours</dt><dd>{drip.work_window.start}–{drip.work_window.end} · {drip.work_window.time_zone}</dd></div>}
+              {drip.access_expires_at && <div><dt>Pass session access</dt><dd>Until {when(drip.access_expires_at)}</dd></div>}
+              {drip.pacing?.drafting?.revision_sweep && <div><dt>Final revision pass</dt><dd>Enabled · exact approved text restored</dd></div>}
               <div><dt>Breaks</dt><dd>{drip.breaks?.length ? `${drip.breaks.length} planned` : "None"}</dd></div>
               {drip.approved_at && <div><dt>Text approved</dt><dd>{when(drip.approved_at)}</dd></div>}
               <div><dt>Created</dt><dd>{when(drip.created_at)}</dd></div>
@@ -627,6 +632,8 @@ function AttentionPanel({ attention, message, nextPart, needsConfirm, busy, onRe
               )}
             </>
           )
+          : attention === "access_expired"
+          ? <><Link href="/app/billing/" className="btn btn-primary btn-sm">Renew Day Pass or upgrade</Link><button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onResume({})}>Resume after renewing</button></>
           : attention === "reconnect"
           ? (
             <>

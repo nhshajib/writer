@@ -193,14 +193,14 @@ test("Free shows what Pro adds without blocking the free flow, and the server re
   await page.locator(".destination-options").evaluate((el: HTMLDetailsElement) => { el.open = true; });
   await page.getByLabel("Title").fill("Short note");
   await toStep(page, 2);
-  await page.getByLabel("Text to enter").fill("w ".repeat(151).trim());
-  await expect(page.getByText(/150 words a day on Free/)).toBeVisible();
+  await page.getByLabel("Text to enter").fill("w ".repeat(251).trim());
+  await expect(page.getByText(/250 words a day on Free/)).toBeVisible();
   await page.getByLabel("Text to enter").fill(TEXT);
   await toStep(page, 4);
   await expect(page.getByRole("radio", { name: /Typing speed/ })).toBeDisabled();
   await expect(page.getByLabel(/Start later instead of now/)).toBeDisabled();
   await expect(page.getByText(/Your free rhythm is ready\./)).toBeVisible();
-  await expect(page.locator("#duration option", { hasText: "1 hour (Pro)" })).toBeDisabled();
+  await expect(page.locator("#duration option", { hasText: "2 hours (Pro)" })).toBeDisabled();
   await expect(page.getByRole("spinbutton", { name: "Timing variation" })).toHaveCount(0);
   await expectNoAxeViolations(page);
 

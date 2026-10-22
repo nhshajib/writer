@@ -21,14 +21,14 @@ test('Connected accounts is a dedicated desktop destination and a mobile Account
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();
   expect(result.violations.map(v=>v.id)).toEqual([]);
 });
-test('pricing has three transparent options and each Pro button selects the correct interval', async ({page}) => {
+test('pricing has four transparent options and each Pro button selects the correct interval', async ({page}) => {
   const intervals:string[]=[];
   await page.route('**/functions/v1/billing/checkout',async route=>{
     intervals.push(route.request().postDataJSON().interval);
     await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Checkout test response'})});
   });
   await page.goto('/pricing/');
-  await expect(page.locator('.pricing-cards .plan')).toHaveCount(3);
+  await expect(page.locator('.pricing-cards .plan')).toHaveCount(4);
   await expect(page.getByRole('heading',{name:'Yearly',exact:true})).toBeVisible();
   await expect(page.getByText('$60 billed yearly · save 28%')).toBeVisible();
   await page.getByRole('button',{name:'Try Yearly free'}).click();

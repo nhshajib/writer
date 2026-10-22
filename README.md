@@ -426,18 +426,43 @@ version history, which Google groups on its own.
 
 ### Plan limits (`_shared/limits.ts`)
 
-| | Free | Pro |
-|---|---|---|
-| Words per day | 150 | unlimited |
-| Longest drip | 30 minutes | 1 week |
-| Active drips | 1 | 3 |
-| Typing speed and custom timing | standard pace only | yes |
-| Start later (`start_at`) | no | yes |
-| Saved pace presets (`set_pace_presets`) | no | yes |
+| | Free | Day Pass | Pro |
+|---|---|---|---|
+| Price | $0 | $4.99 once, no renewal | Monthly or yearly subscription |
+| Words per day | 250 | unlimited | unlimited |
+| Longest drip | 60 minutes | 24 hours within remaining access | 1 week |
+| Active drips | 1 | 1 | 3 |
+| Existing Google Docs | ongoing | ongoing | ongoing |
+| Writing hours / IANA time zone | no | yes | yes |
+| Typing speed and custom drafting | included rhythms | included rhythms | yes |
+| Start later / saved presets | no | no | yes |
+| Final revision pass / action playback | no | no | yes |
+| Queue dispatch | standard | bounded priority | bounded priority |
 
-Free sessions are planned with the standard pace (`standardPacing` in `_shared/plan.ts`), so the preview and the
-session always match. Plans are set in `profiles.plan` by the Stripe webhook. Keep `web/lib/plans.ts` and
-`PLAN_LIMITS` in `web/lib/dashboard.tsx` in step with these values.
+`profiles.plan` remains the backward-compatible subscription enum. Resolve the
+actual tier using `effectivePlan(profile)`, which also checks the service-only
+`day_pass_expires_at` grant. Pass sessions save `access_expires_at`; expiry pauses
+unfinished sessions without deleting document text. Renewals extend access and a
+Pro upgrade clears the session expiry. Old sessions have no new expiry imposed.
+
+Day Pass checkout uses Stripe payment mode with a server-defined USD 499-cent
+price. Before creating a payment link, billing verifies the existing TypeWit
+webhook endpoint and adds payment-completion/refund events while preserving its
+subscription events. A missing endpoint prevents checkout. Webhook fulfillment
+and the authenticated checkout-return verification share an idempotent grant;
+never treat the browser success URL as payment confirmation. No real payment is
+needed for the fixture tests.
+
+Writing hours project the plan and gate both worker and Word writes, including
+overnight windows and DST. Paid dispatch uses a bounded 20-second preference,
+so older Free work continues. Playback is a read-only preview of confirmed
+TypeWit actions with planned timestamps, not Google's official snapshots.
+The optional final pass changes only a bounded, session-owned suffix and
+restores exact approved text and formatting; temporary edits require approval.
+
+Free keeps Natural and Steady, all insertion modes, formatted paste and existing
+Google Docs. Keep `web/lib/plans.ts` and `PLAN_LIMITS` in
+`web/lib/dashboard.tsx` aligned with `_shared/limits.ts`.
 
 ## Pro drafting rhythm
 

@@ -135,7 +135,7 @@ export default function HomePage() {
             {googleConnected ? <Link href="/app/new" className="btn btn-primary">Create your first session</Link> : <button type="button" className="btn btn-primary" onClick={connect}>Connect Google Docs</button>}
             <Link href="/app/connections#word" className="small">Using Microsoft Word?</Link>
           </div>
-          {profile.plan === "free" && <p className="hint mt-4">Free includes 150 words a day, two ready-made rhythms and sentence pauses. Try a complete short session before deciding whether you need Pro.</p>}
+          {profile.plan === "free" && <p className="hint mt-4">Free includes 250 words a day, two ready-made rhythms and sentence pauses. Try a complete short session before deciding whether you need Pro.</p>}
           {connectError && <p className="alert alert-error mt-4" role="alert">{connectError}</p>}
         </section>
       )}

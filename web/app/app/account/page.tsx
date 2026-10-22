@@ -41,12 +41,12 @@ export default function AccountPage() {
           <p className="account-name">{displayName}</p>
           <p className="account-email">{session.user.email}</p>
         </div>
-        <span className={`badge ${isPro ? "badge-pro" : ""}`}>{isPro ? "Pro" : "Free"}</span>
+        <span className={`badge ${isPro ? "badge-pro" : ""}`}>{isPro ? "Pro" : profile.plan === "day_pass" ? "Day Pass" : "Free"}</span>
       </div>
 
       <Group title="Plan">
-        <Row icon={Icon.card} href="/app/billing/" label="Plan & usage" value={isPro ? "Pro" : `${Math.min(wordsToday, limit)} / ${limit} today`} />
-        {(isPro || profile.subscription_status === "canceled") && <Row icon={Icon.receipt} href="/app/billing/manage/" label="Manage billing" />}
+        <Row icon={Icon.card} href="/app/billing/" label="Plan & usage" value={isPro ? "Pro" : profile.plan === "day_pass" ? "Day Pass · unlimited words" : `${Math.min(wordsToday, limit)} / ${limit} today`} />
+        {(isPro || profile.day_pass_expires_at || profile.subscription_status === "canceled") && <Row icon={Icon.receipt} href="/app/billing/manage/" label="Manage billing" />}
       </Group>
 
       <Group title="Settings">

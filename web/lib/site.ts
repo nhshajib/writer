@@ -9,3 +9,4 @@ export const PRO_PRICE = {
 } as const;
 /** On the Yearly toggle: $60 a year against 12 × $6.99 = $83.88. */
 export const YEARLY_SAVING = "save 28%";
+export const DAY_PASS_PRICE = "$4.99";

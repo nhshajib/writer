@@ -127,7 +127,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="side-foot">
-            {!isPro && (
+            {value.profile.plan === "free" && (
               <Link href="/app/billing" className="usage-line">
                 <span className="top"><span>Words today</span><span className="num">{used} / {limit}</span></span>
                 <span className={`progress${used >= limit * 0.9 ? " warn" : ""}`} role="meter" aria-label="Words used today"

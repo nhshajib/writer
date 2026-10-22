@@ -1,6 +1,7 @@
 "use client";
 
 import { RichTextEditor } from "./RichTextEditor";
+import { WorkWindowControls } from "./WorkWindowControls";
 import type { TextFormat } from "../../../supabase/functions/_shared/markdown.ts";
 import { type FormEvent, useState } from "react";
 import { DEFAULT_PACE, PaceControls, paceFromSettings, pacingFor, sanitizePace, type Pace } from "./PaceControls";
@@ -21,6 +22,8 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
   const [unit, setUnit] = useState<InsertionUnit>(drip.insertion_unit);
   const [pace, setPace] = useState<Pace>({ ...DEFAULT_PACE, ...(drip.pacing ? paceFromSettings(drip.pacing) : {}) });
   const [approved, setApproved] = useState(false);
+  const [workWindow, setWorkWindow] = useState(drip.work_window ?? null);
+  const [revisionSweep, setRevisionSweep] = useState(drip.pacing?.drafting?.revision_sweep ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   function change(update: () => void) { update(); setApproved(false); }
@@ -35,6 +38,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
         ...(text !== originalText ? { remaining_text: text, remaining_text_format: format, remaining_sha256: await sha256Hex(text) } : {}),
         insertion_unit: unit, mode: "scheduled",
         pacing: pacingFor(timing, minutes, pace),
+        work_window: workWindow, revision_sweep: revisionSweep,
       } });
       await onSaved();
     } catch (e) {
@@ -71,6 +75,8 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
           <input id="edit-minutes" type="number" min={1} max={10080} required value={minutes} onChange={(e) => change(() => setMinutes(Number(e.target.value)))} />
         </div>}
         <PaceControls timing={timing} pace={pace} onChange={(update) => change(() => setPace((p) => { const next = { ...p, ...update }; if (next.maxBreakSeconds < next.minBreakSeconds) { if ("minBreakSeconds" in update) next.maxBreakSeconds = next.minBreakSeconds; else next.minBreakSeconds = next.maxBreakSeconds; } return sanitizePace(next); }))} />
+        <WorkWindowControls value={workWindow} onChange={v => change(() => setWorkWindow(v))} enabled />
+        <label className="check"><input type="checkbox" checked={revisionSweep} onChange={e => change(() => setRevisionSweep(e.target.checked))} />Final revision pass (restore exact approved text)</label>
         <label className="check">
           <input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
           <span>I have reviewed and approve the remaining text and settings, including any enabled temporary mistakes and corrections.</span>

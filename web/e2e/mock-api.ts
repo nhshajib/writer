@@ -8,6 +8,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
+import { effectivePlan } from "../../supabase/functions/_shared/limits.ts";
+import { readWorkWindow } from "../../supabase/functions/_shared/workWindow.ts";
 import { checkAge } from "../lib/age.ts";
 import { executionText } from "../../supabase/functions/_shared/drafting.ts";
 import { planSession } from "../../supabase/functions/_shared/plan.ts";
@@ -108,7 +110,10 @@ function planFrom(body: Record<string, unknown>, seed: number) {
     pacing: body.pacing as never,
     durationSeconds: Math.round(Number(body.duration_minutes) * 60),
     seed,
-    plan: profileChanges.plan === "free" ? "free" : "pro",
+    plan: effectivePlan({ plan: String(profileChanges.plan ?? "pro"), day_pass_expires_at: profileChanges.day_pass_expires_at as string | null }),
+    workWindow: readWorkWindow(body.work_window),
+    revisionSweep: body.revision_sweep === true,
+    startsAt: body.start_at ? Date.parse(String(body.start_at)) : Date.now(),
     format: body.text_format === "rich" ? "rich" : body.text_format === "markdown" ? "markdown" : "plain",
   });
 }
@@ -188,7 +193,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   }
   // Saved pace presets: Pro only, like set_pace_presets.
   if (path === "/rest/v1/rpc/set_pace_presets") {
-    if (profileChanges.plan === "free") return send(res, 400, { message: "Saved presets are part of Pro." });
+    if ((profileChanges.plan !== undefined && profileChanges.plan !== "pro")) return send(res, 400, { message: "Saved presets are part of Pro." });
     profileChanges.pace_presets = body.presets;
     return send(res, 200, body.presets);
   }
@@ -256,7 +261,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     return send(res, 200, { drips: [...drips.values()].map((d) => view(d, false)) });
   }
   if (parts[0] === "headings") {
-    if (profileChanges.plan === "free") return send(res, 403, { error: "Adding text under a heading is part of Pro." });
+    if ((profileChanges.plan !== undefined && profileChanges.plan !== "pro")) return send(res, 403, { error: "Adding text under a heading is part of Pro." });
     return send(res, 200, {
       headings: [
         { id: "h.intro", text: "Introduction", level: 1 },
@@ -296,7 +301,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     }
     return send(res, 200, { deleted });
   }
-  if (parts.length === 0 && method === "POST" && profileChanges.plan === "free" && body.start_at) {
+  if (parts.length === 0 && method === "POST" && (profileChanges.plan !== undefined && profileChanges.plan !== "pro") && body.start_at) {
     return send(res, 403, { error: "Starting a session later is part of Pro. Start it now, or upgrade to schedule it." });
   }
   if (parts.length === 0 && method === "POST") {
@@ -314,6 +319,8 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       text: String(body.text ?? ""),
       text_format: (body.text_format ?? "plain") as Row["text_format"],
       chunk_formats: plan.chunk_formats,
+      work_window: body.work_window ?? null,
+      access_expires_at: profileChanges.day_pass_expires_at ?? null,
       connection_id: word ? "m1" : "c1",
       provider: word ? "microsoft" : "google",
       document_id: word ? String(body.document_id) : "doc1",
@@ -372,14 +379,18 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
 
   const now = Date.now();
   switch (parts[1]) {
+    case "playback": {
+      if (profileChanges.plan !== undefined && profileChanges.plan !== "pro") return send(res, 403, { error: "Session playback is part of Pro." });
+      return send(res, 200, { playback: { chunks: row.chunks.slice(0, row.chunks_written), deletions: (row.chunk_deletions ?? row.chunks.map(() => 0)).slice(0, row.chunks_written), schedule: row.schedule.slice(0, row.chunks_written), starts_at: row.session_started_at, recorded_actions: row.chunks_written, timing: "planned" } });
+    }
     case "settings": {
-      if (profileChanges.plan === "free") return send(res, 403, { error: "Editing paused sessions is a Pro feature." });
+      if ((profileChanges.plan !== undefined && profileChanges.plan !== "pro")) return send(res, 403, { error: "Editing paused sessions is a Pro feature." });
       if (row.status !== "paused") return send(res, 409, { error: "Pause the session before editing." });
       if (body.updated_at !== row.updated_at) return send(res, 409, { error: "The session changed. Reload it." });
       if (body.confirmed !== true) return send(res, 400, { error: "Approve the changes." });
       try {
         const editable = { ...row, text: row.text ?? (row.source_chunks ?? row.chunks).join("") } as unknown as EditableSession;
-        const patch = replanPaused(editable, { unit: body.insertion_unit as never, seed: 42, pacing: body.pacing as never }, body.remaining_text as string | undefined, body.remaining_text_format as never);
+        const patch = replanPaused(editable, { unit: body.insertion_unit as never, seed: 42, pacing: body.pacing as never, workWindow: readWorkWindow(body.work_window), revisionSweep: body.revision_sweep === true }, body.remaining_text as string | undefined, body.remaining_text_format as never);
         Object.assign(row, patch, { updated_at: new Date(now).toISOString(), word_count: patch.source_chunks.join("").match(/\S+/g)?.length ?? 0 });
         log(row.id, "settings_updated");
         return send(res, 200, { drip: view(row, false) });

@@ -1,4 +1,8 @@
 "use client";
+import { effectivePlan, type PlanTier } from "../../../supabase/functions/_shared/limits";
+import type { WorkWindow } from "../../../supabase/functions/_shared/workWindow";
+import { WorkWindowControls } from "@/components/app/WorkWindowControls";
+import { PLAN_LIMITS } from "@/lib/dashboard";
 import { RichTextEditor } from "@/components/app/RichTextEditor";
 import { parseFormatted, type TextFormat } from "../../../supabase/functions/_shared/markdown.ts";
 
@@ -36,7 +40,7 @@ import { WordDocProvider } from "../../../supabase/functions/_shared/providers/w
 
 const ACTIVE = new Set(["scheduled", "running", "paused"]);
 
-const DURATIONS = [5, 15, 30, 60, 120, 180, 480];
+const DURATIONS = [5, 15, 30, 60, 120, 180, 480, 720, 1380, 1440, 4320, 10080];
 
 function titleFromUrl(address: string): string {
   const last = address.split(/[?#]/)[0].split(/[\\/]/).filter(Boolean).pop() ?? "";
@@ -158,16 +162,16 @@ function WordSession({ documentUrl, userId }: { documentUrl: string; userId: str
   const title = titleFromUrl(documentUrl);
   const provider = useMemo(() => new WordDocProvider(officeWordHost, documentUrl, title), [documentUrl, title]);
   const [connectionId, setConnectionId] = useState<string | null>(null);
-  const [tier, setTier] = useState<"free" | "pro" | null>(null);
+  const [tier, setTier] = useState<PlanTier | null>(null);
   const [dripId, setDripId] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const { data: profile, error: profileError } = await supabase().from("profiles").select("plan").eq("user_id", userId).maybeSingle();
+        const { data: profile, error: profileError } = await supabase().from("profiles").select("plan,day_pass_expires_at").eq("user_id", userId).maybeSingle();
         if (profileError) throw new Error(profileError.message);
-        setTier(profile?.plan === "pro" ? "pro" : "free");
+        setTier(effectivePlan(profile ?? {}));
         const { connection } = await api<{ connection: { id: string } }>("drips/connections/microsoft", { method: "POST" });
         setConnectionId(connection.id);
         const { drips } = await api<{ drips: Drip[] }>("drips");
@@ -194,7 +198,7 @@ function WordSession({ documentUrl, userId }: { documentUrl: string; userId: str
 type Timing = "duration" | "speed" | "asap";
 
 function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier }: {
-  tier: "free" | "pro";
+  tier: PlanTier;
   connectionId: string;
   documentUrl: string;
   title: string;
@@ -202,11 +206,14 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   onStarted: (id: string) => void;
 }) {
   const [text, setText] = useState("");
+  const [workWindow, setWorkWindow] = useState<WorkWindow | null>(null);
+  const [revisionSweep, setRevisionSweep] = useState(false);
   const [textFormat, setTextFormat] = useState<TextFormat>("plain");
   const formatted = parseFormatted(text, textFormat);
   const plainText = formatted?.plain ?? text;
   const [unit, setUnit] = useState<InsertionUnit>("sentence");
   const [timing, setTiming] = useState<Timing>("duration");
+  useEffect(() => { if (timing === "asap") setRevisionSweep(false); }, [timing]);
   const [minutes, setMinutes] = useState(tier === "pro" ? 60 : 30);
   const [pace, updatePace] = usePace();
   const [rhythm, setRhythm] = useState<SessionRhythm>(tier === "pro" ? "custom" : "natural");
@@ -223,10 +230,10 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
 
   const isPro = tier === "pro";
   const effectivePace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE) : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
-  const simulatedDrafting = isPro && timing !== "asap" && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0);
+  const simulatedDrafting = isPro && timing !== "asap" && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0 || revisionSweep);
   useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
-  const key = JSON.stringify([text, textFormat, unit, timing, pacing, rhythm, seed ?? null]);
+  const key = JSON.stringify([text, textFormat, unit, timing, pacing, rhythm, seed ?? null, workWindow, revisionSweep]);
   const current = plan !== null && planKey === key;
 
   useEffect(() => {
@@ -238,7 +245,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           method: "POST",
           body: {
             text,
-            text_format: textFormat,
+            text_format: textFormat, work_window: workWindow, revision_sweep: revisionSweep,
             rhythm,
             insertion_unit: unit,
             mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
@@ -250,7 +257,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
         setPlan(res.plan);
-        setPlanKey(JSON.stringify([text, textFormat, unit, timing, pacing, rhythm, kept]));
+        setPlanKey(JSON.stringify([text, textFormat, unit, timing, pacing, rhythm, kept, workWindow, revisionSweep]));
       } catch (e) {
         if (!stale) setError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -286,7 +293,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           document_id: documentUrl,
           document_title: title,
           text,
-          text_format: textFormat,
+          text_format: textFormat, work_window: workWindow, revision_sweep: revisionSweep,
           rhythm,
           insertion_unit: unit,
           mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
@@ -347,7 +354,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
         <div className="field">
           <label className="label" htmlFor="pane-duration">Total duration</label>
           <select id="pane-duration" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} aria-describedby="pane-duration-hint">
-            {DURATIONS.map((m) => <option key={m} value={m} disabled={!isPro && m > 30}>{span(m * 60_000)}</option>)}
+            {DURATIONS.map((m) => <option key={m} value={m} disabled={m > PLAN_LIMITS[tier].maxMinutes}>{span(m * 60_000)}</option>)}
           </select>
           <span id="pane-duration-hint" className="hint">
             Breaks are included and the last insertion is planned for the end. It&apos;s a target: closing this document or
@@ -355,6 +362,8 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           </span>
         </div>
       )}
+      <WorkWindowControls value={workWindow} onChange={v => { setWorkWindow(v); setApproved(false); }} enabled={tier !== "free"} />
+      <label className="check"><input type="checkbox" checked={revisionSweep} disabled={!isPro || timing === "asap"} onChange={e => { setRevisionSweep(e.target.checked); setApproved(false); }} />Final revision pass (Pro; restores approved text)</label>
       {timing !== "asap" && isPro && <PaceControls timing={timing} pace={effectivePace} onChange={(change) => { updatePace({ ...effectivePace, ...change }); setRhythm("custom"); }} />}
       {timing !== "asap" && !isPro && <p className="hint">Natural and Steady are included on Free. Pro adds custom speed, adjustable pauses and simulated corrections.</p>}
 
@@ -509,6 +518,7 @@ function WordProgress({ dripId, documentUrl, provider, onDone }: {
       {drip.status === "paused" && drip.attention && (
         <div className="alert alert-error alert-block mt-3" role="alert">
           <p>{drip.last_error}</p>
+          {drip.attention === "access_expired" && <p><a href="/app/billing/" target="_blank" rel="noopener noreferrer">Renew Day Pass or upgrade to Pro (opens in a new tab)</a>, then resume here.</p>}
           <div className="row row-wrap mt-2">
             {drip.attention === "document_changed" && (
               <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => act("resume", { continue_from_current_end: true })}>

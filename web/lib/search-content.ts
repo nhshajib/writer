@@ -13,7 +13,7 @@ export const GUIDES: Guide[] = [
     sections: [
       { heading: "What scheduling does", paragraphs: [
         "TypeWit enters text you supply into a Google Doc through Google’s API. It does not generate the draft. You review the destination, exact text and supported formatting before approving a session. Use it only for authorized testing of document-entry workflows.",
-        "The duration spreads a session’s edits over a chosen window. A scheduled start delays the beginning until a later date and time. Starting later is a Pro feature; Free sessions start now and can run for up to 30 minutes. Pro supports sessions up to a week.",
+        "The duration spreads a session’s edits over a chosen window. A scheduled start delays the beginning until a later date and time. Starting later is a Pro feature; Free sessions start now and can run for up to 60 minutes. Pro supports sessions up to a week.",
       ] },
       { heading: "Set up a Google Docs session", paragraphs: [], steps: [
         "Connect a Google account from Connected accounts in the dashboard. Google sign-in and permission to access a document are separate steps.",
@@ -33,6 +33,10 @@ export const GUIDES: Guide[] = [
       { heading: "Treat the finish time as a target", paragraphs: [
         "Provider outages, rate limits and document conflicts can delay a session. TypeWit can move the remaining schedule later rather than rushing delayed edits. Inspect the session’s status and activity log before relying on its output.",
         "Google controls how edits appear in version history. A scheduled session does not guarantee a separate visible version for every word group, and automated edits do not demonstrate human authorship or time spent drafting. Academic cheating and fabricated writing histories are prohibited.",
+      ] },
+      { heading: "Writing hours and short-term access", paragraphs: [
+        "Day Pass costs $4.99 once for 24 hours from payment confirmation and activation, with unlimited words and one active session. It never renews. Sessions must fit the remaining access window; unfinished pass sessions pause at expiry until access is renewed or upgraded.",
+        "Day Pass and Pro can limit entry to chosen daily writing hours in an IANA time zone. Overnight hours and daylight-saving changes are supported. Waiting outside those hours can extend the elapsed session time, which must still fit the plan limit.",
       ] },
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
   },
@@ -91,6 +95,10 @@ export const GUIDES: Guide[] = [
       { heading: "Version history is not proof of human authorship", paragraphs: [
         "A realistic-looking timeline does not demonstrate that someone manually wrote the content, that a given person authored it, or that a certain amount of drafting time was spent. Automated edits remain automation regardless of their rhythm.",
         "TypeWit is for authorized testing. Academic cheating, fabricated writing histories, evasion of integrity checks and deceptive authorship claims are prohibited. Disclose automation when required by the rules that apply to your document.",
+      ] },
+      { heading: "Pro playback and the optional final revision pass", paragraphs: [
+        "Pro playback replays only TypeWit’s confirmed actions in a read-only preview. Its timeline uses the saved planned schedule; it does not edit the document or recreate Google’s official snapshots. Every plan keeps the activity log.",
+        "The optional final revision pass makes a small temporary edit to the session-owned suffix and restores the exact approved text. It does not rewrite ideas or change collaborators’ text. Approve temporary edits before starting and let corrections finish; pausing or stopping can leave temporary text.",
       ] },
     ], sources: [{ label: "Google Docs: find what changed, grouped versions and named versions", url: "https://support.google.com/docs/answer/190843" }],
   },

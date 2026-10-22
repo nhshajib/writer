@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
-import { FREE_FEATURES, PLAN_COMPARISON, PRO_FEATURES } from "@/lib/plans";
-import { PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
+import { DAY_PASS_FEATURES, FREE_FEATURES, PLAN_COMPARISON, PRO_FEATURES } from "@/lib/plans";
+import { DAY_PASS_PRICE, PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 
-type Interval = "year" | "month";
+type Interval = "year" | "month" | "day";
 
 
 const COMPARE = PLAN_COMPARISON;
 
 const FAQ: { q: string; a: string }[] = [
+  { q: "How does the Day Pass work?", a: "Pay $4.99 once for 24 hours from payment confirmation. No subscription, trial or renewal. It includes unlimited words, one active session, writing hours and priority dispatch. Sessions must fit the remaining access window. At expiry, unfinished pass sessions pause; existing document text and your activity log remain. Buy another pass after expiry or upgrade to Pro to resume. Pro adds advanced drafting, playback and the final revision pass." },
+  { q: "Can I continue an existing or shared Google Doc?", a: "Yes, on every plan, without a three-day restriction. Choose the document from Google Drive. TypeWit appends your approved text to the same document, or Pro can target a heading. If collaborators change the insertion point, entry pauses for your review. It does not overwrite their work." },
   {
     q: "How does the free trial work?",
     a: "You get every Pro feature free for 7 days. Stripe asks for a card when you start, but nothing is charged until the trial ends. Cancel before then and you pay nothing. Each person can use the trial once.",
@@ -37,7 +39,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Is Free really free?",
-    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 150 words a day (about half a page) and sessions up to 30 minutes, with Natural and Steady rhythms, sentence pauses, every insertion mode and accessibility feature.",
+    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 250 words a day (about half a page) and sessions up to 60 minutes, with Natural and Steady rhythms, sentence pauses, every insertion mode and accessibility feature.",
   },
 ];
 
@@ -92,12 +94,18 @@ function PricingContent() {
       <section className="container pricing-grid-section" aria-label="Plans and comparison">
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className="pricing-cards">
-          <div className="pricing-intro"><p className="kicker">Your testing toolkit</p><h2>Start small.<br />Get more control with Pro.</h2><p className="muted">Both paid plans include every Pro feature. Yearly costs $23.88 less than 12 monthly payments.</p></div>
+          <div className="pricing-intro"><p className="kicker">Your testing toolkit</p><h2>Free, a day, or ongoing Pro.</h2><p className="muted">Monthly and Yearly include the same Pro toolkit. Yearly costs $23.88 less than 12 monthly payments. Day Pass gives you one focused day without a subscription.</p></div>
           <section className="plan" aria-labelledby="free-title">
             <h2 id="free-title">Free</h2><p className="desc">Try a short document session.</p>
             <div className="price"><strong>$0</strong><span>/ month</span></div><p className="price-note">Free forever · no card needed</p>
             <Link href={signedIn ? "/app/new/" : "/signup/"} className="btn btn-secondary btn-block">{signedIn ? "Start a session" : "Start free"}</Link>
             <ul className="ticks">{FREE_FEATURES.map(f => tick(f, f))}</ul>
+          </section>
+          <section className="plan" aria-labelledby="day-pass-title">
+            <h2 id="day-pass-title">Day Pass</h2><p className="desc">One focused day, no subscription.</p>
+            <div className="price"><strong>{DAY_PASS_PRICE}</strong><span>/ 24 hours</span></div><p className="price-note">One-time payment · never renews</p>
+            <button type="button" className="btn btn-secondary btn-block" onClick={() => startPro("day")} disabled={busy}>{busy ? "Opening checkout…" : "Get Day Pass"}</button>
+            <ul className="ticks">{DAY_PASS_FEATURES.slice(1, 6).map(f => tick(f, f))}</ul>
           </section>
           <section className="plan" aria-labelledby="monthly-title">
             <h2 id="monthly-title">Monthly</h2><p className="desc">All Pro features, billed monthly.</p>
@@ -116,8 +124,8 @@ function PricingContent() {
         <h2 id="compare-title" className="section-title">Compare every feature</h2>
         <div className="compare-wrap pricing-comparison">
           <table className="compare">
-            <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Monthly</th><th scope="col">Yearly</th></tr></thead>
-            <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Monthly">{row.pro}</td><td data-label="Yearly"><strong>{row.pro}</strong></td></tr>)}</tbody>
+            <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Day Pass</th><th scope="col">Monthly</th><th scope="col">Yearly</th></tr></thead>
+            <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Day Pass">{row.day}</td><td data-label="Monthly">{row.pro}</td><td data-label="Yearly"><strong>{row.pro}</strong></td></tr>)}</tbody>
           </table>
         </div>
         <details className="more pricing-pro-list"><summary>Explore the Pro toolkit</summary><ul className="ticks">{PRO_FEATURES.map(f => tick(f,f))}</ul></details>

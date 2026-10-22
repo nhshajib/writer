@@ -39,6 +39,7 @@ export function UserMenu() {
             <strong>{displayName}</strong>
             <span>{session.user.email}</span>
           </span>
+          {profile.plan === "day_pass" && <span className="badge badge-blue">Day Pass</span>}
           {profile.plan === "pro" && <span className="badge badge-pro">Pro</span>}
           <Icon.chevronDown />
         </>

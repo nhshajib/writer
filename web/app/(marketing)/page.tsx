@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: "Is there a free plan?",
-    a: "Yes. Free includes 150 words a day and sessions up to 30 minutes, with every insertion mode and accessibility feature, and no card needed. Pro removes the daily limit and adds week-long sessions, custom pacing, saved presets and scheduled starts, with 7 days free.",
+    a: "Yes. Free includes 250 words a day and sessions up to 60 minutes, with every insertion mode and accessibility feature, and no card needed. Pro removes the daily limit and adds week-long sessions, custom pacing, saved presets and scheduled starts, with 7 days free.",
   },
 ];
 
@@ -83,6 +83,7 @@ const STRUCTURED_DATA = {
       description: "Schedules automated entry of approved text into Google Docs and Microsoft Word for authorized testing, with supported formatting and adjustable pacing.",
       offers: [
         { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
+        { "@type": "Offer", name: "Day Pass — 24 hours, no renewal", price: "4.99", priceCurrency: "USD", url: `${SITE_URL}/pricing/` },
         { "@type": "Offer", name: "Pro Monthly", price: PRO_PRICE.month.amount.replace("$", ""), priceCurrency: "USD", url: `${SITE_URL}/pricing/` },
         { "@type": "Offer", name: "Pro Yearly", price: "60", priceCurrency: "USD", url: `${SITE_URL}/pricing/` },
       ],
@@ -112,7 +113,7 @@ export default function Home() {
               <Link href="/signup/" className="app-id-get" id="hero-cta">Get started</Link>
             </div>
             <dl className="app-facts">
-              <div><dt>Free plan</dt><dd>$0</dd><dd>150 words a day</dd></div>
+              <div><dt>Free plan</dt><dd>$0</dd><dd>250 words a day</dd></div>
               <div><dt>Works with</dt><dd><Icon.doc /></dd><dd>Docs and Word</dd></div>
               <div><dt>Built for</dt><dd><Icon.person /></dd><dd>Accessibility</dd></div>
             </dl>
@@ -184,15 +185,17 @@ export default function Home() {
           <h2 id="plans-title" className="mk-h2">Free to start. Pro when it gets long.</h2>
           <ul className="price-rows">
             <li>
-              <span className="pr-main"><strong>Free</strong><span>150 words a day · sessions up to 30 minutes</span></span>
+              <span className="pr-main"><strong>Free</strong><span>250 words a day · sessions up to 60 minutes</span></span>
               <span className="pr-price">$0</span>
             </li>
             <li>
               <span className="pr-main"><strong>Pro <span className="badge badge-blue">7 days free</span></strong><span>Unlimited words · week-long sessions · custom pacing and presets</span></span>
               <span className="pr-price"><span>{PRO_PRICE.year.amount}<small>/mo</small></span><em>$60 billed yearly · or {PRO_PRICE.month.amount} monthly</em></span>
             </li>
+            <li><span className="pr-main"><strong>Day Pass</strong><span>Unlimited words for 24 hours · no renewal</span></span><span className="pr-price">$4.99</span></li>
             <li><Link href="/pricing/" className="pr-link">Compare plans<Icon.chevronRight /></Link></li>
           </ul>
+          <p className="hint">Need only a day? <Link href="/pricing/">Get a $4.99 Day Pass</Link>: unlimited words, one active session and writing hours for 24 hours, with no subscription.</p>
           <div className="mk-plans">
             <div className="mk-plan">
               <h3>Free</h3>

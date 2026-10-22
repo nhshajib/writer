@@ -1,4 +1,6 @@
 "use client";
+import { WorkWindowControls } from "@/components/app/WorkWindowControls";
+import type { WorkWindow } from "../../../../supabase/functions/_shared/workWindow";
 import { RichTextEditor } from "@/components/app/RichTextEditor";
 
 import Link from "next/link";
@@ -166,6 +168,9 @@ export default function NewSessionPage() {
   const [headings, setHeadings] = useState<DocHeading[] | null>(null);
   const [headingsError, setHeadingsError] = useState<string | null>(null);
   const [headingId, setHeadingId] = useState("");
+  const [workWindow, setWorkWindow] = useState<WorkWindow | null>(null);
+  const [revisionSweep, setRevisionSweep] = useState(false);
+  useEffect(() => { if (timing === "asap") setRevisionSweep(false); }, [timing]);
   const [startLater, setStartLater] = useState(false);
   const [startAt, setStartAt] = useState(() => localInputValue(new Date(Date.now() + 60 * 60 * 1000)));
   const errorRef = useRef<HTMLDivElement>(null);
@@ -211,7 +216,7 @@ export default function NewSessionPage() {
     if (dashboard.drips.length === 0) return;
     prefilled.current = true;
     const source = dashboard.drips.find((d) => d.id === from);
-    supabase().from("drips").select("text, insertion_unit, timing_mode, pacing, text_format").eq("id", from).maybeSingle()
+    supabase().from("drips").select("text, insertion_unit, timing_mode, pacing, text_format, work_window").eq("id", from).maybeSingle()
       .then(({ data }) => {
         if (!data?.text) return;
         setText(data.text as string);
@@ -220,6 +225,8 @@ export default function NewSessionPage() {
         if (data.text_format === "markdown" || data.text_format === "rich") setFormat(data.text_format);
         if (data.insertion_unit) setUnit(data.insertion_unit as InsertionUnit);
         const pacing = data.pacing as PacingSettings | null;
+        if (plan !== "free") setWorkWindow(data.work_window as WorkWindow | null);
+        if (plan === "pro") setRevisionSweep(Boolean(pacing?.drafting?.revision_sweep));
         if (data.timing_mode === "asap") setTiming("asap");
         else if (pacing) {
           setTiming(pacing.timing);
@@ -245,6 +252,8 @@ export default function NewSessionPage() {
 
   useEffect(() => {
     if (plan !== "pro" && timing === "speed") setTiming("duration");
+    if (plan !== "pro" && revisionSweep) setRevisionSweep(false);
+    if (plan === "free" && workWindow) setWorkWindow(null);
     if (plan !== "pro" && startLater) setStartLater(false);
     if (plan !== "pro" && place !== "end") setPlace("end");
     // Start on the longest duration the plan allows, never on a Pro-only one.
@@ -252,7 +261,7 @@ export default function NewSessionPage() {
     if (preset !== "custom" && Number(preset) > allowed) {
       setPreset(String(DURATIONS.filter((d) => d.minutes <= allowed).at(-1)?.minutes ?? allowed));
     }
-  }, [plan, timing, startLater, preset, format, place]);
+  }, [plan, timing, startLater, preset, format, place, workWindow, revisionSweep]);
 
   function applyPreset(p: PacePreset) {
     rememberRhythm("custom");
@@ -312,11 +321,13 @@ export default function NewSessionPage() {
     rememberRhythm("custom");
     setApproved(false);
   }
-  const simulatedDrafting = timing !== "asap" && isPro && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0);
+  const simulatedDrafting = timing !== "asap" && isPro && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0 || revisionSweep);
   useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing: PacingSettings | null = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
   const pacingKey = JSON.stringify(pacing);
-  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, rhythm, seed ?? null]);
+  const windowKey = JSON.stringify(workWindow);
+  const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, rhythm, seed ?? null, windowKey, revisionSweep, startLater ? startAt : null]);
+  useEffect(() => setApproved(false), [windowKey, revisionSweep]);
   const current = preview !== null && previewKey === inputKey;
   const ready = text.trim() !== "" && (timing !== "duration" || minutesValid);
 
@@ -335,6 +346,9 @@ export default function NewSessionPage() {
             text,
             rhythm,
             text_format: format,
+            work_window: workWindow,
+            revision_sweep: revisionSweep,
+            ...(startLater && Number.isFinite(Date.parse(startAt)) ? { start_at: new Date(startAt).toISOString() } : {}),
             insertion_unit: unit,
             mode: timing === "asap" ? "as_soon_as_possible" : "scheduled",
             ...(timing === "asap" ? {} : { pacing: JSON.parse(pacingKey) }),
@@ -347,7 +361,7 @@ export default function NewSessionPage() {
         // Keep this timing while the user keeps editing, until they ask for another.
         const kept = seed ?? res.plan.seed;
         if (seed === undefined) setSeed(kept);
-        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, rhythm, kept]));
+        setPreviewKey(JSON.stringify([text, format, unit, timing, pacingKey, rhythm, kept, windowKey, revisionSweep, startLater ? startAt : null]));
       } catch (e) {
         if (!stale) setPreviewError(e instanceof Error ? e.message : "Couldn't check the schedule.");
       }
@@ -356,7 +370,7 @@ export default function NewSessionPage() {
       stale = true;
       clearTimeout(handle);
     };
-  }, [text, format, unit, timing, pacingKey, rhythm, ready, seed]);
+  }, [text, format, unit, timing, pacingKey, rhythm, ready, seed, windowKey, revisionSweep, startLater, startAt]);
 
   // The chosen document's headings, for "Under a heading" (Pro, Google Docs).
   const headingDoc = place === "heading" && target === "existing" && chosenDoc ? chosenDoc : null;
@@ -561,6 +575,8 @@ export default function NewSessionPage() {
           text,
           rhythm,
           text_format: format,
+          work_window: workWindow,
+          revision_sweep: revisionSweep,
           ...(place === "heading" && heading
             ? { insert_target: { heading_id: heading.id, heading_text: heading.text, level: heading.level } }
             : {}),
@@ -673,6 +689,7 @@ export default function NewSessionPage() {
           <h2 aria-hidden="true"><span className="step-n">1</span>Choose a document</h2>
           <p className="muted">
             Where the text should go. TypeWit adds it at the end of the document, or with Pro, under a heading you choose.
+            Existing and shared drafts stay in the same document. Choose one from Google Drive, or name a new document below.
             Writing in Microsoft Word? Start
             from the <Link href="/app/connections#word">TypeWit add-in in Word</Link>.
           </p>
@@ -691,7 +708,7 @@ export default function NewSessionPage() {
             </label>
             <label className="choice">
               <input type="radio" name="target" value="existing" checked={target === "existing"} onChange={() => { setTarget("existing"); setReport(null); }} />
-              <span><strong>Existing document</strong><small>Any Google Doc you choose from your Drive.</small></span>
+              <span><strong>Existing document</strong><small>Any Google Doc you choose from your Drive. Continue an ongoing draft in the same document; TypeWit adds text at the end and pauses if the insertion point changes.</small></span>
             </label>
           </div>
           <div className="field" style={{ marginTop: "1rem", maxWidth: 520 }}>
@@ -835,6 +852,7 @@ export default function NewSessionPage() {
           <legend className="sr-only">Timing</legend>
           <h2 aria-hidden="true"><span className="step-n">4</span>Set the timing</h2>
           <p className="muted">Pick a total time, or a typing speed. Breaks and variation apply to both.</p>
+          {plan === "day_pass" && dashboard.profile.day_pass_expires_at && <p className="hint">Your Day Pass ends {when(dashboard.profile.day_pass_expires_at)}. Choose a duration shorter than the remaining access, including any waiting outside writing hours.</p>}
           <div className="choices" role="radiogroup" aria-label="Timing mode">
             <label className="choice">
               <input type="radio" name="timing" value="duration" checked={timing === "duration"} onChange={() => setTiming("duration")} />
@@ -889,6 +907,9 @@ export default function NewSessionPage() {
             </div>
           )}
 
+          <WorkWindowControls value={workWindow} onChange={setWorkWindow} enabled={plan !== "free"} />
+          <label className="check" style={{ marginTop: "1rem" }}><input type="checkbox" checked={revisionSweep} disabled={!isPro || timing === "asap"} onChange={e => setRevisionSweep(e.target.checked)} />Final revision pass (Pro)</label>
+          <p className="hint">Optional. After entry, TypeWit makes a small temporary edit to its own text and restores your exact approved wording. Try it when testing revision behavior. It never rewrites your ideas or edits a collaborator&apos;s text. Keep the session running until correction finishes.</p>
           <div className="plan-preview">
             <PlanSummary plan={current ? preview : null} error={previewError} hasText={words > 0} timing={timing}
               onReshuffle={() => setSeed(undefined)} />
@@ -934,6 +955,8 @@ export default function NewSessionPage() {
             <dt>Text length</dt><dd>{words.toLocaleString()} words, {plainText.length.toLocaleString()} characters</dd>
             {unit !== "word" && <><dt>Insertion mode</dt><dd>{UNIT_LABEL[unit].title}</dd></>}
 
+            {revisionSweep && <><dt>Final revision pass</dt><dd>A small temporary edit to the session-owned suffix, then your exact approved text is restored.</dd></>}
+            {workWindow && <><dt>Writing hours</dt><dd>{workWindow.start}–{workWindow.end} · {workWindow.time_zone}. Waiting may move the finish later.</dd></>}
             {simulatedDrafting && <><dt>Automated simulated edits</dt><dd>Neighbor-key typos {effectivePace.typoRate}%, false starts {effectivePace.falseStartRate}% per eligible English word; temporary text is deleted and corrected.</dd></>}
             <dt>Planned duration</dt>
             <dd>{plannedDuration}</dd>
@@ -1019,7 +1042,7 @@ function PlanSummary({ plan, error, hasText, timing, onReshuffle }: {
   const n = plan.source_unit_count ?? plan.unit_count;
   const edits = plan.unit_count;
   const simulated = edits !== n;
-  const corrections = (plan.drafting_stats?.typos ?? 0) + (plan.drafting_stats?.false_starts ?? 0) > 0;
+  const corrections = Boolean(plan.pacing?.drafting?.revision_sweep) || (plan.drafting_stats?.typos ?? 0) + (plan.drafting_stats?.false_starts ?? 0) > 0;
   const label = UNIT_LABEL[plan.unit][n === 1 ? "one" : "many"];
   const total = span(plan.duration_seconds * 1000);
   const breaks = plan.breaks.length;
