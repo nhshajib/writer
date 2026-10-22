@@ -202,3 +202,30 @@ Deno.test("renewal during an expired worker claim is observed before pausing", a
   assert(outcome !== "paused");
   assertEquals(row.attention, null);
 });
+
+Deno.test("a pass that expires during a document read cannot start another write", async () => {
+  const clock = new Clock();
+  const row = makeSession("Approved text.", { clock, minutes: 1 });
+  Object.assign(row, {
+    status: "running",
+    lease_id: "fixture-lease",
+    access_expires_at: new Date(T0 + 5000).toISOString(),
+    preflight_at: new Date(T0).toISOString(),
+    schedule: [1000],
+    document_baseline_length: 0,
+  });
+  const store = new FakeStore(row, clock), doc = new FakeDoc(clock);
+  doc.latencyMs = 10000;
+  assertEquals(
+    await runSession(row, "fixture-lease", {
+      provider: doc,
+      store,
+      now: () => clock.now,
+      sleep: clock.sleep,
+      deadline: T0 + 100000,
+    }),
+    "paused",
+  );
+  assertEquals(doc.writes.length, 0);
+  assertEquals(row.attention, "access_expired");
+});

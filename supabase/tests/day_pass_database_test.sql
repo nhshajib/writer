@@ -1,7 +1,7 @@
 -- Isolated PostgreSQL only. All fixture changes roll back.
 begin;
 do $$
-declare owner_id uuid:=gen_random_uuid(); other_id uuid:=gen_random_uuid(); expiry timestamptz; again timestamptz;
+declare owner_id uuid:=gen_random_uuid(); other_id uuid:=gen_random_uuid(); expiry timestamptz; again timestamptz; picked text;
 begin
   insert into auth.users(id) values(owner_id),(other_id);
   expiry:=public.grant_day_pass(owner_id,'fixture-checkout','fixture-intent');
@@ -30,6 +30,16 @@ begin
   update public.profiles set plan='pro' where user_id=owner_id;
   if exists(select 1 from public.drips where user_id=owner_id and access_expires_at is not null) then raise exception 'Upgrade left old session expiry'; end if;
   if has_column_privilege('authenticated','public.profiles','day_pass_expires_at','UPDATE') then raise exception 'Client can extend own pass'; end if;
+  insert into public.provider_connections(id,user_id,provider,account_email) values(gen_random_uuid(),other_id,'test','other-fixture.invalid');
+  insert into public.drips(user_id,connection_id,provider,document_id,text,chunks,word_count,total_chunks,interval_seconds,duration_seconds,status,next_run_at)
+    select owner_id,id,'test','paid-priority','test','["test"]',1,1,60,60,'scheduled',now() from public.provider_connections where user_id=owner_id limit 1;
+  insert into public.drips(user_id,connection_id,provider,document_id,text,chunks,word_count,total_chunks,interval_seconds,duration_seconds,status,next_run_at)
+    select other_id,id,'test','older-free','test','["test"]',1,1,60,60,'scheduled',now()-interval '30 seconds' from public.provider_connections where user_id=other_id limit 1;
+  select document_id into picked from public.claim_due_worker_drips(1,240,60);
+  if picked<>'older-free' then raise exception 'Priority starved older free work'; end if;
+  select document_id into picked from public.claim_due_worker_drips(1,240,60);
+  if picked<>'paid-priority' then raise exception 'Priority claim failed'; end if;
+
   delete from auth.users where id=owner_id;
   if exists(select 1 from public.day_pass_purchases where user_id=owner_id) then raise exception 'Account deletion stranded purchase'; end if;
 end;

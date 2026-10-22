@@ -26,6 +26,7 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
       Deno.env.set(names[i], v)
     );
     globalThis.fetch = (async (input, init) => {
+      await Promise.resolve();
       const url = new URL(String(input));
       if (url.pathname === "/auth/v1/user") {
         return Response.json({ id: owner, email: "fixture@example.invalid", role: "authenticated" });
@@ -135,6 +136,68 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
   } finally {
     globalThis.fetch = originalFetch;
     Object.defineProperty(Deno, "serve", { value: serve, configurable: true, writable: true });
+    names.forEach((n, i) => before[i] === undefined ? Deno.env.delete(n) : Deno.env.set(n, before[i]!));
+  }
+});
+
+Deno.test("playback is owner-scoped, Pro-only and never exposes unconfirmed source", async () => {
+  const names = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+  const before = names.map((n) => Deno.env.get(n));
+  const fetchBefore = globalThis.fetch, serve = Deno.serve;
+  const owner = crypto.randomUUID(), id = crypto.randomUUID();
+  let tier = "pro";
+  let handler!: Handler;
+  try {
+    Deno.env.set(names[0], "http://database.invalid");
+    Deno.env.set(names[1], "fixture-service");
+    globalThis.fetch = (async (input, init) => {
+      await Promise.resolve();
+      assert(!init?.method || init.method === "GET");
+      const url = new URL(String(input));
+      if (url.pathname === "/auth/v1/user") return Response.json({ id: owner, role: "authenticated" });
+      if (url.pathname.endsWith("/profiles")) return Response.json({ plan: tier, eligibility_blocked_at: null });
+      if (url.pathname.endsWith("/drips")) {
+        assertEquals(url.searchParams.get("user_id"), `eq.${owner}`);
+        return Response.json(
+          url.searchParams.get("id") === `eq.${id}`
+            ? {
+              chunks: ["confirmed", "not entered"],
+              chunk_deletions: null,
+              chunks_written: 1,
+              schedule: [1000, 2000],
+              session_started_at: new Date().toISOString(),
+            }
+            : null,
+        );
+      }
+      throw new Error(`Unexpected fixture read ${url.pathname}`);
+    }) as typeof fetch;
+    Object.defineProperty(Deno, "serve", {
+      value: (fn: Handler) => {
+        handler = fn;
+      },
+      writable: true,
+      configurable: true,
+    });
+    await import("../functions/drips/index.ts?playback-fixture");
+    Object.defineProperty(Deno, "serve", { value: serve, writable: true, configurable: true });
+    const read = (sessionId: string) =>
+      handler(
+        new Request(`http://edge.invalid/functions/v1/drips/${sessionId}/playback`, {
+          headers: { Authorization: "Bearer fixture" },
+        }),
+      );
+    const result = await read(id);
+    assertEquals(result.status, 200);
+    const data = await result.json();
+    assertEquals(data.playback.chunks, ["confirmed"]);
+    assertEquals(data.playback.timing, "planned");
+    assertEquals((await read(crypto.randomUUID())).status, 404);
+    tier = "free";
+    assertEquals((await read(id)).status, 403);
+  } finally {
+    globalThis.fetch = fetchBefore;
+    Object.defineProperty(Deno, "serve", { value: serve, writable: true, configurable: true });
     names.forEach((n, i) => before[i] === undefined ? Deno.env.delete(n) : Deno.env.set(n, before[i]!));
   }
 });
