@@ -177,7 +177,7 @@ export default function ManageBillingPage() {
         </section>
       )}
 
-      {summary && !sub && invoicePanel}
+      {summary && !sub && (profile.day_pass_expires_at || summary.invoices.length > 0) && invoicePanel}
 
       {notice && <p className="alert alert-success mb-5" role="status">{notice}</p>}
 
