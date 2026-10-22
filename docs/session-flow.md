@@ -27,3 +27,7 @@ waits and a resume after a manual pause. Runtime expiry pauses before another wr
 Migration 20261024000002 adds rest metadata to the service-only worker projection and permits
 validated block settings in account defaults. No customer text or retention policy is changed.
 Long rests do not promise separate Google version-history groups.
+
+## Account onboarding
+
+Create an account with Google or email first; the initial form asks only credentials and agreement. Email accounts follow the existing confirmation-link flow. After authentication, unconfirmed users see one birthday card (country, month and year), with guardian agreement when required. The server confirms eligibility before dashboard access. Existing confirmed users do not repeat this step; already-blocked browsers retain the refusal. No birth day or additional profile data is collected.

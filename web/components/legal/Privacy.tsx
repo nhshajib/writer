@@ -126,7 +126,7 @@ export function PrivacyBody() {
       <h2>Children</h2>
       <p>
         TypeWit isn&apos;t for children under 13, or for anyone below the age of digital consent in their country (up to 16
-        in parts of the EU and EEA). We check this at sign-up from your country and month and year of birth, and we don&apos;t
+        in parts of the EU and EEA). After you create an account, we check your country and month and year of birth before you can use the dashboard. We don&apos;t
         knowingly keep information about anyone below that age. If we learn that we have, we delete the account. A parent
         or guardian who thinks this has happened can email {email}.
       </p>

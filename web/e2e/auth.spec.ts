@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type APIRequestContext, test } from "@playwright/test";
 
 /* Sign-in, password reset and the way back to the page someone wanted, against the mock API. */
 
@@ -101,80 +101,87 @@ async function aboutYou(page: Page, country: string, age: number) {
   await page.getByLabel("Year you were born").selectOption(String(year - age));
 }
 
-test("sign-up is one step: every field is there at once and the age answer shows straight away", async ({ page }) => {
+test("sign-up creates the account first without asking for age", async ({ page, request }) => {
   await page.goto("/signup/");
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Country you live in")).toHaveCount(0);
+  await expect(page.getByLabel("Month you were born")).toHaveCount(0);
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(page.getByRole("checkbox", { name: /I agree to the Terms/ })).not.toBeChecked();
   await expectNoAxeViolations(page);
-
   await page.getByRole("button", { name: "Create free account" }).click();
-  await expect(page.getByText("Choose your country and the month and year you were born.")).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByText("Use at least 8 characters.")).toBeVisible();
   await expect(page.getByText("Tick the box to accept the Terms and Responsible Use Agreement.")).toBeVisible();
-  await expect(page.getByLabel("Country you live in")).toBeFocused();
+  await expect(page.getByLabel("Email")).toBeFocused();
   await expectNoAxeViolations(page);
-
-  await aboutYou(page, "US", 30);
-  await expect(page.getByText("You can join")).toBeVisible();
-});
-
-test("joining under 18 needs a parent or guardian, and the answers go with the sign-up", async ({ page, request }) => {
-  await page.goto("/signup/");
-  await page.getByLabel("Email").fill("teen@gmail.com");
+  await page.getByLabel("Email").fill("fixture@gmail.com");
   await page.getByLabel("Password").fill("a good password");
   await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole("button", { name: "Create free account" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await expect(page.getByText(/then confirm your age/)).toBeVisible();
+  const { requests } = await (await request.get("/__test/requests")).json();
+  const signup = requests.find((r: { path: string }) => r.path === "/auth/v1/signup");
+  expect(signup.body.data.agreed_terms_version).toBeTruthy();
+  expect(signup.body.data).not.toHaveProperty("birth_year");
+  expect(signup.body.data).not.toHaveProperty("birth_month");
+});
+
+async function signInUnconfirmed(page: Page, request: APIRequestContext) {
+  await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null } });
+  await page.goto("/login/");
+  await page.getByLabel("Email").fill("fixture@gmail.com");
+  await page.getByLabel("Password").fill("a good password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "One last step" })).toBeVisible();
+}
+
+test("after signing in an under-18 user still needs guardian agreement before access", async ({ page, request }) => {
+  await signInUnconfirmed(page, request);
   await aboutYou(page, "US", 15);
   const guardian = page.getByLabel(/A parent or guardian knows I'm using TypeWit/);
   await expect(guardian).toBeVisible();
-  await page.getByRole("button", { name: "Create free account" }).click();
-  await expect(page.getByText("Tick the box to confirm a parent or guardian agrees.")).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByText("Please tick the box to confirm a parent or guardian agrees.")).toBeVisible();
   await expect(guardian).toBeFocused();
+  let history = await (await request.get("/__test/requests")).json();
+  expect(history.requests.filter((r: { path: string }) => r.path === "/rest/v1/rpc/confirm_age")).toHaveLength(0);
   await guardian.check();
-  await page.getByRole("button", { name: "Create free account" }).click();
-  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
-
-  const { requests } = await (await request.get("/__test/requests")).json();
-  const signup = requests.find((r: { path: string }) => r.path === "/auth/v1/signup");
-  expect(signup.body.data).toMatchObject({ country: "US", birth_year: year - 15, birth_month: 1, guardian_agreed: true });
-  expect(signup.body.data).not.toHaveProperty("birth_day");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Good (morning|afternoon|evening)/);
+  history = await (await request.get("/__test/requests")).json();
+  const answer = history.requests.find((r: { path: string }) => r.path === "/rest/v1/rpc/confirm_age");
+  expect(answer.body).toMatchObject({country:"US",birth_year:year-15,birth_month:1,guardian:true});
+  expect(answer.body).not.toHaveProperty("birth_day");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "One last step" })).toHaveCount(0);
 });
 
-test("someone below the minimum age is told at once what they can do, and a reload stays closed", async ({ page, request }) => {
-  await page.goto("/signup/");
-  await page.getByLabel("Email").fill("kid@gmail.com");
+test("below-minimum age is refused after signup and stays blocked on reload", async ({ page, request }) => {
+  await signInUnconfirmed(page, request);
   await aboutYou(page, "GB", 12);
-  const refusal = page.getByRole("alert").filter({ hasText: "Sorry, you can't join TypeWit yet." });
-  await expect(refusal).toBeVisible();
-  await expect(refusal.getByRole("link", { name: "help page" })).toHaveAttribute("href", "/support/");
-  await expect(page.getByLabel("Email")).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Create free account" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeDisabled();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create free account" })).toHaveCount(0);
   await expectNoAxeViolations(page);
-  // A wrong pick can be fixed straight away.
-  await page.getByLabel("Year you were born").selectOption(String(year - 30));
-  await expect(refusal).toBeHidden();
-  await expect(page.getByLabel("Email")).toBeEnabled();
   const { requests } = await (await request.get("/__test/requests")).json();
-  expect(requests.find((r: { path: string }) => r.path === "/auth/v1/signup")).toBeUndefined();
-  // The refusal is remembered in this browser.
+  expect(requests.find((r: { path: string }) => r.path === "/rest/v1/rpc/confirm_age").body).toMatchObject({country:"GB",birth_year:year-12});
   await page.reload();
   await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
 });
 
-test("Continue with Google works on the first tap and carries answers already given", async ({ page }) => {
+test("Continue with Google works on the first tap and defers birthday questions", async ({ page }) => {
   await page.goto("/signup/");
-  await aboutYou(page, "US", 30);
+  await expect(page.getByLabel("Year you were born")).toHaveCount(0);
   await page.getByLabel(/I agree to the Terms/).check();
   await page.route("**/auth/v1/authorize**", (route) => route.fulfill({ status: 200, body: "google" }));
   await page.getByRole("button", { name: "Continue with Google" }).click();
   await page.waitForURL(/\/auth\/v1\/authorize/);
   const stored = await page.evaluate(() => [sessionStorage.getItem("typewit:agreed-before-google"), sessionStorage.getItem("typewit:age-before-google")]);
   expect(stored[0]).toBeTruthy();
-  expect(JSON.parse(stored[1]!)).toMatchObject({ country: "US", birth_year: year - 30, birth_month: 1 });
+  expect(stored[1]).toBeNull();
 });
 
 test("an account without age answers is asked once before the dashboard", async ({ page, request }) => {
@@ -211,4 +218,27 @@ test("a concurrent successful age confirmation completes onboarding without chan
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Good (morning|afternoon|evening)/);
   expect(confirmations).toBe(1);
+});
+
+test("an immediate email signup goes straight to birthday confirmation before the dashboard", async ({ page, request }, testInfo) => {
+  await page.setViewportSize({width:390,height:844});
+  await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null } });
+  await page.route("**/auth/v1/signup**", async route => {
+    await route.fulfill({status:200,json:{access_token:"fixture-token",refresh_token:"fixture-refresh",token_type:"bearer",expires_in:3600,user:{id:"u1",aud:"authenticated",role:"authenticated",email:"fixture@gmail.com",app_metadata:{},user_metadata:{}}}});
+  });
+  await page.goto("/signup/?next=%2Fapp%2Fsessions%2F");
+  await page.getByLabel("Email").fill("fixture@gmail.com");
+  await page.getByLabel("Password").fill("a good password");
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole("button", { name: "Create free account" }).click();
+  await expect(page.getByRole("heading", { name: "One last step" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sessions",exact:true })).toHaveCount(0);
+  await expectNoAxeViolations(page);
+  await page.screenshot({path:testInfo.outputPath("onboarding-mobile.png"),fullPage:true});
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await expect(page.getByText("Choose your country and the month and year you were born.")).toBeVisible();
+  await aboutYou(page,"BD",30);
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await expect(page).toHaveURL(/\/app\/sessions\/?$/);
+  await expect(page.getByRole("heading",{name:"Sessions",exact:true})).toBeVisible();
 });
