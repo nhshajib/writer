@@ -38,6 +38,8 @@ export interface BreakSettings {
 }
 
 export interface PacingSettings {
+  /** Omitted by older clients: random groups of 1–5 words. */
+  word_grouping?: "random" | "single";
   timing: TimingMode;
   /** Total planned time, breaks included (duration mode). */
   duration_seconds?: number;
@@ -102,6 +104,9 @@ export class PacingError extends Error {
 export function validatePacing(p: PacingSettings): string | null {
   const within = (v: number | undefined, lo: number, hi: number) =>
     typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi;
+  if (p.word_grouping !== undefined && p.word_grouping !== "random" && p.word_grouping !== "single") {
+    return "Choose single words or random word groups.";
+  }
   const draftingProblem = validateDrafting(p.drafting);
   if (draftingProblem) return draftingProblem;
   if (p.timing !== "duration" && p.timing !== "speed") return "Choose a timing mode.";

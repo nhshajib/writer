@@ -265,13 +265,21 @@ export function compileDrafting(
   if (cfg.revision_sweep && text.length && out.source_unit_ends.length) {
     // Only touch a bounded generated suffix, never document content that
     // existed before the session. Restore exact text and rich spans afterward.
-    const tail = /[A-Za-z][^\p{L}\p{N}\n]{0,8}$/u.exec(sourceChunks.at(-1) ?? "")?.[0];
-    if (tail) {
-      const from = text.length - tail.length;
-      const first = tail[0] === tail[0].toUpperCase() ? tail[0].toLowerCase() : tail[0].toUpperCase();
-      emit(first + tail.slice(1), tail.length, "typo", from);
-      emit(tail, tail.length, "correction", from);
+    const last = sourceChunks.at(-1) ?? "";
+    const candidates = [...last.matchAll(/(?<![\p{L}\p{N}_])[A-Za-z]{2,64}(?![\p{L}\p{N}_])/gu)]
+      .filter((word) => last.length - word.index! <= 128 && !last.slice(word.index!).includes("\n"))
+      .slice(-3).reverse();
+    if (candidates.length) {
+      for (const word of candidates) {
+        const tail = last.slice(word.index!);
+        const from = text.length - tail.length;
+        const offset = Math.floor(random() * word[0].length);
+        const replacement = tail.slice(0, offset) + neighborKey(tail[offset], random) + tail.slice(offset + 1);
+        emit(replacement, tail.length, "typo", from);
+        emit(tail, tail.length, "correction", from);
+      }
     } else {
+      // Non-English text and very small final units still get a reversible review.
       emit(" ", 0, "false_start");
       emit("", 1, "backspace");
     }

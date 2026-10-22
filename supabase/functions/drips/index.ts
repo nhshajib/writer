@@ -227,6 +227,7 @@ function readPacing(raw: unknown): PacingSettings {
     duration_seconds: timing === "duration" ? num(p.duration_seconds) : undefined,
     wpm: timing === "speed" ? num(p.wpm) : undefined,
     variation_pct: num(p.variation_pct),
+    ...(p.word_grouping === undefined ? {} : { word_grouping: p.word_grouping as PacingSettings["word_grouping"] }),
     ...(p.drafting === undefined ? {} : { drafting: p.drafting as PacingSettings["drafting"] }),
     breaks: {
       enabled: b.enabled === true,

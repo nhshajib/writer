@@ -186,14 +186,21 @@ export function planSession(req: PlanRequest): SessionPlan {
   }
   // Free uses the standard pace for a chosen duration; typing speed and custom timing are Pro.
   const freeSpeed = req.plan !== "pro" && requested?.timing === "speed";
-  const pacing = req.plan !== "pro" && requested && req.pacing && !freeSpeed
+  const basePacing = req.plan !== "pro" && requested && req.pacing && !freeSpeed
     ? (req.rhythm === "natural" || req.rhythm === "steady")
       ? rhythmPacing(req.rhythm, requested.duration_seconds ?? 0)
       : standardPacing(requested.duration_seconds ?? 0)
     : requested;
+  // Word grouping is available on every plan, independently of premium pace controls.
+  const pacing = basePacing && req.pacing?.word_grouping !== undefined
+    ? { ...basePacing, word_grouping: req.pacing.word_grouping }
+    : basePacing;
   const limits = PLAN_LIMITS[req.plan];
   const words = countWords(text);
   const problems: PlanProblem[] = [];
+  if (req.pacing?.word_grouping !== undefined && !["random", "single"].includes(req.pacing.word_grouping)) {
+    problems.push({ code: "invalid_settings", message: "Choose single words or random word groups." });
+  }
   if (req.revisionSweep && req.plan !== "pro") {
     problems.push({ code: "pro_feature", message: "The final revision pass is part of Pro." });
   }
@@ -225,7 +232,7 @@ export function planSession(req: PlanRequest): SessionPlan {
 
   const split = (u: InsertionUnit) => {
     const parts = splitText(text, u);
-    if (u !== "word") return parts;
+    if (u !== "word" || pacing?.word_grouping === "single") return parts;
     const random = seededRandom(seed ^ 0x776f7264);
     const groups: string[] = [];
     for (let i = 0; i < parts.length;) {
