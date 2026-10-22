@@ -28,7 +28,7 @@ for (const width of [390, 1280]) {
     await showTiming(page);
     await expect(page.getByRole("region", { name: "Your rhythm at a glance" })).toContainText("One word");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished)));
+    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))));
     expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations).toEqual([]);
     if (width === 390) await page.screenshot({ path: testInfo.outputPath("rhythm-mobile.png"), fullPage: true });
     await toStep(page, 5);

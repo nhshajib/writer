@@ -40,7 +40,7 @@ test("Pro configures six remembered drafting knobs and sends them with exact sou
   await page.getByRole("spinbutton", { name: "Sentence-pause variation", exact: true }).fill("20");
   await expect(page.getByText(/Temporary words and mistakes appear in the real document/)).toBeVisible();
   await ready(page);
-  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished)));
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(axe.violations.map((v) => v.id)).toEqual([]);
   await toStep(page, 5);
