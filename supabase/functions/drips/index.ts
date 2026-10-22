@@ -227,6 +227,7 @@ function readPacing(raw: unknown): PacingSettings {
     duration_seconds: timing === "duration" ? num(p.duration_seconds) : undefined,
     wpm: timing === "speed" ? num(p.wpm) : undefined,
     variation_pct: num(p.variation_pct),
+    ...(p.writing_blocks === undefined ? {} : { writing_blocks: p.writing_blocks as PacingSettings["writing_blocks"] }),
     ...(p.word_grouping === undefined ? {} : { word_grouping: p.word_grouping as PacingSettings["word_grouping"] }),
     ...(p.drafting === undefined ? {} : { drafting: p.drafting as PacingSettings["drafting"] }),
     breaks: {
@@ -340,8 +341,8 @@ function planResponse(plan: SessionPlan) {
 
 async function previewPlan(userId: string, req: Request): Promise<Response> {
   const input = readPlanInput(await readJson<PlanBody>(req));
-  const { plan } = await userPlan(userId);
-  return json({ plan: planResponse(planSession({ ...input, plan })) });
+  const { plan, expiresAt } = await userPlan(userId);
+  return json({ plan: planResponse(planSession({ ...input, plan, accessExpiresAt: expiresAt })) });
 }
 
 async function createDrip(userId: string, req: Request): Promise<Response> {
@@ -413,7 +414,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (tier !== "pro" && target) throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
 
   // Splits the text and builds the complete schedule before anything starts.
-  const plan = planSession({ ...input, plan: tier });
+  const plan = planSession({ ...input, plan: tier, accessExpiresAt: expiresAt });
   if (!plan.ok) return json({ error: plan.problems[0].message, problems: plan.problems }, 422);
   if (tier === "day_pass" && expiresAt && input.startsAt + (plan.schedule.at(-1) ?? 0) >= Date.parse(expiresAt)) {
     throw new HttpError(
@@ -705,7 +706,7 @@ async function getDrip(userId: string, id: string): Promise<Response> {
 async function getPlayback(userId: string, id: string): Promise<Response> {
   if ((await userPlan(userId)).plan !== "pro") throw new HttpError(403, "Session playback is part of Pro.");
   const { data, error } = await adminClient().from("drips")
-    .select("chunks,chunk_deletions,chunks_written,schedule,session_started_at,schedule_shift_seconds")
+    .select("chunks,chunk_deletions,chunks_written,schedule,session_started_at,schedule_shift_seconds,breaks")
     .eq("id", id).eq("user_id", userId).maybeSingle();
   if (error) throw new HttpError(503, "Playback could not be loaded. Please try again.");
   if (!data) throw new HttpError(404, "Session not found.");
@@ -717,6 +718,7 @@ async function getPlayback(userId: string, id: string): Promise<Response> {
       schedule: (data.schedule ?? []).slice(0, written),
       starts_at: data.session_started_at,
       recorded_actions: written,
+      breaks: (data.breaks ?? []).filter((b: { after_index: number }) => b.after_index < written),
       timing: "planned",
     },
   });
@@ -812,13 +814,16 @@ async function editPausedSettings(userId: string, id: string, req: Request): Pro
   const body = await readJson<
     PlanBody & {
       confirmed?: boolean;
+      preview?: boolean;
       updated_at?: string;
       remaining_text?: string;
       remaining_sha256?: string;
       remaining_text_format?: "plain" | "markdown" | "rich";
     }
   >(req);
-  if (body.confirmed !== true) throw new HttpError(400, "Review and approve the changed settings first.");
+  if (body.preview !== true && body.confirmed !== true) {
+    throw new HttpError(400, "Review and approve the changed settings first.");
+  }
   const db = adminClient();
   const { data, error } = await db.from("drips").select(`${RESUME_COLUMNS}, text, lease_id`)
     .eq("id", id).eq("user_id", userId).maybeSingle();
@@ -846,6 +851,17 @@ async function editPausedSettings(userId: string, id: string, req: Request): Pro
     patch = replanPaused(row, input, body.remaining_text, body.remaining_text_format);
   } catch (e) {
     throw new HttpError(422, e instanceof Error ? e.message : "These settings cannot be applied.");
+  }
+  if (body.preview === true) {
+    return json({
+      preview: {
+        finish_at: new Date(Date.parse(patch.deadline_at) + Math.max(0, Date.now() - Date.parse(row.paused_at!)))
+          .toISOString(),
+        remaining_breaks: patch.breaks.filter((b) =>
+          b.kind === "block" && b.after_index >= row.chunks_written - 1
+        ).length,
+      },
+    });
   }
   const fullText = patch.source_chunks.join("");
   if (fullText.length > 200_000) throw new HttpError(422, "The whole session must stay within 200,000 characters.");

@@ -22,7 +22,8 @@
 import { type AccessProblem, checkAccess } from "./access.ts";
 import { type DraftActionKind, executionText } from "./drafting.ts";
 import { bodyContent, endsWithTail } from "./doctext.ts";
-import { type WorkWindow, writingClock } from "./workWindow.ts";
+import { dayPassScheduleProblem } from "./writingBlocks.ts";
+import { windowSchedule, type WorkWindow, writingClock } from "./workWindow.ts";
 import {
   type DocProvider,
   type DocState,
@@ -30,6 +31,7 @@ import {
   HEADING_NO_SPACE,
   ProviderError,
 } from "./providers/types.ts";
+import type { PlannedBreak } from "./pacing.ts";
 import type { ChunkFormat } from "./markdown.ts";
 import { backoffSeconds, MIN_GAP_SECONDS, plannedAt } from "./schedule.ts";
 
@@ -107,6 +109,7 @@ const PREFLIGHT_ATTENTION: Partial<Record<AccessProblem, Attention>> = {
 
 /** The `drips` columns the engine reads. */
 export interface SessionRow {
+  breaks?: PlannedBreak[];
   work_window?: WorkWindow | null;
   access_expires_at?: string | null;
   id: string;
@@ -148,6 +151,7 @@ export type SessionPatch = Partial<
     | "user_id"
     | "document_id"
     | "chunks"
+    | "breaks"
     | "total_chunks"
     | "schedule"
     | "chunk_formats"
@@ -503,6 +507,20 @@ async function runSessionWindow(initial: SessionRow, lease: string, deps: Engine
     const index = row.chunks_written;
     if (index >= total) return await complete(row, lease, deps);
 
+    const rest = row.breaks?.find((b) => b.kind === "block" && b.after_index === index - 1);
+    if (rest && row.last_written_at) {
+      const plannedStart = Date.parse(row.session_started_at) + row.schedule_shift_seconds * 1000 + rest.start_ms;
+      const by = Math.max(0, Math.ceil((Date.parse(row.last_written_at) - plannedStart) / 1000));
+      if (by) {
+        row.schedule_shift_seconds += by;
+        if (
+          !(await store.update(row.id, lease, {
+            schedule_shift_seconds: row.schedule_shift_seconds,
+            deadline_at: iso(plannedAt(row, total - 1)),
+          }))
+        ) return "lost";
+      }
+    }
     const due = plannedAt(row, index);
     const earliest = row.last_written_at ? Date.parse(row.last_written_at) + MIN_GAP_SECONDS * 1000 : 0;
     let target = Math.max(due, earliest, row.retry_at ? Date.parse(row.retry_at) : 0);
@@ -782,6 +800,9 @@ export type ResumableRow =
   & Pick<
     SessionRow,
     | "chunks"
+    | "breaks"
+    | "access_expires_at"
+    | "work_window"
     | "chunk_deletions"
     | "action_kinds"
     | "source_chunks"
@@ -883,6 +904,26 @@ export function planResume(row: ResumableRow, now: number, doc: DocState | null,
   const nextAt = scheduled && written < row.total_chunks ? Math.max(now, plannedAt(session, written)) : now;
   const finishAt = scheduled ? iso(Math.max(nextAt, plannedAt(session, row.total_chunks - 1))) : null;
 
+  if (row.access_expires_at && scheduled && written < row.total_chunks && row.breaks?.some((b) => b.kind === "block")) {
+    const startsAt = Date.parse(row.session_started_at!) + shift * 1000;
+    try {
+      const remaining = row.schedule.slice(written);
+      const projected = row.work_window ? windowSchedule(remaining, startsAt, row.work_window) : remaining;
+      const rests = row.breaks.filter((b) => b.after_index >= written - 1).map((b) => ({
+        ...b,
+        after_index: b.after_index - written,
+      }));
+      const problem = dayPassScheduleProblem(projected, rests, startsAt, row.access_expires_at);
+      if (problem) return { ok: false, attention: "access_expired", message: problem.message };
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      return {
+        ok: false,
+        attention: "access_expired",
+        message: "This remaining schedule cannot fit your Day Pass access. Shorten it or upgrade to Pro.",
+      };
+    }
+  }
   Object.assign(patch, {
     status: "scheduled",
     paused_at: null,

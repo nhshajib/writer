@@ -19,6 +19,7 @@
  * affects timing; units are never changed or reordered.
  */
 
+import type { WritingBlocks } from "./writingBlocks.ts";
 import { type DraftingSettings, validateDrafting } from "./drafting.ts";
 import { MIN_GAP_SECONDS, seededRandom, SIZE_CLAMP } from "./schedule.ts";
 
@@ -38,6 +39,7 @@ export interface BreakSettings {
 }
 
 export interface PacingSettings {
+  writing_blocks?: WritingBlocks | null;
   /** Omitted by older clients: random groups of 1–5 words. */
   word_grouping?: "random" | "single";
   timing: TimingMode;
@@ -74,6 +76,8 @@ export const DEFAULT_BREAKS: BreakSettings = {
 };
 
 export interface PlannedBreak {
+  kind?: "block";
+  rest_ms?: number;
   /** The break starts right after this unit. */
   after_index: number;
   start_ms: number;

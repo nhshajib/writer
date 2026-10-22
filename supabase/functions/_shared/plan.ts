@@ -1,3 +1,4 @@
+import { addWritingBlocks, dayPassScheduleProblem, validateWritingBlocks } from "./writingBlocks.ts";
 import { compileDrafting, type DraftActionKind, draftingEnabled, validateDrafting } from "./drafting.ts";
 import {
   countWords,
@@ -41,6 +42,7 @@ export function rhythmPacing(rhythm: Exclude<SessionRhythm, "custom">, seconds: 
 }
 
 export interface PlanRequest {
+  accessExpiresAt?: string | null;
   workWindow?: WorkWindow | null;
   startsAt?: number;
   revisionSweep?: boolean;
@@ -59,6 +61,9 @@ export interface PlanRequest {
 }
 
 export interface PlanProblem {
+  expires_at?: string;
+  resume_at?: string;
+  finish_at?: string;
   code:
     | "empty"
     | "too_long"
@@ -87,6 +92,7 @@ export interface UnitOption {
 }
 
 export interface SessionPlan {
+  block_summary?: { blocks: number; writing_seconds: number; rest_seconds: number; waiting_seconds: number };
   ok: boolean;
   problems: PlanProblem[];
   warnings: PlanWarning[];
@@ -192,12 +198,34 @@ export function planSession(req: PlanRequest): SessionPlan {
       : standardPacing(requested.duration_seconds ?? 0)
     : requested;
   // Word grouping is available on every plan, independently of premium pace controls.
-  const pacing = basePacing && req.pacing?.word_grouping !== undefined
+  let pacing = basePacing && req.pacing?.word_grouping !== undefined
     ? { ...basePacing, word_grouping: req.pacing.word_grouping }
     : basePacing;
+  const blocks = req.pacing?.writing_blocks;
+  const blockProblem = validateWritingBlocks(blocks);
+  if (pacing && blocks && !blockProblem) {
+    pacing = {
+      ...pacing,
+      writing_blocks: blocks,
+      ...(pacing.timing === "duration" ? { duration_seconds: blocks.writing_duration_seconds } : {}),
+    };
+  }
   const limits = PLAN_LIMITS[req.plan];
   const words = countWords(text);
   const problems: PlanProblem[] = [];
+  if (blockProblem) problems.push({ code: "invalid_settings", message: blockProblem });
+  if (blocks && req.plan === "free") {
+    problems.push({ code: "pro_feature", message: "Writing blocks are included with Day Pass and Pro." });
+  }
+  if (blocks && asap) {
+    problems.push({
+      code: "invalid_settings",
+      message: "Writing blocks need a scheduled session. Turn off All at once.",
+    });
+  }
+  if (blocks && pacing?.timing === "duration" && blocks.writing_duration_seconds === undefined) {
+    problems.push({ code: "invalid_settings", message: "Choose the writing time before adding long breaks." });
+  }
   if (req.pacing?.word_grouping !== undefined && !["random", "single"].includes(req.pacing.word_grouping)) {
     problems.push({ code: "invalid_settings", message: "Choose single words or random word groups." });
   }
@@ -328,18 +356,29 @@ export function planSession(req: PlanRequest): SessionPlan {
   let totalMs = asap ? 1000 : 0;
   let activeMs = 0;
   let breakMs = 0;
+  let blockSummary: SessionPlan["block_summary"];
   if (problems.length === 0 && units.length > 0) {
     if (asap) {
       schedule = [1000];
     } else {
       try {
-        const result = buildPacing(
+        const baseResult = buildPacing(
           units,
           units.map((u, i) => Math.max(unitSize(u), script.chunk_deletions[i])),
-          pacing!,
+          blocks ? { ...pacing!, breaks: { ...pacing!.breaks, enabled: false } } : pacing!,
           seed,
           script.sentence_pauses_ms,
         );
+        const result = blocks ? addWritingBlocks(baseResult, script.source_unit_ends, blocks) : baseResult;
+        if (blocks) {
+          const rests = result.breaks.filter((b) => b.kind === "block");
+          blockSummary = {
+            blocks: rests.length + 1,
+            writing_seconds: Math.ceil(baseResult.total_ms / 1000),
+            rest_seconds: rests.reduce((sum, b) => sum + (b.rest_ms ?? 0), 0) / 1000,
+            waiting_seconds: 0,
+          };
+        }
         schedule = result.offsets;
         breaks = result.breaks;
         totalMs = result.total_ms;
@@ -356,7 +395,7 @@ export function planSession(req: PlanRequest): SessionPlan {
               "estimate includes that. A larger step keeps closer to your speed.",
           });
         }
-        if (pacing!.breaks.enabled && breaks.length === 0) {
+        if (!blocks && pacing!.breaks.enabled && breaks.length === 0) {
           warnings.push({
             code: "no_breaks_fit",
             message: "No breaks fit: the active time is shorter than the time between breaks, or no unit ends at a " +
@@ -387,14 +426,19 @@ export function planSession(req: PlanRequest): SessionPlan {
       const before = schedule;
       schedule = windowSchedule(schedule, req.startsAt ?? Date.now(), req.workWindow, limits.maxDurationSeconds * 1000);
       breaks = breaks.map((b) => ({ ...b, start_ms: b.start_ms + (schedule[b.after_index] - before[b.after_index]) }));
-      totalMs = schedule.at(-1) ?? totalMs;
+      const projected = schedule.at(-1) ?? totalMs;
+      if (blockSummary) blockSummary.waiting_seconds = Math.ceil((projected - totalMs) / 1000);
+      totalMs = projected;
     } catch (error) {
       if (!(error instanceof RangeError)) throw error;
       problems.push({
         code: "duration_over_plan",
-        message: `Your plan allows sessions up to ${
-          formatSeconds(limits.maxDurationSeconds)
-        }. Choose wider writing hours or a shorter session.`,
+        ...(req.plan === "day_pass" && req.accessExpiresAt ? { expires_at: req.accessExpiresAt } : {}),
+        message: req.plan === "day_pass" && req.accessExpiresAt
+          ? "The writing hours and breaks push this session beyond your Day Pass access. Choose a shorter schedule or upgrade to Pro."
+          : `Your plan allows sessions up to ${
+            formatSeconds(limits.maxDurationSeconds)
+          }. Choose wider writing hours or a shorter session.`,
       });
     }
   }
@@ -407,6 +451,13 @@ export function planSession(req: PlanRequest): SessionPlan {
       }.`,
     });
   }
+
+  if (req.plan === "day_pass" && req.accessExpiresAt && problems.length === 0) {
+    const expiryProblem = dayPassScheduleProblem(schedule, breaks, req.startsAt ?? Date.now(), req.accessExpiresAt);
+    if (expiryProblem) problems.push(expiryProblem);
+  }
+  // Preserve the canonical duration meaning; the separate writing input survives run-again and edits.
+  if (blocks && pacing?.timing === "duration") pacing = { ...pacing, duration_seconds: durationSeconds };
 
   const options: UnitOption[] = INSERTION_UNITS.filter((u) => u !== "chunk").map((u) => {
     const alternative = u === unit ? script : compileDrafting(
@@ -427,6 +478,7 @@ export function planSession(req: PlanRequest): SessionPlan {
 
   const ok = problems.length === 0;
   return {
+    ...(blockSummary ? { block_summary: blockSummary } : {}),
     text_format: format,
     chunk_formats: script.chunk_formats,
     chunk_deletions: script.chunk_deletions,

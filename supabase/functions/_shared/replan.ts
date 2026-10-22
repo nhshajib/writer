@@ -54,12 +54,26 @@ export function replanPaused(
     : parseFormatted(replacement, replacementFormat)?.plain ?? replacement;
   if (!remaining.trim()) throw new Error("There is no remaining text to reschedule.");
   const workWindow = request.workWindow === undefined ? row.work_window ?? null : request.workWindow;
+  const anchor = Math.max(
+    row.schedule[written - 1] ?? 0,
+    Date.parse(row.paused_at!) - Date.parse(row.session_started_at) - row.schedule_shift_seconds * 1000,
+  );
+  const oldBlocks = row.pacing?.writing_blocks, nextBlocks = request.pacing?.writing_blocks;
+  const resting = oldBlocks && nextBlocks && oldBlocks.block_seconds === nextBlocks.block_seconds &&
+      oldBlocks.break_seconds === nextBlocks.break_seconds
+    ? row.breaks?.find((b) => b.kind === "block" && b.after_index === written - 1)
+    : undefined;
+  const actualBoundary = row.last_written_at
+    ? Date.parse(row.last_written_at) - Date.parse(row.session_started_at) - row.schedule_shift_seconds * 1000
+    : 0;
+  const restStart = resting ? Math.max(resting.start_ms, actualBoundary) : 0;
+  const wait = resting ? Math.max(0, restStart + resting.duration_ms - anchor) : 0;
   const plan = planSession({
     ...request,
     text: replacement ?? remaining,
     plan: "pro",
     format: replacement === undefined ? "plain" : replacementFormat,
-    startsAt: Date.now(),
+    startsAt: Date.now() + wait,
     workWindow,
     revisionSweep: request.revisionSweep ?? row.pacing?.drafting?.revision_sweep,
   });
@@ -77,11 +91,7 @@ export function replanPaused(
       spans: clip(parsed.spans),
     }).chunk_formats;
   }
-  const anchor = Math.max(
-    row.schedule[written - 1] ?? 0,
-    Date.parse(row.paused_at!) - Date.parse(row.session_started_at) - row.schedule_shift_seconds * 1000,
-  );
-  const schedule = [...row.schedule.slice(0, written), ...plan.schedule.map((ms) => anchor + ms)];
+  const schedule = [...row.schedule.slice(0, written), ...plan.schedule.map((ms) => anchor + wait + ms)];
   if (schedule[schedule.length - 1] > PLAN_LIMITS.pro.maxDurationSeconds * 1000) {
     throw new Error("Your plan allows sessions up to 1 week, including the part already entered.");
   }
@@ -105,7 +115,8 @@ export function replanPaused(
     schedule,
     breaks: [
       ...(row.breaks ?? []).filter((b) => b.after_index < written - 1),
-      ...plan.breaks.map((b) => ({ ...b, after_index: b.after_index + written, start_ms: b.start_ms + anchor })),
+      ...(resting && wait > 0 ? [{ ...resting, start_ms: restStart }] : []),
+      ...plan.breaks.map((b) => ({ ...b, after_index: b.after_index + written, start_ms: b.start_ms + anchor + wait })),
     ],
     duration_seconds: Math.max(1, Math.ceil(schedule[schedule.length - 1] / 1000)),
     deadline_at: new Date(

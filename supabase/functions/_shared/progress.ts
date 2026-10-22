@@ -48,8 +48,8 @@ export interface Progress {
   state: SessionState;
   activity: Activity;
   /** The break in progress, or the next one, with times shifted like the schedule. */
-  current_break: { after_part: number; start: string; end: string } | null;
-  next_break: { after_part: number; start: string; end: string } | null;
+  current_break: { after_part: number; start: string; end: string; kind?: "block" } | null;
+  next_break: { after_part: number; start: string; end: string; kind?: "block" } | null;
   /** 0-100, by characters confirmed in the document. */
   percent: number;
   words_written: number;
@@ -139,13 +139,23 @@ export function computeProgress(drip: ProgressInput, now: Date): Progress {
   const start = drip.session_started_at ? Date.parse(drip.session_started_at) : 0;
   const breakTimes = (drip.breaks ?? []).map((b) => ({
     after_part: b.after_index + 1,
-    startMs: start + shift + b.start_ms,
-    endMs: start + shift + b.start_ms + b.duration_ms,
+    ...(b.kind ? { kind: b.kind } : {}),
+    startMs: b.kind === "block" && b.after_index === written - 1 && drip.last_written_at
+      ? Date.parse(drip.last_written_at)
+      : start + shift + b.start_ms,
+    endMs: b.kind === "block"
+      ? Math.max(
+        start + shift + b.start_ms + b.duration_ms,
+        start + shift + (drip.schedule[b.after_index + 1] ?? b.start_ms + b.duration_ms),
+        b.after_index === written - 1 && drip.last_written_at ? Date.parse(drip.last_written_at) + b.duration_ms : 0,
+      )
+      : start + shift + b.start_ms + b.duration_ms,
   }));
-  const fmt = (b: { after_part: number; startMs: number; endMs: number } | undefined) =>
+  const fmt = (b: { after_part: number; startMs: number; endMs: number; kind?: "block" } | undefined) =>
     b
       ? {
         after_part: sourceAt(b.after_part),
+        ...(b.kind ? { kind: b.kind } : {}),
         start: new Date(b.startMs).toISOString(),
         end: new Date(b.endMs).toISOString(),
       }
