@@ -13,6 +13,9 @@ const ALIGN: { value: BreakAlignment; label: string }[] = [
 
 /** The pace controls, remembered in this browser between sessions. */
 export interface Pace {
+  blocksOn: boolean;
+  blockMinutes: number;
+  blockBreakMinutes: number;
   wordGrouping: "random" | "single";
   wpm: number;
   variation: number;
@@ -29,6 +32,7 @@ export interface Pace {
 }
 
 export const DEFAULT_PACE: Pace = {
+  blocksOn: false, blockMinutes: 60, blockBreakMinutes: 180,
   wordGrouping: "random",
   wpm: 40,
   variation: 25,
@@ -53,6 +57,7 @@ export function sanitizePace(raw: unknown): Pace {
     return typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : DEFAULT_PACE[key] as number;
   };
   const next: Pace = {
+    blocksOn: p.blocksOn === true, blockMinutes: number("blockMinutes", 5, 720), blockBreakMinutes: number("blockBreakMinutes", 15, 480),
     wordGrouping: p.wordGrouping === "single" ? "single" : "random",
     wpm: number("wpm", 20, 150), variation: number("variation", 0, 50),
     breaksOn: typeof p.breaksOn === "boolean" ? p.breaksOn : DEFAULT_PACE.breaksOn,
@@ -68,6 +73,7 @@ export function sanitizePace(raw: unknown): Pace {
 
 export function paceFromSettings(pacing: PacingSettings): Partial<Pace> {
   return {
+    blocksOn: Boolean(pacing.writing_blocks), blockMinutes: (pacing.writing_blocks?.block_seconds ?? 3600) / 60, blockBreakMinutes: (pacing.writing_blocks?.break_seconds ?? 10800) / 60,
     wordGrouping: pacing.word_grouping === "single" ? "single" : "random",
     ...(pacing.wpm ? { wpm: pacing.wpm } : {}), variation: pacing.variation_pct,
     breaksOn: pacing.breaks.enabled, everyMinutes: pacing.breaks.every_seconds / 60,
@@ -111,6 +117,7 @@ export function usePace(): [Pace, (change: Partial<Pace>) => void] {
 /** The pacing a session is planned with. */
 export function pacingFor(timing: TimingMode, minutes: number, pace: Pace): PacingSettings {
   return {
+    ...(pace.blocksOn ? { writing_blocks: { block_seconds: Math.round(pace.blockMinutes * 60), break_seconds: Math.round(pace.blockBreakMinutes * 60), ...(timing === "duration" ? { writing_duration_seconds: Math.round(minutes * 60) } : {}) } } : {}),
     word_grouping: pace.wordGrouping,
     timing,
     ...(timing === "duration" ? { duration_seconds: Math.round(minutes * 60) } : { wpm: pace.wpm }),
@@ -149,7 +156,7 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
           Pace &amp; corrections
           <span className="hint"> · remembered in this browser</span>
         </summary>
-        <button type="button" className="btn btn-secondary btn-sm pace-reset" onClick={() => onChange({ ...DEFAULT_PACE, wordGrouping: pace.wordGrouping, typoRate: 1, falseStartRate: 1, sentencePauseSeconds: 2, sentencePauseVariation: 25 })}>Use recommended settings</button>
+        <button type="button" className="btn btn-secondary btn-sm pace-reset" onClick={() => onChange({ ...DEFAULT_PACE, wordGrouping: pace.wordGrouping, blocksOn: pace.blocksOn, blockMinutes: pace.blockMinutes, blockBreakMinutes: pace.blockBreakMinutes, typoRate: 1, falseStartRate: 1, sentencePauseSeconds: 2, sentencePauseVariation: 25 })}>Use recommended settings</button>
         <p className="hint">Choose how quickly text arrives, how often a temporary mistake is corrected, and when to pause. These automated edits create a varied drafting rhythm; completed text still matches the text you approve. Google Docs decides which edits appear together in version history.</p>
         <fieldset className="settings-group">
           <legend>1. Pace and variation</legend>
@@ -191,7 +198,7 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
         </fieldset>
       </details>
 
-      <details className="advanced-timing" open={!collapsed}>
+      {!pace.blocksOn && <details className="advanced-timing" open={!collapsed}>
         <summary>
           Longer breaks
           <span className="hint"> · {pace.breaksOn ? `breaks every ${pace.everyMinutes} min` : "no longer breaks"}</span>
@@ -225,7 +232,7 @@ export function PaceControls({ timing, pace, onChange, collapsed = false }: {
             </>
           )}
         </fieldset>
-      </details>
+      </details>}
     </>
   );
 }

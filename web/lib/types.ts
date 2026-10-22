@@ -12,6 +12,7 @@ export type SessionState = "preparing" | "running" | "paused" | "recovering" | "
 export type Activity = "entering" | "waiting" | "on_break" | "paused" | "recovering" | "done";
 
 export interface BreakWindow {
+  kind?: "block";
   after_part: number;
   start: string;
   end: string;
@@ -108,6 +109,7 @@ export interface DraftingSettings {
 }
 
 export interface PacingSettings {
+  writing_blocks?: import("../../supabase/functions/_shared/writingBlocks").WritingBlocks | null;
   /** Omitted by older clients: random groups of 1–5 words. */
   word_grouping?: "random" | "single";
   timing: TimingMode;
@@ -126,6 +128,8 @@ export interface PacingSettings {
 }
 
 export interface PlannedBreak {
+  kind?: "block";
+  rest_ms?: number;
   after_index: number;
   start_ms: number;
   duration_ms: number;
@@ -143,12 +147,16 @@ export interface AccessReport {
 }
 
 export interface PlanProblem {
+  expires_at?: string;
+  resume_at?: string;
+  finish_at?: string;
   code: string;
   message: string;
 }
 
 /** POST /drips/plan: the checked plan for a text, step size and duration. */
 export interface SessionPlan {
+  block_summary?: { blocks: number; writing_seconds: number; rest_seconds: number; waiting_seconds: number };
   drafting_stats?: { typos: number; false_starts: number; sentence_pauses: number; extra_edits: number };
   ok: boolean;
   problems: PlanProblem[];

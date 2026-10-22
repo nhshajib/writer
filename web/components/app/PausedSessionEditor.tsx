@@ -1,4 +1,7 @@
 "use client";
+import { WritingBlockControls, blocksFromPace, blockPace } from "./WritingBlockControls";
+import { when } from "@/lib/time";
+import { useEffect } from "react";
 import { WordGroupingControls } from "./WordGroupingControls";
 import { RhythmPreview } from "./RhythmPreview";
 
@@ -20,7 +23,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
   const [text, setText] = useState(originalText);
   const [format, setFormat] = useState<TextFormat>("plain");
   const [timing, setTiming] = useState<"duration" | "speed">(drip.pacing?.timing ?? "duration");
-  const [minutes, setMinutes] = useState(Math.max(1, Math.ceil(drip.duration_seconds * (1 - drip.progress.percent / 100) / 60)));
+  const [minutes, setMinutes] = useState(Math.max(1, Math.ceil((drip.pacing?.writing_blocks?.writing_duration_seconds ?? drip.duration_seconds) * (1 - drip.progress.percent / 100) / 60)));
   const [unit, setUnit] = useState<InsertionUnit>(drip.insertion_unit);
   const [pace, setPace] = useState<Pace>({ ...DEFAULT_PACE, ...(drip.pacing ? paceFromSettings(drip.pacing) : {}) });
   const [approved, setApproved] = useState(false);
@@ -28,10 +31,32 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
   const [revisionSweep, setRevisionSweep] = useState(drip.pacing?.drafting?.revision_sweep ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [schedulePreview, setSchedulePreview] = useState<{ finish_at: string; remaining_breaks: number } | null>(null);
+  const [previewKey, setPreviewKey] = useState("");
+  const settingsKey = JSON.stringify([text, format, timing, minutes, unit, pace, workWindow, revisionSweep]);
+  const needsPreview = pace.blocksOn || Boolean(drip.pacing?.writing_blocks);
+  const checked = !needsPreview || previewKey === settingsKey;
+  useEffect(() => {
+    if (!needsPreview) return;
+    let stale = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await api<{ preview: { finish_at: string; remaining_breaks: number } }>(`drips/${drip.id}/settings`, { method: "POST", body: {
+          preview: true, updated_at: version, insertion_unit: unit, mode: "scheduled",
+          pacing: pacingFor(timing, minutes, pace), work_window: workWindow, revision_sweep: revisionSweep,
+          ...(text !== originalText ? { remaining_text: text, remaining_text_format: format, remaining_sha256: await sha256Hex(text) } : {}),
+        } });
+        if (!stale) { setSchedulePreview(response.preview); setPreviewKey(settingsKey); setError(null); }
+      } catch (e) { if (!stale) setError(e instanceof Error ? e.message : "Couldn't preview the remaining schedule."); }
+    }, 400);
+    return () => { stale = true; clearTimeout(timeout); };
+  // settingsKey includes each controlled setting and preserves the original approval/version guard.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsKey, needsPreview, drip.id, version]);
   function change(update: () => void) { update(); setApproved(false); }
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!approved || busy) return;
+    if (!approved || busy || !checked) return;
     setBusy(true);
     setError(null);
     try {
@@ -73,10 +98,12 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
           </select>
         </div>
         {timing === "duration" && <div className="field">
-          <label className="label" htmlFor="edit-minutes">Minutes after resuming</label>
+          <label className="label" htmlFor="edit-minutes">{pace.blocksOn ? "Writing minutes after resuming" : "Minutes after resuming"}</label>
           <input id="edit-minutes" type="number" min={1} max={10080} required value={minutes} onChange={(e) => change(() => setMinutes(Number(e.target.value)))} />
         </div>}
         {unit === "word" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => change(() => setPace(p => ({ ...p, wordGrouping })))} />}
+        <WritingBlockControls value={blocksFromPace(pace)} plan="pro" onChange={value => change(() => setPace(p => ({ ...p, ...blockPace(value) })))} />
+        {needsPreview && <p className="hint" aria-live="polite">{checked && schedulePreview ? `If resumed now: finish ${when(schedulePreview.finish_at, true)} · ${schedulePreview.remaining_breaks} remaining block rests. Saving keeps this session paused.` : "Checking the remaining block schedule…"}</p>}
         <RhythmPreview pace={pace} unit={unit} allAtOnce={false} revisionSweep={revisionSweep} />
         <PaceControls timing={timing} pace={pace} onChange={(update) => change(() => setPace((p) => { const next = { ...p, ...update }; if (next.maxBreakSeconds < next.minBreakSeconds) { if ("minBreakSeconds" in update) next.maxBreakSeconds = next.minBreakSeconds; else next.minBreakSeconds = next.maxBreakSeconds; } return sanitizePace(next); }))} />
         <WorkWindowControls value={workWindow} onChange={v => change(() => setWorkWindow(v))} enabled />
@@ -88,7 +115,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
       </fieldset>
       {error && <p className="alert alert-error" role="alert">{error}</p>}
       <div className="row">
-        <button type="submit" className="btn btn-primary" disabled={busy || !approved || !text.trim()}>{busy ? "Saving…" : "Save changes and stay paused"}</button>
+        <button type="submit" className="btn btn-primary" disabled={busy || !approved || !text.trim() || !checked}>{busy ? "Saving…" : "Save changes and stay paused"}</button>
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
       </div>
     </form>

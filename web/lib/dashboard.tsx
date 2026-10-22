@@ -34,6 +34,7 @@ export interface Profile {
 
 /** Starting values for New session, saved on the account. Every session is still checked against the plan. */
 export interface SessionDefaults {
+  writing_blocks?: import("../../supabase/functions/_shared/writingBlocks").WritingBlocks;
   rhythm?: "natural" | "steady" | "drafting";
   minutes?: number;
   word_grouping?: "random" | "single";

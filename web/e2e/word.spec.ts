@@ -266,3 +266,28 @@ test("Free Word offers strict single-word entry without premium pacing controls"
   await expect(page.getByRole("region", { name: "Your rhythm at a glance" })).toContainText("One word");
   await expect(page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true })).toHaveCount(0);
 });
+
+test("Day Pass Word plans customizable block rests", async ({page,request})=>{
+  await request.post("/__test/profile",{data:{plan:"free",day_pass_expires_at:new Date(Date.now()+86400000).toISOString()}});
+  await useFakeWord(page,{host:"Word",url:DOC_URL});
+  await page.goto("/word/");
+  await page.getByLabel("Text to enter",{exact:true}).fill("An approved sentence. ".repeat(30));
+  await page.getByLabel("Take a long break between writing blocks",{exact:true}).check();
+  await page.getByLabel("Writing time",{exact:true}).selectOption("120");
+  const response=page.waitForResponse(r=>r.url().endsWith("/drips/plan")&&r.request().postDataJSON()?.pacing?.writing_blocks?.break_seconds===28800);
+  await page.getByLabel("Break between blocks",{exact:true}).selectOption("480");
+  const {plan}=await(await response).json();
+  expect(plan.ok).toBe(true);
+  expect(plan.duration_seconds).toBe(36000);
+  expect(plan.block_summary.blocks).toBe(2);
+});
+
+test("Word restores paid writing-block defaults and shows pass expiry", async ({page,request})=>{
+  await request.post("/__test/profile",{data:{plan:"free",day_pass_expires_at:new Date(Date.now()+86400000).toISOString(),session_defaults:{minutes:120,writing_blocks:{block_seconds:7200,break_seconds:28800}}}});
+  await useFakeWord(page,{host:"Word",url:DOC_URL});
+  await page.goto("/word/");
+  await expect(page.getByLabel("Take a long break between writing blocks",{exact:true})).toBeChecked();
+  await expect(page.getByLabel("Write for about",{exact:true})).toHaveValue("120");
+  await expect(page.getByLabel("Break between blocks",{exact:true})).toHaveValue("480");
+  await expect(page.getByText(/Every restart and the finish must be before then/)).toBeVisible();
+});

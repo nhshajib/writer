@@ -11,6 +11,7 @@ import { extname, join, normalize } from "node:path";
 import { effectivePlan } from "../../supabase/functions/_shared/limits.ts";
 import { readWorkWindow } from "../../supabase/functions/_shared/workWindow.ts";
 import { checkAge } from "../lib/age.ts";
+import { validateWritingBlocks } from "../../supabase/functions/_shared/writingBlocks.ts";
 import { executionText } from "../../supabase/functions/_shared/drafting.ts";
 import { planSession } from "../../supabase/functions/_shared/plan.ts";
 import { computeProgress } from "../../supabase/functions/_shared/progress.ts";
@@ -113,6 +114,7 @@ function planFrom(body: Record<string, unknown>, seed: number) {
     plan: effectivePlan({ plan: String(profileChanges.plan ?? "pro"), day_pass_expires_at: profileChanges.day_pass_expires_at as string | null }),
     workWindow: readWorkWindow(body.work_window),
     revisionSweep: body.revision_sweep === true,
+    accessExpiresAt: profileChanges.day_pass_expires_at as string | null,
     startsAt: body.start_at ? Date.parse(String(body.start_at)) : Date.now(),
     format: body.text_format === "rich" ? "rich" : body.text_format === "markdown" ? "markdown" : "plain",
   });
@@ -201,10 +203,10 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   // Session defaults, with the same rules as set_session_defaults.
   if (path === "/rest/v1/rpc/set_session_defaults") {
     const d = body.defaults as Record<string, unknown>;
-    const ok = d && typeof d === "object" && Object.keys(d).every((k) => ["rhythm", "minutes", "word_grouping", "unit"].includes(k))
+    const ok = d && typeof d === "object" && Object.keys(d).every((k) => ["rhythm", "minutes", "word_grouping", "unit", "writing_blocks"].includes(k))
       && (d.rhythm === undefined || ["natural", "steady", "drafting"].includes(String(d.rhythm)))
       && (d.minutes === undefined || (Number.isInteger(d.minutes) && Number(d.minutes) >= 1 && Number(d.minutes) <= 10080));
-    if (!ok) return send(res, 400, { message: "Those defaults aren't supported." });
+    if (!ok || d.writing_blocks !== undefined && validateWritingBlocks(d.writing_blocks)) return send(res, 400, { message: "Those defaults aren't supported." });
     profileChanges.session_defaults = d;
     return send(res, 200, d);
   }
@@ -392,16 +394,17 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   switch (parts[1]) {
     case "playback": {
       if (profileChanges.plan !== undefined && profileChanges.plan !== "pro") return send(res, 403, { error: "Session playback is part of Pro." });
-      return send(res, 200, { playback: { chunks: row.chunks.slice(0, row.chunks_written), deletions: (row.chunk_deletions ?? row.chunks.map(() => 0)).slice(0, row.chunks_written), schedule: row.schedule.slice(0, row.chunks_written), starts_at: row.session_started_at, recorded_actions: row.chunks_written, timing: "planned" } });
+      return send(res, 200, { playback: { chunks: row.chunks.slice(0, row.chunks_written), deletions: (row.chunk_deletions ?? row.chunks.map(() => 0)).slice(0, row.chunks_written), schedule: row.schedule.slice(0, row.chunks_written), starts_at: row.session_started_at, recorded_actions: row.chunks_written, breaks: row.breaks?.filter(b => b.after_index < row.chunks_written), timing: "planned" } });
     }
     case "settings": {
       if ((profileChanges.plan !== undefined && profileChanges.plan !== "pro")) return send(res, 403, { error: "Editing paused sessions is a Pro feature." });
       if (row.status !== "paused") return send(res, 409, { error: "Pause the session before editing." });
       if (body.updated_at !== row.updated_at) return send(res, 409, { error: "The session changed. Reload it." });
-      if (body.confirmed !== true) return send(res, 400, { error: "Approve the changes." });
+      if (body.preview !== true && body.confirmed !== true) return send(res, 400, { error: "Approve the changes." });
       try {
         const editable = { ...row, text: row.text ?? (row.source_chunks ?? row.chunks).join("") } as unknown as EditableSession;
         const patch = replanPaused(editable, { unit: body.insertion_unit as never, seed: 42, pacing: body.pacing as never, workWindow: readWorkWindow(body.work_window), revisionSweep: body.revision_sweep === true }, body.remaining_text as string | undefined, body.remaining_text_format as never);
+        if (body.preview === true) return send(res, 200, { preview: { finish_at: new Date(Date.parse(patch.deadline_at) + Math.max(0, now - Date.parse(row.paused_at!))).toISOString(), remaining_breaks: patch.breaks.filter(b => b.kind === "block" && b.after_index >= row.chunks_written - 1).length } });
         Object.assign(row, patch, { updated_at: new Date(now).toISOString(), word_count: patch.source_chunks.join("").match(/\S+/g)?.length ?? 0 });
         log(row.id, "settings_updated");
         return send(res, 200, { drip: view(row, false) });

@@ -336,6 +336,18 @@ so Starts sent at the same moment can't exceed it.
 `pacing` is `{ timing: "duration", duration_seconds }` or `{ timing: "speed", wpm }`, plus
 `variation_pct` (0–50) and `breaks: { enabled, every_seconds, every_variation_pct, min_seconds, max_seconds, align: "any" | "sentence" | "paragraph" }`.
 
+Day Pass and Pro can add optional `pacing.writing_blocks: { block_seconds, break_seconds,
+writing_duration_seconds }`. Blocks accept 5 minutes–12 hours; rests accept 15 minutes–8 hours.
+In duration mode, `writing_duration_seconds` is the writing-time input (sentence pauses included),
+and long rests are added. Canonical `plan.duration_seconds` and saved session duration still mean
+full elapsed time. In speed mode omit the writing duration; existing WPM estimation applies.
+A block ends at a complete source-unit boundary, including its corrections. No rest follows the
+last block. The existing `breaks` preferences remain stored but are not separately scheduled while
+blocks are on. Preview, creation and resume check Day Pass access; provider delays may extend
+execution. Scheduled rests release the worker lease and resume through the normal due-claim path.
+`POST /drips/:id/settings` also supports read-only `{ preview: true, updated_at, ...settings }` for
+Pro paused edits; it returns `{ preview: { finish_at, remaining_breaks } }` without saving or resuming.
+
 Errors are `{ "error": "message" }` with 400/401/404/409/422/429/503.
 
 Example:
@@ -434,6 +446,7 @@ version history, which Google groups on its own.
 | Active drips | 1 | 1 | 3 |
 | Existing Google Docs | ongoing | ongoing | ongoing |
 | Writing hours / IANA time zone | no | yes | yes |
+| Custom writing blocks / 15-minute–8-hour rests | no | yes, within remaining pass | yes |
 | Typing speed and custom drafting | included rhythms | included rhythms | yes |
 | Start later / saved presets | no | no | yes |
 | Final revision pass / action playback | no | no | yes |

@@ -1,4 +1,6 @@
 "use client";
+import { WritingBlockControls } from "./WritingBlockControls";
+import type { WritingBlocks } from "../../../supabase/functions/_shared/writingBlocks";
 
 import { type FormEvent, useState } from "react";
 import { PlanLock } from "@/components/app/PlanLock";
@@ -26,6 +28,7 @@ export function SessionDefaultsForm() {
   const [minutes, setMinutes] = useState(String(saved.minutes ?? ""));
   const [grouping, setGrouping] = useState(saved.word_grouping ?? "random");
   const [unit, setUnit] = useState<InsertionUnit>(saved.unit ?? "word");
+  const [blocks, setBlocks] = useState<WritingBlocks | null>(canUse(profile.plan, "writingBlocks") ? saved.writing_blocks ?? null : null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const presets = profile.pace_presets ?? [];
@@ -37,6 +40,7 @@ export function SessionDefaultsForm() {
       rhythm,
       word_grouping: grouping,
       unit,
+      ...(blocks ? { writing_blocks: blocks } : {}),
       ...(minutes ? { minutes: Number(minutes) } : {}),
     };
     setBusy(true);
@@ -67,7 +71,7 @@ export function SessionDefaultsForm() {
         </select>
       </div>
       <div className="field">
-        <label className="label" htmlFor="default-minutes">Finish within</label>
+        <label className="label" htmlFor="default-minutes">{blocks ? "Writing time" : "Finish within"}</label>
         <select id="default-minutes" value={minutes} onChange={(e) => setMinutes(e.target.value)} aria-describedby="default-minutes-hint">
           <option value="">Suggest one for my text</option>
           {DURATIONS.map((d) => (
@@ -76,7 +80,7 @@ export function SessionDefaultsForm() {
             </option>
           ))}
         </select>
-        <span id="default-minutes-hint" className="hint">A time longer than your plan allows is shortened when you start.</span>
+        <span id="default-minutes-hint" className="hint">Starting values only. The full schedule, including long breaks, must fit your plan when you start.</span>
       </div>
       <div className="field">
         <label className="label" htmlFor="default-unit">Steps</label>
@@ -89,6 +93,7 @@ export function SessionDefaultsForm() {
         <label className="check"><input type="radio" name="default-grouping" checked={grouping === "random"} onChange={() => setGrouping("random")} />Random groups of 1–5 words</label>
         <label className="check"><input type="radio" name="default-grouping" checked={grouping === "single"} onChange={() => setGrouping("single")} />One word at a time</label>
       </fieldset>
+      <WritingBlockControls value={blocks} onChange={setBlocks} plan={profile.plan} expiresAt={profile.day_pass_expires_at} />
       {error && <p className="alert alert-error" role="alert">{error}</p>}
       <div><button type="submit" className="btn btn-secondary" disabled={busy}>{busy ? "Saving…" : "Save defaults"}</button></div>
 

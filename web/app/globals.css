@@ -2546,3 +2546,11 @@ body:has(.lp-hero) { background: var(--bg); }
 .auth-main .signup .btn:active:not(:disabled) { transform: scale(0.98); }
 @media (prefers-reduced-motion: reduce) { .signup-account { transition: none; } .auth-main .signup .btn:active:not(:disabled) { transform: none; } }
 .signup-refusal a { text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
+
+.writing-block-controls { border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin: 1rem 0; min-width: 0; }
+.writing-block-controls > legend { padding-inline: 0.35rem; }
+.block-duration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 0.85rem; }
+.block-custom { display: block; margin-top: 0.5rem; }
+.block-summary { padding: 0.9rem 1rem; border-radius: 12px; background: var(--accent-soft); margin: 1rem 0; line-height: 1.6; }
+.block-summary p { margin: 0.4rem 0 0; }
+@media (max-width: 480px) { .block-duration-grid { grid-template-columns: 1fr; gap: 0.5rem; } }

@@ -13,7 +13,7 @@ export function RhythmPreview({ pace, unit, allAtOnce, revisionSweep }: {
       <dl>
         <div><dt>Text per step</dt><dd>{allAtOnce ? "All your text" : unit === "word" ? pace.wordGrouping === "single" ? "One word" : "1–5 words, varied" : UNIT_LABEL[unit].title}</dd></div>
         <div><dt>Timing</dt><dd>{allAtOnce ? "No pacing" : pace.variation ? `Varies by up to ${pace.variation}%` : "Evenly spaced"}</dd></div>
-        <div><dt>Pauses</dt><dd>{allAtOnce ? "None" : `${pace.sentencePauseSeconds ? `About ${pace.sentencePauseSeconds}s after sentences` : "No extra sentence pauses"}${pace.breaksOn ? ", plus longer breaks when they fit" : ""}`}</dd></div>
+        <div><dt>Pauses</dt><dd>{allAtOnce ? "None" : `${pace.sentencePauseSeconds ? `About ${pace.sentencePauseSeconds}s after sentences` : "No extra sentence pauses"}${pace.blocksOn ? ", plus scheduled block rests" : pace.breaksOn ? ", plus longer breaks when they fit" : ""}`}</dd></div>
         <div><dt>Temporary edits</dt><dd>{allAtOnce ? "Off" : corrections ? `Typos ${pace.typoRate}%, false starts ${pace.falseStartRate}%${revisionSweep ? ", plus final review" : ""}` : revisionSweep ? "Final review, then exact restoration" : "Off — clean entry"}</dd></div>
       </dl>
       <p className="hint">Your approved wording stays the same at completion. Google controls how the automated edits are grouped in version history.</p>

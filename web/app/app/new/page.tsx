@@ -1,4 +1,7 @@
 "use client";
+import { WritingBlockControls, blocksFromPace, blockPace } from "@/components/app/WritingBlockControls";
+import { WritingBlockSummary } from "@/components/app/WritingBlockSummary";
+import { planProblemText } from "@/lib/planMessages";
 import { WordGroupingControls } from "@/components/app/WordGroupingControls";
 import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { WorkWindowControls } from "@/components/app/WorkWindowControls";
@@ -151,6 +154,12 @@ export default function NewSessionPage() {
   }, [plan, defaults?.rhythm]);
   // The saved word style goes into the pace, which loads from this browser first.
   const groupingApplied = useRef(false);
+  const blocksApplied = useRef(false);
+  useEffect(() => {
+    if (blocksApplied.current || !defaults?.writing_blocks) return;
+    blocksApplied.current = true;
+    if (plan !== "free") updatePace(blockPace(defaults.writing_blocks));
+  }, [defaults, plan, updatePace]);
   useEffect(() => {
     if (groupingApplied.current || !defaults?.word_grouping) return;
     groupingApplied.current = true;
@@ -162,6 +171,7 @@ export default function NewSessionPage() {
       ...(rhythm !== "custom" ? { rhythm } : {}),
       ...(timing === "duration" && minutesValid ? { minutes: Math.round(minutes) } : {}),
       word_grouping: pace.wordGrouping,
+      ...(effectivePace.blocksOn ? { writing_blocks: blocksFromPace(effectivePace)! } : {}),
       unit,
     };
     const problem = await saveSessionDefaults(next);
@@ -257,7 +267,7 @@ export default function NewSessionPage() {
         else if (pacing) {
           setTiming(pacing.timing);
           if (pacing.timing === "duration" && pacing.duration_seconds) {
-            const mins = Math.round(pacing.duration_seconds / 60);
+            const mins = Math.round((pacing.writing_blocks?.writing_duration_seconds ?? pacing.duration_seconds) / 60);
             if (DURATIONS.some((d) => d.minutes === mins)) setPreset(String(mins));
             else {
               setPreset("custom");
@@ -333,7 +343,7 @@ export default function NewSessionPage() {
   // Free and Day Pass sessions use the ready-made rhythms (the server does the same); custom timing is Pro.
   const rhythmPace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE)
     : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
-  const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping };
+  const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping, blocksOn: plan !== "free" && pace.blocksOn, blockMinutes: pace.blockMinutes, blockBreakMinutes: pace.blockBreakMinutes };
   // All at once has no pacing, so it's sent as a custom rhythm whatever card is chosen.
   const sentRhythm: SessionRhythm = timing === "asap" ? "custom" : rhythm;
   const sessionTitle = title.trim() || plainText.trim().split(/\n|(?<=[.!?])\s/)[0]?.slice(0, 80) || "Untitled session";
@@ -363,6 +373,8 @@ export default function NewSessionPage() {
   const inputKey = JSON.stringify([text, format, unit, timing, pacingKey, sentRhythm, seed ?? null, windowKey, revisionSweep, startLater ? startAt : null]);
   useEffect(() => setApproved(false), [windowKey, revisionSweep]);
   const current = preview !== null && previewKey === inputKey;
+  const visiblePlanError = current && !preview.ok ? preview.problems.map(planProblemText).join(" ") : previewError;
+  useEffect(() => setStepError(null), [inputKey]);
   const ready = text.trim() !== "" && (timing !== "duration" || minutesValid);
 
   useEffect(() => {
@@ -549,7 +561,7 @@ export default function NewSessionPage() {
     const startTime = startLater ? new Date(startAt) : null;
     if (startTime && !(startTime.getTime() > Date.now())) return { message: "Choose a start time in the future.", field: "start-at", open: "more" };
     if (startTime && startTime.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) return { message: "Sessions can be scheduled up to 7 days ahead.", field: "start-at", open: "more" };
-    if (current && !preview.ok) return { message: preview.problems.map((p) => p.message).join(" "), field: "duration" };
+    if (current && !preview.ok) return { message: preview.problems.map(planProblemText).join(" "), field: "duration" };
     return null;
   }
 
@@ -842,7 +854,7 @@ export default function NewSessionPage() {
           {timing === "duration" && (
             <div className="row duration-row" style={{ marginTop: "1rem", alignItems: "flex-end", gap: "1rem" }}>
               <div className="field" style={{ maxWidth: 320, marginBottom: 0 }}>
-                <label className="label" htmlFor="duration">Finish within</label>
+                <label className="label" htmlFor="duration">{effectivePace.blocksOn ? "Writing time" : "Finish within"}</label>
                 <select id="duration" value={preset} onChange={(e) => { setPreset(e.target.value); setAutoDuration(false); }} aria-describedby="duration-hint">
                   {DURATIONS.map((d) => (
                     <option key={d.minutes} value={d.minutes} disabled={d.minutes > limits.minutes}>
@@ -860,14 +872,16 @@ export default function NewSessionPage() {
                 </div>
               )}
               <p id="duration-hint" className="hint" style={{ flexBasis: "100%", margin: 0 }}>
-                {autoDuration ? "Suggested for your text. " : ""}Breaks included. You can close this page after starting.
+                {autoDuration ? "Suggested for your text. " : ""}{effectivePace.blocksOn ? "Sentence pauses included. Long breaks are added to this writing time." : "Breaks included."} You can close this page after starting.
                 {plan === "day_pass" && dashboard.profile.day_pass_expires_at && ` Your Day Pass ends ${when(dashboard.profile.day_pass_expires_at)}, so the session must finish before then.`}
               </p>
             </div>
           )}
           {timing === "speed" && <p className="hint" style={{ marginTop: "1rem" }}>Typing at {effectivePace.wpm} WPM, set in More options. The finish time is an estimate.</p>}
           {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
-          {current && !preview.ok && <p className="alert alert-error" role="alert">{preview.problems.map((p) => p.message).join(" ")}</p>}
+          {timing !== "asap" && <WritingBlockControls value={blocksFromPace(effectivePace)} plan={plan} expiresAt={dashboard.profile.day_pass_expires_at} onChange={value => { updatePace(blockPace(value)); setApproved(false); }} />}
+          <WritingBlockSummary plan={current ? preview : null} />
+          {current && !preview.ok && <p className="alert alert-error" role="alert">{preview.problems.map(planProblemText).join(" ")}</p>}
           {previewError && <p className="alert alert-error" role="alert">{previewError}</p>}
           {quickSummary && <p className="timing-line"><Icon.clock /><span><span className="sr-only">Planned: </span>{quickSummary}</span></p>}
           <details className="more timing-details"><summary>See the full timing</summary>
@@ -951,7 +965,7 @@ export default function NewSessionPage() {
           <div className="choices" role="radiogroup" aria-label="Timing mode">
             <label className="choice">
               <input type="radio" name="timing" value="duration" checked={timing === "duration"} onChange={() => setTiming("duration")} />
-              <span><strong>Finish time</strong><small>Fit everything, breaks included, into the time chosen under Rhythm.</small></span>
+              <span><strong>Finish time</strong><small>{effectivePace.blocksOn ? "Choose writing time under Rhythm; long breaks are added." : "Fit everything, breaks included, into the time chosen under Rhythm."}</small></span>
             </label>
             <label className="choice" {...lockedWrap(plan, "typingSpeed")}>
               <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => { updatePace(effectivePace); rememberRhythm("custom"); setTiming("speed"); }} {...lockedProps(plan, "typingSpeed")} />
@@ -1026,6 +1040,7 @@ export default function NewSessionPage() {
           <dl className="summary-list review-list" aria-label="Before you start">
             <ReviewRow label="Document" value={docLabel} onEdit={() => edit(target === "new" ? "title" : "doc", "destination")} />
             {place === "heading" && <ReviewRow label="Insertion location" value={placeLabel} onEdit={() => edit("heading", "more")} />}
+            {effectivePace.blocksOn && <ReviewRow label="Writing blocks" value={`About ${span(effectivePace.blockMinutes * 60000)} writing, then ${span(effectivePace.blockBreakMinutes * 60000)} rest. Automatic continuation.`} onEdit={() => edit("rhythm-title")} />}
             <ReviewRow label="Word entry" value={entryLabel} onEdit={() => edit(unit === "word" && timing !== "asap" ? "rhythm-title" : "entry-settings", unit === "word" && timing !== "asap" ? undefined : "more")} />
             <ReviewRow label="Rhythm" value={rhythmLabel} onEdit={() => edit("rhythm-title")} />
             <ReviewRow label="Timing" value={timingLabel} onEdit={() => edit(timing === "duration" ? "duration" : "timing-settings", timing === "duration" ? undefined : "more")} />
@@ -1044,7 +1059,7 @@ export default function NewSessionPage() {
           {error && (
             <div className="alert alert-error" role="alert" tabIndex={-1} ref={errorRef} style={{ marginTop: "1rem", display: "block" }}>
               <p>{error}</p>
-              {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{p.message}</li>)}</ul>}
+              {problems.length > 0 && <ul style={{ margin: "0.4rem 0 0 1.1rem" }}>{problems.map((p) => <li key={p.code}>{planProblemText(p)}</li>)}</ul>}
             </div>
           )}
           <details className="more" style={{ marginTop: "1rem" }}><summary>What happens when I start?</summary>
@@ -1059,7 +1074,7 @@ export default function NewSessionPage() {
         </div>
 
         <div className="step-bar">
-          {stepError && <p className="alert alert-error" role="alert">{stepError}</p>}
+          {stepError && stepError !== visiblePlanError && <p className="alert alert-error" role="alert">{stepError}</p>}
           <div className="step-bar-row">
             {!isMobile && <button type="button" className="btn btn-ghost btn-lg step-cancel" onClick={cancel}>Cancel</button>}
             {(step > 1 || isMobile) && (
@@ -1121,7 +1136,7 @@ function PlanSummary({ plan, error, hasText, timing, onReshuffle }: {
   if (!plan.ok) {
     return (
       <div className="problems" role="status">
-        {plan.problems.map((p) => <p key={p.code} className="alert alert-error">{p.message}</p>)}
+        {plan.problems.map((p) => <p key={p.code} className="alert alert-error">{planProblemText(p)}</p>)}
       </div>
     );
   }

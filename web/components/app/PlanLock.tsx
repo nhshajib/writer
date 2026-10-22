@@ -20,7 +20,7 @@ export function PlanLock({ plan, feature, needs }: { plan: PlanTier; feature?: F
 
 const GAINS: Record<PlanTier, string> = {
   free: "",
-  day_pass: "unlimited words for 24 hours, sessions up to a day and writing hours",
+  day_pass: "unlimited words for 24 hours, sessions up to a day, writing hours and customizable writing blocks",
   pro: "drafting with corrected mistakes, custom pace, scheduled starts, placing text under a heading, file import and editing paused sessions",
 };
 

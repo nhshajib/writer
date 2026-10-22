@@ -42,7 +42,7 @@ const PLANS = [
   },
   {
     name: "Day Pass", price: DAY_PASS_PRICE, per: "once", note: "24 hours · never renews",
-    items: ["Unlimited words for 24 hours", "Sessions up to a day", "Writing hours in your time zone", "No subscription"],
+    items: ["Unlimited words for 24 hours", "Sessions up to a day", "Writing hours and customizable long breaks", "No subscription"],
     cta: { label: "Get a Day Pass", href: "/pricing/" },
   },
   {

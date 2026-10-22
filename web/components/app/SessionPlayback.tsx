@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { executionText } from "../../../supabase/functions/_shared/drafting";
 
-interface Playback { chunks: string[]; deletions: number[]; schedule: number[]; starts_at: string | null; recorded_actions: number; timing: "planned" }
+interface Playback { breaks?: import("@/lib/types").PlannedBreak[]; chunks: string[]; deletions: number[]; schedule: number[]; starts_at: string | null; recorded_actions: number; timing: "planned" }
 export function SessionPlayback({ id, pro, recorded }: { id: string; pro: boolean; recorded: number }) {
   const [data, setData] = useState<Playback | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +31,7 @@ export function SessionPlayback({ id, pro, recorded }: { id: string; pro: boolea
   if (!data) return <p role="status">Loading session playback…</p>;
   return <div>
     <p className="hint">Read-only playback of TypeWit&apos;s confirmed actions, including temporary corrections. It does not edit your document or reproduce Google&apos;s version-history snapshots. The timeline uses the saved planned schedule.</p>
+    {data.breaks?.some(b => b.kind === "block") && <p className="hint">The saved timeline includes scheduled block rests. Playback compresses time; it does not wait through those rests.</p>}
     {data.chunks.length ? <>
       <div className="row" style={{ gap: "0.75rem", flexWrap: "wrap" }}><button type="button" className="btn btn-secondary btn-sm" onClick={() => { if (position === data.chunks.length) setPosition(0); setPlaying(p => !p); }}>{playing ? "Pause playback" : "Play session"}</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPlaying(false); setPosition(0); }}>Restart playback</button><label>Playback speed <select value={speed} onChange={e => setSpeed(Number(e.target.value))}><option value={1}>1 edit / second</option><option value={4}>4 edits / second</option><option value={16}>16 edits / second</option></select></label></div>
       <label className="label" htmlFor={`playback-${id}`}>Recorded action {position} of {data.chunks.length}</label><input id={`playback-${id}`} type="range" min={0} max={data.chunks.length} value={position} onChange={e => { setPlaying(false); setPosition(Number(e.target.value)); }} style={{ width: "100%" }} />

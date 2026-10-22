@@ -10,6 +10,7 @@ export type PaidPlan = Exclude<PlanTier, "free">;
 export const FEATURE_PLAN = {
   unlimitedWords: "day_pass",
   writingHours: "day_pass",
+  writingBlocks: "day_pass",
   drafting: "pro",
   typingSpeed: "pro",
   customPace: "pro",
@@ -67,6 +68,7 @@ export const PRO_FEATURES = [
   "Edit remaining text and settings while paused",
   "Saved pace presets",
   "Writing hours in your time zone",
+  "Custom writing blocks with breaks up to 8 hours",
   "Optional final revision pass (exact approved text restored)",
   "Read-only session playback",
   "Priority worker dispatch",
@@ -75,7 +77,7 @@ export const PRO_FEATURES = [
 ];
 
 /** The comparison table on the pricing page. */
-export const DAY_PASS_FEATURES = ["$4.99 once · no renewal", "24 hours from payment confirmation", "Unlimited words · one active session", "Sessions up to 24 hours, within remaining access", "Writing hours and priority worker dispatch", "Existing Google Docs and background entry", "Natural and Steady rhythms, formatted paste and activity log"];
+export const DAY_PASS_FEATURES = ["$4.99 once · no renewal", "24 hours from payment confirmation", "Unlimited words · one active session", "Sessions up to 24 hours, within remaining access", "Writing hours, custom writing blocks and priority dispatch", "Existing Google Docs and background entry", "Natural and Steady rhythms, formatted paste and activity log"];
 
 const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Words per day", free: "250", pro: "Unlimited" },
@@ -101,6 +103,7 @@ const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Use an existing Google Doc", free: "Ongoing access", pro: "Ongoing access" },
   { feature: "Background Google Docs entry", free: "Yes", pro: "Yes" },
   { feature: "Custom duration within your plan limit", free: "Yes", pro: "Yes" },
+  { feature: "Custom writing blocks and long breaks", free: "No", pro: "5 min–12 hour blocks; 15 min–8 hour breaks" },
   { feature: "Writing hours (work window)", free: "No", pro: "Yes, with time zone" },
   { feature: "Single-word or random 1–5-word entry", free: "Both included", pro: "Both included" },
   { feature: "Final revision pass", free: "No", pro: "Optional, exact text restored" },
@@ -109,7 +112,7 @@ const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Access window", free: "Ongoing", pro: "While subscription is active" },
 ];
 
-const DAY_VALUES: Record<string, string> = { "Words per day": "Unlimited", "Longest session": "24 hours, within remaining access", "Writing hours (work window)": "Yes, with time zone", "Queue dispatch": "Priority, with fair scheduling", "Access window": "24 hours · no renewal" };
+const DAY_VALUES: Record<string, string> = { "Custom writing blocks and long breaks": "Custom lengths, within remaining pass access", "Words per day": "Unlimited", "Longest session": "24 hours, within remaining access", "Writing hours (work window)": "Yes, with time zone", "Queue dispatch": "Priority, with fair scheduling", "Access window": "24 hours · no renewal" };
 export const PLAN_COMPARISON = BASE_COMPARISON.map(row => ({ ...row, day: DAY_VALUES[row.feature] ?? row.free }));
 
 export const PRO_PRICE_LINE = `${PRO_PRICE.year.amount}/month billed yearly, or ${PRO_PRICE.month.amount} monthly`;

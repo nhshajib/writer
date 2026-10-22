@@ -392,9 +392,9 @@ function SessionView() {
               <div className="hero-main">
                 <p className="activity">
                   <span className="sr-only">Current activity: </span>
-                  <strong>{progress.temporary_edit_active ? "Automated simulated drafting active" : ACTIVITY_LABEL[activity]}</strong>
+                  <strong>{progress.temporary_edit_active ? "Automated simulated drafting active" : progress.current_break?.kind === "block" && activity === "on_break" ? "Scheduled break" : ACTIVITY_LABEL[activity]}</strong>
                   {progress.temporary_edit_active && <span className="muted">A temporary edit is awaiting correction. Pausing or stopping can leave it in the document.</span>}
-                  {activity === "on_break" && progress.current_break && <span className="muted">until {when(progress.current_break.end, true)}</span>}
+                  {activity === "on_break" && progress.current_break && <span className="muted">{progress.current_break.kind === "block" ? "resumes " : "until "}{when(progress.current_break.end, true)}</span>}
                   {activity === "waiting" && progress.next_chunk_at && <span className="muted">next insertion at {when(progress.next_chunk_at, true)}</span>}
                 </p>
                 {progress.next_chunk_at && countdown !== null && (
@@ -613,6 +613,7 @@ function SessionView() {
               {drip.work_window && <div><dt>Writing hours</dt><dd>{drip.work_window.start}–{drip.work_window.end} · {drip.work_window.time_zone}</dd></div>}
               {drip.access_expires_at && <div><dt>Pass session access</dt><dd>Until {when(drip.access_expires_at)}</dd></div>}
               {drip.pacing?.drafting?.revision_sweep && <div><dt>Final revision pass</dt><dd>Enabled · exact approved text restored</dd></div>}
+              {drip.pacing?.writing_blocks && <div><dt>Writing blocks</dt><dd>About {span(drip.pacing.writing_blocks.block_seconds * 1000)} writing, then {span(drip.pacing.writing_blocks.break_seconds * 1000)} rest. Continues automatically when access and writing hours allow.</dd></div>}
               <div><dt>Breaks</dt><dd>{drip.breaks?.length ? `${drip.breaks.length} planned` : "None"}</dd></div>
               {drip.approved_at && <div><dt>Text approved</dt><dd>{when(drip.approved_at)}</dd></div>}
               <div><dt>Created</dt><dd>{when(drip.created_at)}</dd></div>

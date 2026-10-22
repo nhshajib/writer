@@ -12,6 +12,7 @@ import { DAY_PASS_PRICE, PRO_PRICE } from "@/lib/site";
 /** What each locked feature does, in the words the pop-up uses. */
 const FEATURE_COPY: Record<Feature, { title: string; text: string }> = {
   unlimitedWords: { title: "Unlimited words", text: "Enter as much text as you need, with no daily limit." },
+  writingBlocks: { title: "Writing blocks", text: "Choose writing blocks and long breaks, then continue automatically. Included with Day Pass and Pro." },
   writingHours: { title: "Writing hours", text: "Let sessions run only during the hours you choose, in your time zone." },
   drafting: { title: "Drafting rhythm", text: "Occasional temporary typos and false starts, corrected automatically." },
   typingSpeed: { title: "Typing speed", text: "Set words per minute instead of a finish time." },

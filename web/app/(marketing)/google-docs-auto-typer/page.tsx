@@ -28,6 +28,8 @@ export default function GoogleDocsAutoTyper() {
     <h2>Extension or cloud?</h2>
     <p>Most auto typers for Google Docs are Chrome extensions that type into the open tab, so the browser and computer must stay awake. TypeWit runs in the cloud instead. Our <Link href="/guides/auto-typer-extension-vs-cloud/">comparison of extension and cloud auto typers</Link> covers the trade-offs, including permissions.</p>
     <h2>Working in Microsoft Word?</h2><p>The <Link href="/word-auto-typer/">Word auto typer</Link> uses an add-in and requires the document and its TypeWit panel to remain open. Its setup is different from Google Docs cloud sessions.</p>
+    <h2>Writing blocks with longer rests</h2>
+    <p>Day Pass and Pro can write in blocks of 5 minutes to 12 hours, separated by 15-minute to 8-hour rests. Choose the writing time; TypeWit adds the long rests and previews the full schedule. Google Docs continues automatically after each rest while access and writing hours allow. Delays may move the finish later. Google controls version-history grouping.</p>
     <Questions items={[
       { q: "Is there a free auto typer for Google Docs?", a: <>Yes. TypeWit Free includes 250 words a day, sessions up to 60 minutes, the Natural and Steady rhythms and formatted paste, with no card needed. A {DAY_PASS_PRICE} Day Pass removes the word limit for 24 hours, and Pro costs {PRO_PRICE.month.amount} a month or $60 a year. See <Link href="/pricing/">pricing</Link>.</> },
       { q: "Do I need a Chrome extension?", a: "No. TypeWit enters text through Google’s Docs API with a permission you grant, so nothing is installed in your browser. You can start and control sessions from any modern browser, including on a Chromebook or phone." },

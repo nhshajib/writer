@@ -103,6 +103,8 @@ export function PrivacyBody() {
         request records after 2 to 90 days.
       </p>
 
+      <p>Session settings include any writing-block lengths, scheduled rests and writing hours you choose. We store these with the session to schedule entry and resume it after rests. This does not add access to your other documents or change the retention periods above.</p>
+
       <h2>Your choices and rights</h2>
       <ul>
         <li>Turn email notifications on or off from <Link href="/app/settings/">Settings</Link>.</li>

@@ -22,6 +22,8 @@ export default function WordAutoTyper() {
     <h2>What happens to your account and document?</h2>
     <p>The Word host grants the add-in access to its open document. TypeWit does not store a Microsoft password or OAuth token. Approved session text and activity are stored to provide the service, as explained in the <Link href="/privacy/">Privacy Policy</Link>.</p>
     <p>Use a test document with appropriate permissions and follow the <Link href="/responsible-use/">Responsible Use Agreement</Link>. Automated entry must not be used for academic cheating or deceptive authorship claims.</p>
+    <h2>Writing blocks and long rests</h2>
+    <p>Day Pass and Pro include customizable writing blocks and rests up to 8 hours. The same saved schedule resumes when due, but Word needs its document and the TypeWit add-in open. Closing Word can delay continuation. The preview includes long rests and checks remaining Day Pass access.</p>
     <h2>Compare Word and Google Docs entry</h2>
     <p>If you need cloud execution after closing the browser, see the <Link href="/google-docs-auto-typer/">Google Docs auto typer</Link>. Both providers share the Free and Pro tiers; compare limits and billing on the <Link href="/pricing/">pricing page</Link>. Our <Link href="/guides/">guides</Link> explain formatting and how application logs differ from a provider’s history.</p>
     <Questions items={[

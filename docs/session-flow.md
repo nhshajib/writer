@@ -9,3 +9,21 @@ Free provides a complete short-session experience: Natural and Steady rhythms, r
 The server resolves named presets itself. Free clients cannot change their preset's mistake rates or timing parameters by modifying a request. Presets are compiled into the saved execution plan. The Day Pass and writing-hours expansion adds migration 20261023000006; existing sessions keep their saved behavior and have no new expiry imposed.
 
 These are automated edits. Temporary mistakes require explicit approval, and completed text must match the approved source. Google controls version-history grouping; neither the preset nor the interface promises a particular number or appearance of revisions.
+
+## Writing blocks
+
+Day Pass and Pro share customizable writing blocks (5 minutes–12 hours) and long rests
+(15 minutes–8 hours). In Rhythm, enable the optional switch; Finish within becomes Writing time.
+Long rests are added and the preview shows the full total. The same controls appear in Word,
+Settings defaults and paused Pro edits. Existing longer-break sliders are replaced while blocks
+are on; sentence pauses remain. Settings are remembered when blocks are turned off.
+
+All inter-block rests are saved at completed source boundaries, never inside a temporary
+correction. A delayed boundary confirmation shifts the remaining schedule once to preserve the
+full rest. The engine releases its lease during long waits. Manual pause and cancellation still
+control continuation. Day Pass restarts and completion must precede expiry, including writing-hours
+waits and a resume after a manual pause. Runtime expiry pauses before another write.
+
+Migration 20261024000002 adds rest metadata to the service-only worker projection and permits
+validated block settings in account defaults. No customer text or retention policy is changed.
+Long rests do not promise separate Google version-history groups.

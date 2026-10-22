@@ -1,5 +1,5 @@
 /** One source for public discovery links, article metadata and sitemap dates. Dates change only with substantive edits. */
-export const CONTENT_UPDATED = "2026-10-21";
+export const CONTENT_UPDATED = "2026-10-22";
 export interface Guide {
   slug: string; title: string; description: string; summary: string;
   /** First published and last substantively changed, as YYYY-MM-DD. */
@@ -9,7 +9,7 @@ export interface Guide {
 }
 export const GUIDES: Guide[] = [
   {
-    slug: "schedule-text-google-docs", published: "2026-10-21", updated: "2026-10-21", title: "How to Schedule Text Entry in Google Docs",
+    slug: "schedule-text-google-docs", published: "2026-10-21", updated: "2026-10-22", title: "How to Schedule Text Entry in Google Docs",
     description: "Schedule approved text entry into a new or existing Google Doc with TypeWit. Learn about session duration, scheduled starts, pauses and formatting.",
     summary: "Choose when automated entry should run, how long it should take, and which document should receive your approved text. A scheduled start and a session’s duration are two different settings.",
     sections: [
@@ -35,6 +35,10 @@ export const GUIDES: Guide[] = [
       { heading: "Treat the finish time as a target", paragraphs: [
         "Provider outages, rate limits and document conflicts can delay a session. TypeWit can move the remaining schedule later rather than rushing delayed edits. Inspect the session’s status and activity log before relying on its output.",
         "Google controls how edits appear in version history. A scheduled session does not guarantee a separate visible version for every word group, and automated edits do not demonstrate human authorship or time spent drafting. Academic cheating and fabricated writing histories are prohibited.",
+      ] },
+      { heading: "Writing blocks and long breaks", paragraphs: [
+        "Day Pass and Pro let you choose writing blocks from 5 minutes to 12 hours and rests from 15 minutes to 8 hours. In New session, enable Writing blocks. Choose Writing time; long rests are added, and the preview shows the total elapsed time. Blocks end at completed text steps so temporary corrections finish before a rest.",
+        "Google Docs resumes on the server after a scheduled rest; keep Word and its add-in open for Word sessions. Manual pause, expired access, lost permissions or outages can prevent or delay continuation. TypeWit checks every Day Pass restart and finish against expiry. Shorten an incompatible schedule or upgrade to Pro. Google decides version-history grouping; longer rests do not guarantee separate versions.",
       ] },
       { heading: "Writing hours and short-term access", paragraphs: [
         "Day Pass costs $4.99 once for 24 hours from payment confirmation and activation, with unlimited words and one active session. It never renews. Sessions must fit the remaining access window; unfinished pass sessions pause at expiry until access is renewed or upgraded.",

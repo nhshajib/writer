@@ -1,10 +1,13 @@
 "use client";
+import { WritingBlockControls, blocksFromPace, blockPace } from "@/components/app/WritingBlockControls";
+import { WritingBlockSummary } from "@/components/app/WritingBlockSummary";
+import { planProblemText } from "@/lib/planMessages";
 import { WordGroupingControls } from "@/components/app/WordGroupingControls";
 import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { effectivePlan, type PlanTier } from "../../../supabase/functions/_shared/limits";
 import type { WorkWindow } from "../../../supabase/functions/_shared/workWindow";
 import { WorkWindowControls } from "@/components/app/WorkWindowControls";
-import { PLAN_LIMITS } from "@/lib/dashboard";
+import { PLAN_LIMITS, type SessionDefaults } from "@/lib/dashboard";
 import { RichTextEditor } from "@/components/app/RichTextEditor";
 import { parseFormatted, type TextFormat } from "../../../supabase/functions/_shared/markdown.ts";
 
@@ -165,15 +168,19 @@ function WordSession({ documentUrl, userId }: { documentUrl: string; userId: str
   const provider = useMemo(() => new WordDocProvider(officeWordHost, documentUrl, title), [documentUrl, title]);
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [tier, setTier] = useState<PlanTier | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [defaults, setDefaults] = useState<SessionDefaults>({});
   const [dripId, setDripId] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const { data: profile, error: profileError } = await supabase().from("profiles").select("plan,day_pass_expires_at").eq("user_id", userId).maybeSingle();
+        const { data: profile, error: profileError } = await supabase().from("profiles").select("plan,day_pass_expires_at,session_defaults").eq("user_id", userId).maybeSingle();
         if (profileError) throw new Error(profileError.message);
         setTier(effectivePlan(profile ?? {}));
+        setExpiresAt(profile?.day_pass_expires_at ?? null);
+        setDefaults(profile?.session_defaults ?? {});
         const { connection } = await api<{ connection: { id: string } }>("drips/connections/microsoft", { method: "POST" });
         setConnectionId(connection.id);
         const { drips } = await api<{ drips: Drip[] }>("drips");
@@ -192,14 +199,16 @@ function WordSession({ documentUrl, userId }: { documentUrl: string; userId: str
       <p className="small muted" style={{ marginTop: 0 }}>Document: <strong>{title}</strong></p>
       {dripId
         ? <WordProgress key={dripId} dripId={dripId} documentUrl={documentUrl} provider={provider} onDone={() => setDripId(null)} />
-        : <WordStart tier={tier} connectionId={connectionId} documentUrl={documentUrl} title={title} provider={provider} onStarted={setDripId} />}
+        : <WordStart tier={tier} expiresAt={expiresAt} defaults={defaults} connectionId={connectionId} documentUrl={documentUrl} title={title} provider={provider} onStarted={setDripId} />}
     </>
   );
 }
 
 type Timing = "duration" | "speed" | "asap";
 
-function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier }: {
+function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier, expiresAt, defaults }: {
+  expiresAt: string | null;
+  defaults: SessionDefaults;
   tier: PlanTier;
   connectionId: string;
   documentUrl: string;
@@ -213,12 +222,12 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const [textFormat, setTextFormat] = useState<TextFormat>("plain");
   const formatted = parseFormatted(text, textFormat);
   const plainText = formatted?.plain ?? text;
-  const [unit, setUnit] = useState<InsertionUnit>("sentence");
+  const [unit, setUnit] = useState<InsertionUnit>(defaults.unit ?? "sentence");
   const [timing, setTiming] = useState<Timing>("duration");
   useEffect(() => { if (timing === "asap") setRevisionSweep(false); }, [timing]);
-  const [minutes, setMinutes] = useState(tier === "pro" ? 60 : 30);
+  const [minutes, setMinutes] = useState(defaults.minutes ?? (tier === "pro" ? 60 : 30));
   const [pace, updatePace] = usePace();
-  const [rhythm, setRhythm] = useState<SessionRhythm>(tier === "pro" ? "custom" : "natural");
+  const [rhythm, setRhythm] = useState<SessionRhythm>(defaults.rhythm && (defaults.rhythm !== "drafting" || tier === "pro") ? defaults.rhythm : tier === "pro" ? "custom" : "natural");
   const [approved, setApproved] = useState(false);
   const [plan, setPlan] = useState<SessionPlan | null>(null);
   const [planKey, setPlanKey] = useState("");
@@ -230,9 +239,16 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const requestId = useRef(crypto.randomUUID());
   const starting = useRef(false);
 
+  const defaultsApplied = useRef(false);
+  useEffect(() => {
+    if (defaultsApplied.current) return;
+    defaultsApplied.current = true;
+    if (defaults.word_grouping) updatePace({ wordGrouping: defaults.word_grouping });
+    if (tier !== "free" && defaults.writing_blocks) updatePace(blockPace(defaults.writing_blocks));
+  }, [defaults, tier, updatePace]);
   const isPro = tier === "pro";
   const rhythmPace = rhythm === "custom" ? (isPro ? pace : DEFAULT_PACE) : { ...DEFAULT_PACE, ...paceFromSettings(rhythmPacing(rhythm, minutes * 60)) };
-  const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping };
+  const effectivePace = { ...rhythmPace, wordGrouping: pace.wordGrouping, blocksOn: tier !== "free" && pace.blocksOn, blockMinutes: pace.blockMinutes, blockBreakMinutes: pace.blockBreakMinutes };
   const simulatedDrafting = isPro && timing !== "asap" && (effectivePace.typoRate > 0 || effectivePace.falseStartRate > 0 || revisionSweep);
   useEffect(() => setApproved(false), [effectivePace.typoRate, effectivePace.falseStartRate, simulatedDrafting]);
   const pacing = timing === "asap" ? null : pacingFor(timing, minutes, effectivePace);
@@ -284,7 +300,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
     setError(null);
     if (!text.trim()) return setError("Add the text you want entered.");
     if (!current) return setError("The schedule is still being checked. Try again in a moment.");
-    if (!plan.ok) return setError(plan.problems.map((p) => p.message).join(" "));
+    if (!plan.ok) return setError(plan.problems.map(planProblemText).join(" "));
     if (!approved) return setError("Read your text and tick the box to approve it.");
     starting.current = true;
     setBusy(true);
@@ -355,18 +371,21 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
 
       {timing === "duration" && (
         <div className="field">
-          <label className="label" htmlFor="pane-duration">Total duration</label>
+          <label className="label" htmlFor="pane-duration">{effectivePace.blocksOn ? "Writing time" : "Total duration"}</label>
           <select id="pane-duration" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} aria-describedby="pane-duration-hint">
+            {!DURATIONS.includes(minutes) && <option value={minutes}>{span(minutes * 60000)}</option>}
             {DURATIONS.map((m) => <option key={m} value={m} disabled={m > PLAN_LIMITS[tier].maxMinutes}>{span(m * 60_000)}</option>)}
           </select>
           <span id="pane-duration-hint" className="hint">
-            Breaks are included and the last insertion is planned for the end. It&apos;s a target: closing this document or
+            {effectivePace.blocksOn ? "Long breaks are added to the writing time; the preview shows the full elapsed time." : "Breaks are included and the last insertion is planned for the end."} It&apos;s a target: closing this document or
             the TypeWit pane, sleep or Word delays move the rest later.
           </span>
         </div>
       )}
       {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
       <RhythmPreview pace={effectivePace} unit={unit} allAtOnce={timing === "asap"} revisionSweep={revisionSweep} />
+      {timing !== "asap" && <WritingBlockControls value={blocksFromPace(effectivePace)} plan={tier} expiresAt={expiresAt} onChange={value => { updatePace(blockPace(value)); setApproved(false); }} />}
+      <WritingBlockSummary plan={current ? plan : null} />
       <WorkWindowControls value={workWindow} onChange={v => { setWorkWindow(v); setApproved(false); }} enabled={tier !== "free"} />
       <label className="check"><input type="checkbox" checked={revisionSweep} disabled={!isPro || timing === "asap"} onChange={e => { setRevisionSweep(e.target.checked); setApproved(false); }} />Final revision pass (Pro; restores approved text)</label>
       {timing !== "asap" && isPro && <PaceControls timing={timing} pace={effectivePace} onChange={(change) => { updatePace({ ...effectivePace, ...change }); setRhythm("custom"); }} />}
@@ -374,7 +393,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
 
       <div className="plan-box" role="status" aria-live="polite">
         {!text.trim() ? "Add text to see the schedule." : !current ? "Checking the schedule…" : !plan.ok
-          ? plan.problems.map((p) => <p key={p.code} className="error-text">{p.message}</p>)
+          ? plan.problems.map((p) => <p key={p.code} className="error-text">{planProblemText(p)}</p>)
           : (
             <>
               <p className="small" style={{ marginTop: 0 }}>

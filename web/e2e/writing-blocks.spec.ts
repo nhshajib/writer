@@ -1,0 +1,95 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { toStep } from "./helpers";
+const SESSION = { access_token: "e2e-token", refresh_token: "e2e-refresh", token_type: "bearer", expires_in: 86400, expires_at: Math.floor(Date.now()/1000)+86400, user: { id: "u1", aud: "authenticated", role: "authenticated", email: "fixture@example.invalid", user_metadata: {}, app_metadata: {} } };
+const SOURCE = "An approved sentence. Another follows. ".repeat(15);
+test.beforeEach(async ({page,request}) => {
+  await request.post("/__test/reset");
+  await page.addInitScript(s=>localStorage.setItem("sb-localhost-auth-token",JSON.stringify(s)),SESSION);
+});
+async function setup(page: Page) {
+  await page.goto("/app/new/");
+  await page.getByLabel("Text to enter",{exact:true}).fill(SOURCE);
+  await page.getByLabel("Take a long break between writing blocks",{exact:true}).check();
+  await page.getByLabel("Writing time",{exact:true}).selectOption("120");
+  await page.getByLabel("Break between blocks",{exact:true}).selectOption("360");
+  await expect(page.locator(".block-summary")).toContainText("8 hours total");
+}
+test("Day Pass chooses block/rest times, previews total time and starts that exact schedule",async({page,request})=>{
+  await request.post("/__test/profile",{data:{plan:"free",day_pass_expires_at:new Date(Date.now()+86400000).toISOString()}});
+  await setup(page);
+  await toStep(page,4);
+  await expect(page.getByRole("radio",{name:/^Typing speed/})).toHaveAttribute("aria-disabled","true");
+  await toStep(page,5);
+  await expect(page.locator(".summary-list")).toContainText("6 hours rest");
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole("button",{name:"Start session",exact:true}).click();
+  await expect(page).toHaveURL(/\/app\/session/);
+  const {requests}=await(await request.get("/__test/requests")).json();
+  const created=requests.find((r:{method:string;path:string})=>r.method==="POST"&&r.path==="/functions/v1/drips");
+  expect(created.body.pacing.writing_blocks).toEqual({block_seconds:3600,break_seconds:21600,writing_duration_seconds:7200});
+});
+test("Day Pass explains a restart past expiry and keeps text while the user shortens the rest",async({page,request})=>{
+  await request.post("/__test/profile",{data:{plan:"free",day_pass_expires_at:new Date(Date.now()+10800000).toISOString()}});
+  await page.goto("/app/new/");
+  await page.getByLabel("Text to enter",{exact:true}).fill(SOURCE);
+  await page.getByLabel("Take a long break between writing blocks",{exact:true}).check();
+  await page.getByLabel("Writing time",{exact:true}).selectOption("120");
+  await page.getByLabel("Break between blocks",{exact:true}).selectOption("480");
+  await expect(page.getByRole("alert").filter({hasText:/This break would resume writing/})).toBeVisible();
+  await page.getByRole("button",{name:"Review session",exact:true}).click();
+  await expect(page.locator("form[data-step]")).not.toHaveAttribute("data-step","5");
+  await expect(page.getByRole("alert").filter({hasText:/This break would resume writing/})).toHaveCount(1);
+  await expect(page.getByLabel("Text to enter",{exact:true})).toHaveText(SOURCE.trim());
+  await page.getByLabel("Break between blocks",{exact:true}).selectOption("15");
+  await expect(page.locator(".block-summary")).toContainText("2 h 15 min total");
+  await expect(page.getByRole("alert").filter({hasText:/after your access ends/})).toHaveCount(0);
+  await toStep(page,5);
+});
+test("Free mobile discovers writing blocks without enabling paid settings",async({page,request})=>{
+  await request.post("/__test/profile",{data:{plan:"free",day_pass_expires_at:null}});
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/app/new/");
+  await page.getByText("Take a long break between writing blocks",{exact:true}).click();
+  await expect(page.getByRole("dialog")).toContainText(/writing blocks/i);
+  await page.getByRole("button",{name:"Close",exact:true}).click();
+  await expect(page.getByLabel("Take a long break between writing blocks",{exact:true})).not.toBeChecked();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+test("Pro mobile blocks are accessible and paused edits preview without saving or resuming",async({page,request})=>{
+  await page.setViewportSize({width:390,height:844});
+  await setup(page);
+  await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished)));
+  expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21a","wcag21aa"]).analyze()).violations).toEqual([]);
+  await toStep(page,5);
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole("button",{name:"Start session",exact:true}).click();
+  await page.waitForURL(/\/app\/session/);
+  const id=new URL(page.url()).searchParams.get("id");
+  await page.getByRole("button",{name:"Pause",exact:true}).first().click();
+  await page.getByRole("button",{name:/Edit remaining text/}).click();
+  const editor=page.getByRole("form",{name:/Edit the remaining session/});
+  await editor.getByLabel("Break between blocks",{exact:true}).selectOption("480");
+  await expect(editor.getByText(/If resumed now: finish/)).toBeVisible();
+  const before=await(await request.get(`/functions/v1/drips/${id}`)).json();
+  expect(before.drip.pacing.writing_blocks.break_seconds).toBe(21600);
+  await editor.getByRole("checkbox",{name:/I have reviewed and approve/}).check();
+  await editor.getByRole("button",{name:"Save changes and stay paused"}).click();
+  await expect(editor).toBeHidden();
+  const after=await(await request.get(`/functions/v1/drips/${id}`)).json();
+  expect(after.drip.status).toBe("paused");
+  expect(after.drip.pacing.writing_blocks.break_seconds).toBe(28800);
+});
+test("paid defaults restore customizable writing blocks on a new session",async({page})=>{
+  await page.goto("/app/settings/#defaults");
+  const defaults=page.getByRole("form",{name:"Session defaults",exact:true});
+  await defaults.getByLabel("Take a long break between writing blocks",{exact:true}).check();
+  await defaults.getByLabel("Write for about",{exact:true}).selectOption("120");
+  await defaults.getByLabel("Break between blocks",{exact:true}).selectOption("480");
+  await defaults.getByRole("button",{name:"Save defaults",exact:true}).click();
+  await expect(page.getByText("Saved. New sessions start from these settings.")).toBeVisible();
+  await page.goto("/app/new/");
+  await expect(page.getByLabel("Take a long break between writing blocks",{exact:true})).toBeChecked();
+  await expect(page.getByLabel("Write for about",{exact:true})).toHaveValue("120");
+  await expect(page.getByLabel("Break between blocks",{exact:true})).toHaveValue("480");
+});

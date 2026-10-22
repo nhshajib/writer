@@ -23,7 +23,7 @@ export function statusLine(drip: Drip, now: number): string {
   if (drip.session_started_at && Date.parse(drip.session_started_at) > now && p.chunks_written === 0) {
     return `Starts ${when(drip.session_started_at)}`;
   }
-  if (p.activity === "on_break" && p.current_break) return `On a planned break until ${when(p.current_break.end)}`;
+  if (p.activity === "on_break" && p.current_break) return p.current_break.kind === "block" ? `Scheduled break · resumes ${when(p.current_break.end)}` : `On a planned break until ${when(p.current_break.end)}`;
   if (p.next_chunk_at) {
     const s = Math.max(0, Math.ceil((Date.parse(p.next_chunk_at) - now) / 1000));
     return s === 0 ? "Next part due any moment" : `Next part planned in ${clock(s)}`;
