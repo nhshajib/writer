@@ -448,7 +448,11 @@ Pro upgrade clears the session expiry. Old sessions have no new expiry imposed.
 Day Pass checkout uses Stripe payment mode with `STRIPE_PRICE_DAY` (legacy lowercase
 `stripe_price_day` is also accepted). Set it to an active Stripe **Price ID** (`price_…`)
 for a fixed, one-time USD $4.99 payment, not a Product ID. The server verifies the
-price amount, currency, nonrecurring type and product before preparing checkout. Before creating a payment link, billing verifies the existing TypeWit
+price amount, currency, nonrecurring type and product before preparing checkout.
+Keep the monthly and yearly Pro Price IDs in their existing secrets; the Day Pass
+Price ID does not replace either recurring subscription price.
+
+Before creating a payment link, billing verifies the existing TypeWit
 webhook endpoint and adds payment-completion/refund events while preserving its
 subscription events. A missing endpoint prevents checkout. Webhook fulfillment
 and the authenticated checkout-return verification share an idempotent grant;
