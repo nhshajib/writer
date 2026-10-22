@@ -51,21 +51,28 @@ export function AboutYou({ value, onChange, idPrefix = "about", legend = "About 
     <fieldset className="about-you">
       <legend className="label">{legend}</legend>
       <div className="about-row">
-        <label className="sr-only" htmlFor={`${idPrefix}-country`}>Country you live in</label>
-        <select id={`${idPrefix}-country`} className="about-country" value={value.country} onChange={(e) => set({ country: e.target.value })} required>
-          <option value="">Country you live in</option>
-          {list.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-        </select>
-        <label className="sr-only" htmlFor={`${idPrefix}-month`}>Month you were born</label>
-        <select id={`${idPrefix}-month`} value={value.month} onChange={(e) => set({ month: e.target.value })} required>
-          <option value="">Month</option>
-          {months.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
-        </select>
-        <label className="sr-only" htmlFor={`${idPrefix}-year`}>Year you were born</label>
-        <select id={`${idPrefix}-year`} value={value.year} onChange={(e) => set({ year: e.target.value })} required>
-          <option value="">Year</option>
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <div className="about-field">
+          <label className="about-label" htmlFor={`${idPrefix}-country`}>Country<span className="sr-only"> you live in</span></label>
+          <select id={`${idPrefix}-country`} className="about-country" value={value.country} onChange={(e) => set({ country: e.target.value })} required>
+            <option value="">Choose…</option>
+            {list.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="about-field">
+          <span className="about-label" aria-hidden="true">Born</span>
+          <div className="about-born">
+            <label className="sr-only" htmlFor={`${idPrefix}-month`}>Month you were born</label>
+            <select id={`${idPrefix}-month`} value={value.month} onChange={(e) => set({ month: e.target.value })} required>
+              <option value="">Month</option>
+              {months.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
+            </select>
+            <label className="sr-only" htmlFor={`${idPrefix}-year`}>Year you were born</label>
+            <select id={`${idPrefix}-year`} value={value.year} onChange={(e) => set({ year: e.target.value })} required>
+              <option value="">Year</option>
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
       {check === "guardian" && (
         <label className="check guardian" htmlFor={`${idPrefix}-guardian`}>

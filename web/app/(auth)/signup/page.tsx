@@ -14,7 +14,10 @@ import { continueWithGoogle } from "@/lib/googleAuth";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
-const AGREE_FIRST = "Please tick the box to agree to the Responsible Use Agreement first.";
+type Problems = Partial<Record<"age" | "email" | "password" | "agree", string>>;
+
+/** Where focus goes for each problem, in the order they appear on the form. */
+const FOCUS: [keyof Problems, string][] = [["age", "about-country"], ["email", "email"], ["password", "password"], ["agree", "agree"]];
 
 function SignupForm() {
   const router = useRouter();
@@ -22,44 +25,54 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [problems, setProblems] = useState<Problems>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState<string | null>(null);
   const [about, setAbout] = useState<AboutYouValue>(EMPTY_ABOUT_YOU);
-  const [accountStep, setAccountStep] = useState(false);
-  const [step, setStep] = useState<"form" | "refused">("form");
+  const [refused, setRefused] = useState(false);
   const check = aboutYouCheck(about);
-  // The account options open only once the age answers allow joining.
-  const unlocked = check === "ok" || (check === "guardian" && about.guardian);
+  const ineligible = check === "too_young";
+  // Eligible answers, complete enough to send with the sign-up.
+  const ageReady = check === "ok" || (check === "guardian" && about.guardian);
 
   useEffect(() => {
     setNext(safeNext(new URLSearchParams(window.location.search).get("next")));
-    if (ageBlocked()) setStep("refused");
+    if (ageBlocked()) setRefused(true);
   }, []);
 
+  // Checked as soon as all three answers are in. A wrong pick can still be corrected now,
+  // but the refusal is remembered in this browser, so a reload doesn't simply reopen the form.
   useEffect(() => {
-    if (check === "too_young") {
-      rememberAgeBlock();
-      setStep("refused");
-    }
-  }, [check]);
-
-  /** The age answers again, as a safety net: the locked fields can't normally be reached. */
-  function ageProblem(): string | null {
-    if (!check) return "Choose your country and the month and year you were born.";
-    if (check === "guardian" && !about.guardian) return "Please tick the box to confirm a parent or guardian agrees.";
-    return null;
-  }
+    if (!ineligible) return;
+    rememberAgeBlock();
+    setProblems({});
+  }, [ineligible]);
 
   const ageAnswers = {
     country: about.country,
     birth_year: Number(about.year),
     birth_month: Number(about.month),
-    guardian_agreed: aboutYouCheck(about) === "guardian" && about.guardian,
+    guardian_agreed: check === "guardian" && about.guardian,
   };
+
+  function ageProblem(): string | undefined {
+    if (!check) return "Choose your country and the month and year you were born.";
+    if (check === "guardian" && !about.guardian) return "Tick the box to confirm a parent or guardian agrees.";
+    return undefined;
+  }
+
+  /** Shows every problem under its field and moves focus to the first. */
+  function report(found: Problems): boolean {
+    setProblems(found);
+    const first = FOCUS.find(([key]) => found[key]);
+    if (!first) return false;
+    const target = first[0] === "age" && check === "guardian" ? "about-guardian" : first[1];
+    requestAnimationFrame(() => document.getElementById(target)?.focus());
+    return true;
+  }
 
   async function resend() {
     if (resending) return;
@@ -74,15 +87,12 @@ function SignupForm() {
     finally { setResending(false); }
   }
 
+  /** Google works on the first tap. Answers already given go with it; anything missing is asked once after sign-in. */
   async function google() {
-    setError(ageProblem());
-    if (ageProblem()) return;
-    if (!agreed) {
-      setError(AGREE_FIRST);
-      return;
-    }
+    if (ineligible) return;
+    setError(null);
     setBusy(true);
-    const problem = await continueWithGoogle({ agreed: true, next, age: ageAnswers });
+    const problem = await continueWithGoogle({ agreed, next, age: ageReady ? ageAnswers : undefined });
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -91,19 +101,15 @@ function SignupForm() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(ageProblem());
-    if (ageProblem()) return;
-    const problem = emailProblem(email);
-    setEmailError(problem);
-    if (problem) return;
-    if (password.length < 8) {
-      setError("Use a password with at least 8 characters.");
-      return;
-    }
-    if (!agreed) {
-      setError(AGREE_FIRST);
-      return;
-    }
+    if (ineligible) return;
+    setError(null);
+    const found: Problems = {
+      age: ageProblem(),
+      email: emailProblem(email) ?? undefined,
+      password: password.length < 8 ? "Use at least 8 characters." : undefined,
+      agree: agreed ? undefined : "Tick the box to accept the Terms and Responsible Use Agreement.",
+    };
+    if (report(found)) return;
 
     setBusy(true);
     try {
@@ -115,11 +121,10 @@ function SignupForm() {
           emailRedirectTo: `${window.location.origin}${next}`,
         },
       });
-      setBusy(false);
       if (signUpError) {
         if (/can't create a TypeWit account/i.test(signUpError.message)) {
           rememberAgeBlock();
-          setStep("refused");
+          setRefused(true);
           return;
         }
         setError(signUpError.message);
@@ -130,7 +135,6 @@ function SignupForm() {
     } catch {
       setError("Could not create your account. Check your connection and try again.");
     } finally { setBusy(false); }
-
   }
 
   if (sent) {
@@ -150,7 +154,7 @@ function SignupForm() {
     );
   }
 
-  if (step === "refused") {
+  if (refused) {
     return (
       <div className="auth">
         <div className="auth-box" role="status">
@@ -165,63 +169,76 @@ function SignupForm() {
     );
   }
 
+  const strong = password.length >= 8;
   return (
     <div className="auth">
       <div className="auth-box">
         <h1 id="signup-title">Create your account</h1>
         <p className="sub">Free plan, no card needed.</p>
 
-        <form className="auth-form signup-form" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
-          {!accountStep ? <>
-            <p className="hint">Step 1 of 2 · Eligibility</p>
-            <AboutYou value={about} onChange={setAbout} legend="First, your age" />
-            <button type="button" className="btn btn-primary btn-block" disabled={!unlocked} onClick={() => setAccountStep(true)}>Continue</button>
-          </> : <div className="row"><span className="hint">Step 2 of 2 · Account</span><button type="button" className="link-btn" onClick={() => setAccountStep(false)}>Edit age details</button></div>}
-
-          <div className="signup-locked" hidden={!accountStep} data-locked={!unlocked || undefined}>
-            <div className="signup-fields" inert={!unlocked}>
-              <div className="agree-row">
-                <label className="check" htmlFor="agree">
-                  <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-                  <span>I accept the Terms and Responsible Use Agreement and acknowledge the Privacy Policy</span>
-                </label>
-                <LegalDialog doc="agreement" onAgree={() => setAgreed(true)}>Read agreement</LegalDialog>
-                <LegalDialog doc="terms">Terms</LegalDialog>
-                <LegalDialog doc="privacy">Privacy</LegalDialog>
-              </div>
-              <p className="hint">For authorized testing only. Academic cheating and deceptive claims of authorship are prohibited.</p>
-              <button type="button" className="btn btn-google btn-lg btn-block" onClick={google} disabled={busy}>
-                <GoogleMark /> Continue with Google
-              </button>
-              <p className="or">or with email</p>
-              <div className="field">
-                <label className="label" htmlFor="email">Email</label>
-                <input id="email" type="email" autoComplete="email" required value={email} placeholder="Personal email, e.g. you@gmail.com"
-                  onChange={(e) => setEmail(e.target.value)}
-                  onBlur={() => email && setEmailError(emailProblem(email))}
-                  aria-invalid={emailError ? "true" : undefined} aria-describedby="email-hint email-error" />
-                <span id="email-hint" className="sr-only">Use a personal address, such as Gmail, Outlook, Yahoo or iCloud.</span>
-                {emailError && <span id="email-error" className="error-text">{emailError}</span>}
-              </div>
-              <div className="field">
-                <label className="label" htmlFor="password">Password</label>
-                <PasswordField id="password" autoComplete="new-password" required minLength={8} value={password}
-                  onChange={(e) => setPassword(e.target.value)} aria-describedby="password-hint" placeholder="At least 8 characters" />
-                <span id="password-hint" className="sr-only">At least 8 characters.</span>
-              </div>
-              {error && <p className="alert alert-error" role="alert">{error}</p>}
-              <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>
-                {busy ? "Creating account…" : "Create free account"}
-              </button>
+        <form className="auth-form signup" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
+          <div className="signup-about" data-invalid={problems.age ? true : undefined}>
+            <AboutYou value={about} onChange={(v) => { setAbout(v); setProblems((p) => ({ ...p, age: undefined })); }} legend="About you" />
+            <div aria-live="polite">
+              {ineligible ? (
+                <div className="signup-refusal" role="alert">
+                  <strong>Sorry, you can&apos;t join TypeWit yet.</strong>
+                  <p>What you can do:</p>
+                  <ul>
+                    <li>Picked the wrong month or year? Change it above.</li>
+                    <li>Otherwise, a parent, guardian or teacher can email us from the <Link href="/support/">help page</Link>.</li>
+                  </ul>
+                </div>
+              ) : ageReady ? (
+                <p className="signup-ok"><Icon.check /> You can join</p>
+              ) : problems.age ? <p className="error-text">{problems.age}</p> : null}
             </div>
-            {!unlocked && (
-              <p className="signup-lock-note"><Icon.lock /> {check === "guardian" ? "Tick the parent or guardian box to continue" : "Answer the questions above to continue"}</p>
-            )}
           </div>
-          <p className="sr-only" role="status">{unlocked ? "Account options are now available." : ""}</p>
-          <p className="hint center">
-            By joining you also accept the <LegalDialog doc="terms">Terms</LegalDialog> and <LegalDialog doc="privacy">Privacy Policy</LegalDialog>.
-          </p>
+
+          <fieldset className="signup-account" disabled={ineligible || busy}>
+            <legend className="sr-only">Your account</legend>
+            <button type="button" className="btn btn-google btn-lg btn-block" onClick={google}>
+              <GoogleMark /> Continue with Google
+            </button>
+            <p className="or">or with email</p>
+            <div className="field">
+              <label className="label" htmlFor="email">Email</label>
+              <input id="email" type="email" autoComplete="email" inputMode="email" required value={email} placeholder="you@gmail.com"
+                onChange={(e) => { setEmail(e.target.value); if (problems.email) setProblems((p) => ({ ...p, email: undefined })); }}
+                onBlur={() => email && setProblems((p) => ({ ...p, email: emailProblem(email) ?? undefined }))}
+                aria-invalid={problems.email ? "true" : undefined} aria-describedby={problems.email ? "email-error" : "email-hint"} />
+              {problems.email
+                ? <span id="email-error" className="error-text">{problems.email}</span>
+                : <span id="email-hint" className="hint">A personal address, such as Gmail, Outlook or iCloud.</span>}
+            </div>
+            <div className="field">
+              <label className="label" htmlFor="password">Password</label>
+              <PasswordField id="password" autoComplete="new-password" required minLength={8} value={password}
+                onChange={(e) => { setPassword(e.target.value); if (problems.password) setProblems((p) => ({ ...p, password: undefined })); }}
+                aria-invalid={problems.password ? "true" : undefined} aria-describedby={problems.password ? "password-error" : "password-hint"} />
+              {problems.password
+                ? <span id="password-error" className="error-text">{problems.password}</span>
+                : <span id="password-hint" className={`hint signup-rule${strong ? " met" : ""}`}>{strong && <Icon.check />}At least 8 characters</span>}
+            </div>
+            <div className="signup-agree" data-invalid={problems.agree ? true : undefined}>
+              <label className="check" htmlFor="agree">
+                <input id="agree" type="checkbox" checked={agreed} aria-invalid={problems.agree ? "true" : undefined}
+                  aria-describedby={problems.agree ? "agree-error" : "agree-note"}
+                  onChange={(e) => { setAgreed(e.target.checked); setProblems((p) => ({ ...p, agree: undefined })); }} />
+                <span>I agree to the Terms and Responsible Use Agreement, and I&apos;ve read the Privacy Policy.</span>
+              </label>
+              <p className="signup-legal">
+                Read: <LegalDialog doc="terms">Terms</LegalDialog> · <LegalDialog doc="agreement" onAgree={() => { setAgreed(true); setProblems((p) => ({ ...p, agree: undefined })); }}>Responsible Use</LegalDialog> · <LegalDialog doc="privacy">Privacy</LegalDialog>
+              </p>
+              {problems.agree
+                ? <p id="agree-error" className="error-text">{problems.agree}</p>
+                : <p id="agree-note" className="hint">For authorized use only. Academic cheating and false claims of authorship aren&apos;t allowed.</p>}
+            </div>
+            {error && <p className="alert alert-error" role="alert">{error}</p>}
+            <button type="submit" className="btn btn-primary btn-lg btn-block">
+              {busy ? "Creating account…" : "Create free account"}
+            </button>
+          </fieldset>
         </form>
       </div>
     </div>

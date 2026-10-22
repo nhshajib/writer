@@ -101,34 +101,39 @@ async function aboutYou(page: Page, country: string, age: number) {
   await page.getByLabel("Year you were born").selectOption(String(year - age));
 }
 
-test("sign-up separates eligibility from account creation without exposing locked fields", async ({ page }) => {
+test("sign-up is one step: every field is there at once and the age answer shows straight away", async ({ page }) => {
   await page.goto("/signup/");
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
-  await expect(page.getByLabel("Email")).toBeHidden();
-  await expectNoAxeViolations(page);
-  await aboutYou(page, "US", 30);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /I accept the Terms/ })).not.toBeChecked();
+  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  await expect(page.getByRole("checkbox", { name: /I agree to the Terms/ })).not.toBeChecked();
   await expectNoAxeViolations(page);
+
+  await page.getByRole("button", { name: "Create free account" }).click();
+  await expect(page.getByText("Choose your country and the month and year you were born.")).toBeVisible();
+  await expect(page.getByLabel("Email")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Use at least 8 characters.")).toBeVisible();
+  await expect(page.getByText("Tick the box to accept the Terms and Responsible Use Agreement.")).toBeVisible();
+  await expect(page.getByLabel("Country you live in")).toBeFocused();
+  await expectNoAxeViolations(page);
+
+  await aboutYou(page, "US", 30);
+  await expect(page.getByText("You can join")).toBeVisible();
 });
 
 test("joining under 18 needs a parent or guardian, and the answers go with the sign-up", async ({ page, request }) => {
   await page.goto("/signup/");
+  await page.getByLabel("Email").fill("teen@gmail.com");
+  await page.getByLabel("Password").fill("a good password");
+  await page.getByLabel(/I agree to the Terms/).check();
   await aboutYou(page, "US", 15);
   const guardian = page.getByLabel(/A parent or guardian knows I'm using TypeWit/);
   await expect(guardian).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
-  await expect(page.locator(".signup-fields")).toHaveJSProperty("inert", true);
-  await guardian.check();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-
-  await page.getByLabel("Email").fill("teen@gmail.com");
-  await page.getByLabel("Password").fill("a good password");
   await page.getByRole("button", { name: "Create free account" }).click();
-  await expect(page.locator(".alert-error")).toHaveText(/Responsible Use Agreement/);
-  await page.getByLabel(/I accept the Terms/).check();
+  await expect(page.getByText("Tick the box to confirm a parent or guardian agrees.")).toBeVisible();
+  await expect(guardian).toBeFocused();
+  await guardian.check();
   await page.getByRole("button", { name: "Create free account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 
@@ -138,12 +143,38 @@ test("joining under 18 needs a parent or guardian, and the answers go with the s
   expect(signup.body.data).not.toHaveProperty("birth_day");
 });
 
-test("someone below the minimum age is turned away, and a quick retry stays closed", async ({ page }) => {
+test("someone below the minimum age is told at once what they can do, and a reload stays closed", async ({ page, request }) => {
   await page.goto("/signup/");
+  await page.getByLabel("Email").fill("kid@gmail.com");
   await aboutYou(page, "GB", 12);
-  await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
+  const refusal = page.getByRole("alert").filter({ hasText: "Sorry, you can't join TypeWit yet." });
+  await expect(refusal).toBeVisible();
+  await expect(refusal.getByRole("link", { name: "help page" })).toHaveAttribute("href", "/support/");
+  await expect(page.getByLabel("Email")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Create free account" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeDisabled();
+  await expectNoAxeViolations(page);
+  // A wrong pick can be fixed straight away.
+  await page.getByLabel("Year you were born").selectOption(String(year - 30));
+  await expect(refusal).toBeHidden();
+  await expect(page.getByLabel("Email")).toBeEnabled();
+  const { requests } = await (await request.get("/__test/requests")).json();
+  expect(requests.find((r: { path: string }) => r.path === "/auth/v1/signup")).toBeUndefined();
+  // The refusal is remembered in this browser.
   await page.reload();
   await expect(page.getByRole("heading", { name: "Sorry, you can't join yet" })).toBeVisible();
+});
+
+test("Continue with Google works on the first tap and carries answers already given", async ({ page }) => {
+  await page.goto("/signup/");
+  await aboutYou(page, "US", 30);
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.route("**/auth/v1/authorize**", (route) => route.fulfill({ status: 200, body: "google" }));
+  await page.getByRole("button", { name: "Continue with Google" }).click();
+  await page.waitForURL(/\/auth\/v1\/authorize/);
+  const stored = await page.evaluate(() => [sessionStorage.getItem("typewit:agreed-before-google"), sessionStorage.getItem("typewit:age-before-google")]);
+  expect(stored[0]).toBeTruthy();
+  expect(JSON.parse(stored[1]!)).toMatchObject({ country: "US", birth_year: year - 30, birth_month: 1 });
 });
 
 test("an account without age answers is asked once before the dashboard", async ({ page, request }) => {
