@@ -30,14 +30,16 @@ Rules:
 
 | Name | Hex | Use |
 |---|---|---|
-| TypeWit Blue | `#0b57d0` | Mark, buttons, links, "Wit" |
-| Blue, hover | `#0842a0` | Pressed and hover states |
-| Cursor Blue | `#8ab4f8` | The cursor in the mark; links and "Wit" in dark mode |
-| Blue tint | `#eef3fd` | Soft backgrounds, info notices |
-| Ink | `#0a0a0b` | Text |
-| Grey | `#5f6368` | Secondary text |
-| Paper | `#ffffff` / dark `#0b0b0c` | Backgrounds |
-| Red | `#c5221f` | Errors only (5.1:1 on its tint) |
+| Ice | `#c0e6fd` | Highlights, cursor, links on midnight backgrounds |
+| Sky | `#80aad3` | Borders, decorative accents |
+| Slate | `#5b86b6` | Illustrations, gradient transitions |
+| TypeWit Blue | `#3f6593` | Buttons, links and the mark on light surfaces |
+| Navy | `#1b3554` | Secondary text, hover states and dark surfaces |
+| Midnight | `#000f22` | Main ink, footer and dark-mode canvas |
+| Paper | `#f5fbff` | Light canvas; cards use this with ice-blue surface variations |
+| Red | `#c5221f` | Errors only |
+
+Light mode uses pale blue surfaces with navy ink. Dark mode uses midnight and navy surfaces with ice-blue text. The footer stays midnight in both modes. Avoid white text on Sky or Slate; use Midnight ink instead. Provider logos retain their official brand colours.
 
 Text colours meet WCAG AA contrast; keep it that way when adding colours.
 

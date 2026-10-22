@@ -36,8 +36,8 @@ export const viewport: Viewport = {
   // Lets the layout reach the screen edges on iPhone; safe-area padding keeps content clear.
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0b0c" },
+    { media: "(prefers-color-scheme: light)", color: "#edf6fc" },
+    { media: "(prefers-color-scheme: dark)", color: "#000f22" },
   ],
 };
 

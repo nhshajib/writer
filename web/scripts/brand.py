@@ -11,10 +11,10 @@ import json
 import sys
 from pathlib import Path
 
-BLUE = "#0b57d0"
-BLUE_DARK = "#0842a0"
-CURSOR = "#8ab4f8"
-INK = "#0a0a0b"
+BLUE = "#3f6593"
+BLUE_DARK = "#1b3554"
+CURSOR = "#c0e6fd"
+INK = "#000f22"
 OUT = Path("public/brand")
 
 
