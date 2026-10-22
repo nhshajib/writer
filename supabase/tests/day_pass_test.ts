@@ -229,3 +229,42 @@ Deno.test("a pass that expires during a document read cannot start another write
   assertEquals(doc.writes.length, 0);
   assertEquals(row.attention, "access_expired");
 });
+
+Deno.test("worker completes the final revision pass exactly after a lost conditional-write response", async () => {
+  const { runWorker } = await import("./fakes.ts");
+  const { ProviderError } = await import("../functions/_shared/providers/types.ts");
+  const clock = new Clock();
+  const text = "Approved final.";
+  const plan = planSession({ text, plan: "pro", unit: "word", durationSeconds: 60, revisionSweep: true, seed: 1 });
+  assert(plan.ok);
+  const row = makeSession(text, { clock, minutes: 1 });
+  Object.assign(row, {
+    chunks: plan.units,
+    chunk_deletions: plan.chunk_deletions,
+    action_kinds: plan.action_kinds,
+    source_chunks: plan.source_chunks,
+    source_unit_ends: plan.source_unit_ends,
+    total_chunks: plan.units.length,
+    schedule: plan.schedule,
+  });
+  class CorrectingDoc extends FakeDoc {
+    lost = false;
+    replaceTail(_id: string, remove: number, value: string, revision: string) {
+      if (revision !== `r${this.revision}`) throw new ProviderError("conflict", "fixture revision conflict");
+      assert(remove <= this.content.length);
+      this.content = this.content.slice(0, this.content.length - remove) + value;
+      this.revision++;
+      if (!this.lost) {
+        this.lost = true;
+        throw new ProviderError("transient", "fixture applied response lost");
+      }
+      return Promise.resolve({ revisionId: `r${this.revision}` });
+    }
+  }
+  const doc = new CorrectingDoc(clock, "Existing collaborator notes.\n");
+  const store = new FakeStore(row, clock);
+  await runWorker(store, doc, clock, T0 + 240000);
+  assertEquals(row.status, "completed");
+  assertEquals(doc.content, "Existing collaborator notes.\n" + text);
+  assert(doc.lost);
+});
