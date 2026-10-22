@@ -2,8 +2,8 @@
 
 import { type ReactNode, useId, useRef, useState } from "react";
 
-/** Tabs with arrow-key movement. Every panel stays mounted, so live content keeps updating. */
-export function Tabs({ label, tabs, initial = 0 }: { label: string; tabs: { title: ReactNode; content: ReactNode }[]; initial?: number }) {
+/** Tabs with arrow-key movement. Panels stay mounted unless an expensive preview opts into lazy loading. */
+export function Tabs({ label, tabs, initial = 0 }: { label: string; tabs: { title: ReactNode; content: ReactNode; lazy?: boolean }[]; initial?: number }) {
   const [current, setCurrent] = useState(initial);
   const id = useId();
   const list = useRef<HTMLDivElement>(null);
@@ -31,7 +31,7 @@ export function Tabs({ label, tabs, initial = 0 }: { label: string; tabs: { titl
       </div>
       {tabs.map((tab, i) => (
         <div key={i} role="tabpanel" id={`${id}-panel-${i}`} aria-labelledby={`${id}-tab-${i}`} hidden={i !== current} className="tabpanel">
-          {tab.content}
+          {(!tab.lazy || i === current) && tab.content}
         </div>
       ))}
     </div>

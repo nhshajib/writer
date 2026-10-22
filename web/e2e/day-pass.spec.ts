@@ -37,6 +37,8 @@ test("Pro approves final revisions and replays only confirmed actions without do
   const id=new URL(page.url()).searchParams.get("id");
   await request.post("/__test/advance",{data:{id,written:100000}});
   await page.reload();
+  const beforeReplay=await (await request.get("/__test/requests")).json();
+  expect(beforeReplay.requests.filter((r:{path:string})=>/\/playback$/.test(r.path))).toHaveLength(0);
   await page.getByRole("tab",{name:"Playback",exact:true}).click();
   await expect(page.getByText(/does not edit your document/)).toBeVisible();
   const slider=page.getByRole("slider");

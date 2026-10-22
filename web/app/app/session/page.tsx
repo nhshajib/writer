@@ -542,7 +542,7 @@ function SessionView() {
                   </div>
                 ),
               },
-              { title: <><Icon.play />Playback</>, content: <SessionPlayback id={drip.id} pro={isPro} recorded={drip.progress.chunks_written} /> },
+              { title: <><Icon.play />Playback</>, lazy: true, content: <SessionPlayback id={drip.id} pro={isPro} recorded={drip.progress.chunks_written} /> },
             ]} />
           </section>
         </div>
