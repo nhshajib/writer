@@ -5,50 +5,43 @@ import { Icon } from "@/components/Icons";
 import { Logo } from "@/components/Logo";
 
 /**
- * An example TypeWit session beside a document. Clearly marked as a preview; the Pause button only
- * changes this example, so visitors can see what the control does.
+ * An example session: a document receiving text, with TypeWit's progress card over it. Clearly
+ * marked as a preview; Pause only changes this example, so visitors can see what the control does.
  */
 export function LivePreview() {
   const [paused, setPaused] = useState(false);
   return (
-    <figure className="mk-preview" aria-labelledby="preview-caption">
-      <figcaption id="preview-caption" className="mk-preview-tag"><span aria-hidden="true">●</span> Preview · an example session</figcaption>
-      <div className="mk-demo" data-paused={paused || undefined}>
-        <div className="mk-doc" aria-hidden="true">
-          <div className="mk-doc-head">
-            <span className="mk-doc-mark"><Icon.doc /></span>
-            <div>
-              <strong>Research notes</strong>
-              <span className="mk-menu"><span>File</span><span>Edit</span><span>View</span><span>Insert</span><span>Format</span><span>Tools</span><span>Help</span></span>
-            </div>
-          </div>
-          <div className="mk-toolbar">
-            <span>↶</span><span>↷</span><span className="mk-field">Normal text ▾</span><span className="mk-field">Inter ▾</span><span className="mk-field">11 ▾</span>
-            <b>B</b><i>I</i><u>U</u>
-          </div>
-          <div className="mk-page">
-            <p>
-              Rural communities face unique challenges in accessing healthcare, including distance, transportation and
-              limited specialist availability. <span className="arriving">Telehealth can help reduce these barriers and
-              increase access to care.</span><span className="caret" />
-            </p>
-          </div>
+    <figure className="lp-demo" data-paused={paused || undefined} aria-labelledby="preview-caption">
+      <figcaption id="preview-caption" className="sr-only">Preview · an example session</figcaption>
+      <div className="lp-doc" aria-hidden="true">
+        <div className="lp-doc-bar">
+          <span className="lp-doc-mark"><Icon.doc /></span>
+          <span className="lp-doc-name">Research notes</span>
+          <span className="lp-doc-dots"><i /><i /><i /></span>
         </div>
-        <div className="mk-panel">
-          <div className="mk-panel-head" aria-hidden="true"><Logo className="mk-logo" /><strong>TypeWit</strong><span className="mk-dots">···</span></div>
-          <div className="mk-row"><span>Session progress</span><span>248 / 400 words</span></div>
-          <div className="mk-bar" role="progressbar" aria-label="Example session progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={62}>
-            <span style={{ width: "62%" }}>62%</span>
-          </div>
-          <div className="mk-status" aria-live="polite">
-            <span className={`mk-running${paused ? " paused" : ""}`}><i aria-hidden="true" />{paused ? "Paused" : "Running"}</span>
-            <span>Automated text entry into your document.</span>
-          </div>
-          <button type="button" className="mk-pause" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
-            {paused ? <Icon.play /> : <Icon.pause />}{paused ? "Resume" : "Pause"}<span className="sr-only"> the example session</span>
-          </button>
-          <div className="mk-row mk-last" aria-hidden="true"><span>Finish in</span><span className="mk-select">1 hour ▾</span></div>
+        <div className="lp-doc-page">
+          <p className="lp-doc-h">Access to care</p>
+          <p>
+            Rural communities face unique challenges in accessing healthcare, including distance, transportation and
+            limited specialist availability. <span className="lp-arriving">Telehealth can help reduce these barriers
+            and increase access to care.</span><span className="lp-caret" />
+          </p>
+          <span className="lp-line" /><span className="lp-line short" />
         </div>
+      </div>
+      <div className="lp-card">
+        <div className="lp-card-head">
+          <Logo className="lp-card-logo" />
+          <strong>Example session</strong>
+          <span className={`lp-state${paused ? " paused" : ""}`} aria-live="polite"><i aria-hidden="true" />{paused ? "Paused" : "Running"}</span>
+        </div>
+        <div className="lp-progress" role="progressbar" aria-label="Example session progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={62}>
+          <span style={{ width: "62%" }} />
+        </div>
+        <p className="lp-card-meta"><span>248 of 400 words</span><span>{paused ? "Paused" : "Finishes in 22 min"}</span></p>
+        <button type="button" className="lp-pause" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
+          {paused ? <Icon.play /> : <Icon.pause />}{paused ? "Resume" : "Pause"}<span className="sr-only"> the example session</span>
+        </button>
       </div>
     </figure>
   );

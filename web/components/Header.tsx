@@ -51,7 +51,7 @@ export function Header() {
   const links = (
     <>
       <Link href="/#how">How it works</Link>
-      <Link href="/#who">Who it&apos;s for</Link>
+      <Link href="/#features">Features</Link>
       <Link href="/guides/" aria-current={current("/guides")}>Guides</Link>
       <Link href="/pricing/" aria-current={current("/pricing")}>Pricing</Link>
     </>

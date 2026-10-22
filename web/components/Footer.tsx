@@ -16,7 +16,7 @@ export function Footer() {
             <h2 id="f-product">Product</h2>
             <ul>
               <li><Link href="/#how">How it works</Link></li>
-              <li><Link href="/#who">Who it&apos;s for</Link></li>
+              <li><Link href="/#features">Features</Link></li>
               <li><Link href="/google-docs-auto-typer/">Google Docs auto typer</Link></li>
               <li><Link href="/word-auto-typer/">Word auto typer</Link></li>
               <li><Link href="/guides/">Guides</Link></li>

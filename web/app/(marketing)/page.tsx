@@ -2,13 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icons";
 import { GetStartedBar } from "@/components/marketing/GetStartedBar";
-import { PreviewCarousel } from "@/components/marketing/PreviewCarousel";
-import { Logo } from "@/components/Logo";
-import { MoreList } from "@/components/marketing/MoreList";
+import { LivePreview } from "@/components/marketing/LivePreview";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMeta, SITE_URL } from "@/lib/seo";
-import { FREE_FEATURES, PRO_FEATURES } from "@/lib/plans";
-import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
+import { DAY_PASS_PRICE, PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   ...pageMeta(
@@ -19,26 +16,40 @@ export const metadata: Metadata = {
   title: { absolute: "Auto Typer for Google Docs & Word · TypeWit" },
 };
 
-const WHO = [
-  { icon: Icon.doc, title: "Document workflow testing", text: "Try approved text entry in new or existing test documents, with a clear activity log." },
-  { icon: Icon.layers, title: "Formatting checks", text: "Check how supported headings, bold, italic, bullets and highlights transfer into your document." },
-  { icon: Icon.clock, title: "Pacing experiments", text: "Compare ready-made rhythms or Pro timing controls without building your own automation." },
-  { icon: Icon.person, title: "Accessible controls", text: "Use keyboard navigation, screen readers and large controls to review and manage a test session." },
-];
+/** Who uses it, shown as a short list under the features heading. */
+const USES = ["Document workflow testing", "Formatting checks", "Pacing experiments", "Accessible document entry"];
 
 const STEPS = [
-  { icon: Icon.doc, title: "Add your text", text: "Paste or dictate your text into TypeWit, using any input method you prefer." },
-  { icon: Icon.sliders, title: "Approve and set your pace", text: "Read the exact text, make any changes, and choose a pace that works for you." },
-  { icon: Icon.list, title: "Follow your progress", text: "TypeWit enters your approved text into your document while you stay in control." },
+  { icon: Icon.doc, title: "Paste your text", text: "Paste formatted text or dictate it. Headings, bold, italics, bullets and highlights come with it." },
+  { icon: Icon.sliders, title: "Choose a rhythm", text: "Natural or Steady, a finish time, and a new or existing document. Then read and approve the exact text." },
+  { icon: Icon.play, title: "Let it run", text: "TypeWit enters the text on schedule. Pause, resume or stop from any device; Google Docs keeps going when you close the tab." },
 ];
 
 const FEATURES = [
-  { icon: Icon.check, title: "You approve every word", text: "The completed session is designed to match your approved text. Pro simulations may temporarily enter and correct mistakes; changed text needs fresh approval." },
-  { icon: Icon.clock, title: "Your pace", text: "Sentence or paragraph steps, spread over minutes, hours or up to a week, with optional breaks." },
-  { icon: Icon.pause, title: "Pause, resume or stop", text: "Control any session from any device. Google Docs sessions keep running when you close the tab." },
-  { icon: Icon.list, title: "A clear record", text: "Every step is in the session's activity log, ready to download, next to your document's own version history." },
-  { icon: Icon.hand, title: "Accessible by default", text: "Works with the keyboard alone and with screen readers, in light and dark mode, with large targets." },
-  { icon: Icon.lock, title: "Private by design", text: "TypeWit opens only the documents it creates or you choose. Your text is never used to train AI." },
+  { icon: Icon.check, title: "You approve every word", text: "Sessions enter exactly the text you approved. Change it and you approve again." },
+  { icon: Icon.clock, title: "Your pace", text: "Word groups, sentences or paragraphs, spread over minutes, hours or up to a week." },
+  { icon: Icon.pause, title: "Pause, resume or stop", text: "Control any session from your phone or computer, whenever you need to." },
+  { icon: Icon.list, title: "A clear record", text: "Every step is in the session’s activity log, ready to download." },
+  { icon: Icon.hand, title: "Accessible by default", text: "Works with the keyboard alone and with screen readers, in light and dark mode." },
+  { icon: Icon.lock, title: "Private by design", text: "Opens only the documents it creates or you choose. Your text never trains AI." },
+];
+
+const PLANS = [
+  {
+    name: "Free", price: "$0", per: "forever", note: "No card needed",
+    items: ["250 words a day", "Sessions up to 60 minutes", "Natural and Steady rhythms", "Google Docs and Word"],
+    cta: { label: "Start free", href: "/signup/" },
+  },
+  {
+    name: "Day Pass", price: DAY_PASS_PRICE, per: "once", note: "24 hours · never renews",
+    items: ["Unlimited words for 24 hours", "Sessions up to a day", "Writing hours in your time zone", "No subscription"],
+    cta: { label: "Get a Day Pass", href: "/pricing/" },
+  },
+  {
+    name: "Pro", price: PRO_PRICE.year.amount, per: "/ month, billed yearly", note: `$60 a year · or ${PRO_PRICE.month.amount} monthly`, badge: "7 days free", featured: true,
+    items: ["Unlimited words, sessions up to a week", "Up to 3 sessions at once", "Drafting rhythm and custom pace", "Scheduled starts, file import and paused editing"],
+    cta: { label: "Try Pro free", href: "/pricing/" },
+  },
 ];
 
 const FAQ = [
@@ -95,157 +106,124 @@ const STRUCTURED_DATA = {
 export default function Home() {
   return (
     <>
-      <section className="mk-hero" aria-labelledby="hero-title">
-        <div className="container mk-hero-grid">
-          <div className="mk-hero-copy">
-            <span className="mk-chip">
-              <span className="mk-chip-icon gdoc" aria-hidden="true"><Icon.doc /></span>
-              <span className="mk-chip-icon word" aria-hidden="true">W</span>
+      <section className="lp-hero" aria-labelledby="hero-title">
+        <div className="container lp-hero-grid">
+          <div className="lp-hero-copy">
+            <p className="lp-chip">
+              <span className="lp-chip-icon gdoc" aria-hidden="true"><Icon.doc /></span>
+              <span className="lp-chip-icon word" aria-hidden="true">W</span>
               For Google Docs and Microsoft Word
-            </span>
-            <h1 id="hero-title" className="mk-display">Auto typer for<br />Google Docs and Word.</h1>
-            <p className="mk-lead">
-              Paste formatted text, choose a rhythm, and schedule automated entry into your document. Built for authorized testing, with your approval before every session.
             </p>
-            <div className="app-id">
-              <span className="app-id-icon" aria-hidden="true"><Logo className="app-id-logo" /></span>
-              <span className="app-id-text"><strong>TypeWit</strong><span>Free · Google Docs and Word</span></span>
-              <Link href="/signup/" className="app-id-get" id="hero-cta">Get started</Link>
+            <h1 id="hero-title" className="lp-display">Auto typer for Google&nbsp;Docs and&nbsp;Word.</h1>
+            <p className="lp-lead">
+              Paste formatted text, choose a rhythm, and let TypeWit enter it into your document on schedule. Built for authorized testing, with your approval before every session.
+            </p>
+            <div className="lp-actions">
+              <Link href="/signup/" className="btn btn-primary btn-lg" id="hero-cta">Get started free</Link>
+              <a href="#how" className="btn btn-secondary btn-lg">See how it works</a>
             </div>
-            <dl className="app-facts">
-              <div><dt>Free plan</dt><dd>$0</dd><dd>250 words a day</dd></div>
-              <div><dt>Works with</dt><dd><Icon.doc /></dd><dd>Docs and Word</dd></div>
-              <div><dt>Built for</dt><dd><Icon.person /></dd><dd>Accessibility</dd></div>
-            </dl>
-            <div className="mk-cta">
-              <Link href="/signup/" className="btn btn-primary btn-lg">Get started free</Link>
-              <a href="#how" className="btn btn-outline btn-lg"><span className="play" aria-hidden="true"><Icon.play /></span>See how it works</a>
-            </div>
-            <ul className="mk-trust">
-              <li><Icon.check />Google Docs and Word</li>
+            <ul className="lp-trust">
               <li><Icon.check />Free plan, no card</li>
-              <li><Icon.check />Keyboard and screen-reader friendly</li>
+              <li><Icon.check />No browser extension</li>
+              <li><Icon.check />Screen-reader friendly</li>
             </ul>
           </div>
-
-          <PreviewCarousel />
+          <LivePreview />
         </div>
       </section>
 
-      <section className="mk-band" aria-labelledby="band-title">
+      <section id="how" className="lp-section" aria-labelledby="how-title">
         <div className="container">
-          <h2 id="band-title">Your text, entered at the pace you choose.</h2>
-          <p>Explore the Google Docs auto typer, the Word add-in, and practical guides to formatting and scheduled text entry.</p>
-        </div>
-      </section>
-
-      <section id="how" className="mk-section" aria-labelledby="how-title">
-        <div className="container">
-          <p className="mk-kicker">How it works</p>
-          <h2 id="how-title" className="mk-h2">Three steps. You stay in control.</h2>
-          <ol className="mk-steps">
+          <header className="lp-head">
+            <p className="lp-kicker">How it works</p>
+            <h2 id="how-title" className="lp-h2">Three steps. You stay in control.</h2>
+          </header>
+          <ol className="lp-steps">
             {STEPS.map(({ icon: StepIcon, title, text }, i) => (
               <li key={title}>
-                <span className="mk-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-                <span className="mk-step-icon" aria-hidden="true"><StepIcon /></span>
-                <div><h3>{title}</h3><p>{text}</p></div>
+                <span className="lp-step-top"><span className="lp-num" aria-hidden="true">{i + 1}</span><span className="lp-icon" aria-hidden="true"><StepIcon /></span></span>
+                <h3>{title}</h3>
+                <p>{text}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      <section id="who" className="mk-section" aria-labelledby="who-title">
+      <section id="features" className="lp-section lp-alt" aria-labelledby="features-title">
         <div className="container">
-          <p className="mk-kicker">Who it&apos;s for</p>
-          <h2 id="who-title" className="mk-h2">For teams and people testing document entry.</h2>
-          <ul className="mk-needs">
-            {WHO.map(({ icon: WhoIcon, title, text }) => (
-              <li key={title}><span className="mk-need-icon" aria-hidden="true"><WhoIcon /></span><div><h3>{title}</h3><p>{text}</p></div></li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className="mk-section mk-alt" aria-labelledby="features-title">
-        <div className="container">
-          <p className="mk-kicker">What you get</p>
-          <h2 id="features-title" className="mk-h2">Calm, clear and always in your control.</h2>
-          <MoreList className="mk-features" shown={3} total={FEATURES.length} label="features">
+          <header className="lp-head">
+            <p className="lp-kicker">Why TypeWit</p>
+            <h2 id="features-title" className="lp-h2">Calm, clear and always in your control.</h2>
+            <ul className="lp-uses" aria-label="Used for">
+              {USES.map((use) => <li key={use}>{use}</li>)}
+            </ul>
+          </header>
+          <ul className="lp-features">
             {FEATURES.map(({ icon: FeatureIcon, title, text }) => (
-              <li key={title}><span className="mk-need-icon" aria-hidden="true"><FeatureIcon /></span><h3>{title}</h3><p>{text}</p></li>
+              <li key={title}><span className="lp-icon" aria-hidden="true"><FeatureIcon /></span><h3>{title}</h3><p>{text}</p></li>
             ))}
-          </MoreList>
-        </div>
-      </section>
-
-      <section className="mk-section" aria-labelledby="plans-title">
-        <div className="container">
-          <p className="mk-kicker">Pricing</p>
-          <h2 id="plans-title" className="mk-h2">Free to start. Pro when it gets long.</h2>
-          <ul className="price-rows">
-            <li>
-              <span className="pr-main"><strong>Free</strong><span>250 words a day · sessions up to 60 minutes</span></span>
-              <span className="pr-price">$0</span>
-            </li>
-            <li>
-              <span className="pr-main"><strong>Pro <span className="badge badge-blue">7 days free</span></strong><span>Unlimited words · week-long sessions · custom pacing and presets</span></span>
-              <span className="pr-price"><span>{PRO_PRICE.year.amount}<small>/mo</small></span><em>$60 billed yearly · or {PRO_PRICE.month.amount} monthly</em></span>
-            </li>
-            <li><span className="pr-main"><strong>Day Pass</strong><span>Unlimited words for 24 hours · no renewal</span></span><span className="pr-price">$4.99</span></li>
-            <li><Link href="/pricing/" className="pr-link">Compare plans<Icon.chevronRight /></Link></li>
           </ul>
-          <p className="hint">Need only a day? <Link href="/pricing/">Get a $4.99 Day Pass</Link>: unlimited words, one active session and writing hours for 24 hours, with no subscription.</p>
-          <div className="mk-plans">
-            <div className="mk-plan">
-              <h3>Free</h3>
-              <p className="mk-plan-price"><strong>$0</strong><span>forever</span></p>
-              <ul className="mk-ticks">
-                {FREE_FEATURES.map((f) => <li key={f}><Icon.check />{f}</li>)}
-              </ul>
-              <Link href="/signup/" className="btn btn-secondary btn-lg btn-block">Start free</Link>
-            </div>
-            <div className="mk-plan featured">
-              <h3>Pro <span className="badge badge-blue">7 days free</span></h3>
-              <p className="mk-plan-price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month, billed yearly</span></p>
-              <p className="mk-plan-alt">$60 billed yearly · or {PRO_PRICE.month.amount} billed monthly</p>
-              <ul className="mk-ticks">
-                {PRO_FEATURES.map((f) => <li key={f}><Icon.check />{f}</li>)}
-              </ul>
-              <Link href="/pricing/" className="btn btn-primary btn-lg btn-block">Compare plans</Link>
-            </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="lp-section" aria-labelledby="plans-title">
+        <div className="container">
+          <header className="lp-head lp-center">
+            <p className="lp-kicker">Pricing</p>
+            <h2 id="plans-title" className="lp-h2">Start free. Upgrade when it gets long.</h2>
+          </header>
+          <ul className="lp-plans">
+            {PLANS.map((plan) => (
+              <li key={plan.name} className={plan.featured ? "lp-plan featured" : "lp-plan"}>
+                <h3>{plan.name}{plan.badge && <span className="badge badge-blue">{plan.badge}</span>}</h3>
+                <p className="lp-price"><strong>{plan.price}</strong><span>{plan.per}</span></p>
+                <p className="lp-price-note">{plan.note}</p>
+                <ul className="lp-ticks">{plan.items.map((item) => <li key={item}><Icon.check />{item}</li>)}</ul>
+                <Link href={plan.cta.href} className={`btn btn-lg btn-block ${plan.featured ? "btn-primary" : "btn-secondary"}`}>{plan.cta.label}</Link>
+              </li>
+            ))}
+          </ul>
+          <p className="lp-more-link"><Link href="/pricing/">Compare every feature<Icon.arrowRight /></Link></p>
+        </div>
+      </section>
+
+      <section className="lp-section lp-alt" aria-labelledby="where-title">
+        <div className="container">
+          <header className="lp-head">
+            <p className="lp-kicker">Where it works</p>
+            <h2 id="where-title" className="lp-h2">Made for the documents you already use.</h2>
+          </header>
+          <div className="lp-links">
+            <Link href="/google-docs-auto-typer/"><span className="lp-link-icon gdoc" aria-hidden="true"><Icon.doc /></span><h3>Google Docs auto typer</h3><p>Runs in the cloud with no browser extension. Keeps going after you close your laptop.</p><span className="lp-go">Learn more<Icon.arrowRight /></span></Link>
+            <Link href="/word-auto-typer/"><span className="lp-link-icon word" aria-hidden="true">W</span><h3>Microsoft Word auto typer</h3><p>An add-in that enters approved text into the open document, with the same rhythms.</p><span className="lp-go">Learn more<Icon.arrowRight /></span></Link>
+            <Link href="/guides/"><span className="lp-link-icon" aria-hidden="true"><Icon.list /></span><h3>Guides</h3><p>Scheduling, formatted paste, voice typing and version history, explained.</p><span className="lp-go">Read the guides<Icon.arrowRight /></span></Link>
           </div>
         </div>
       </section>
 
-      <section id="faq" className="mk-section mk-alt" aria-labelledby="faq-title">
-        <div className="container mk-faq">
-          <div className="mk-faq-head">
-            <p className="mk-kicker">Questions</p>
-            <h2 id="faq-title" className="mk-h2">Good to know</h2>
-            <p className="muted">Still have a question? <Link href="/support/">Contact support</Link></p>
-          </div>
+      <section id="faq" className="lp-section" aria-labelledby="faq-title">
+        <div className="container lp-faq">
+          <header className="lp-faq-head">
+            <p className="lp-kicker">Questions</p>
+            <h2 id="faq-title" className="lp-h2">Good to know</h2>
+            <p>Still have a question? <Link href="/support/">Contact support</Link></p>
+          </header>
           <div className="faq">
             {FAQ.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}
           </div>
         </div>
       </section>
 
-      <section className="mk-section mk-final" aria-labelledby="cta-title">
+      <section className="lp-section lp-final" aria-labelledby="cta-title">
         <div className="container">
-          <div className="mk-cta-card">
+          <div className="lp-cta">
             <h2 id="cta-title">Your next document, without the typing.</h2>
             <p>Set up in about two minutes. Free plan, no card needed.</p>
             <Link href="/signup/" className="btn btn-lg">Create your free account</Link>
           </div>
         </div>
       </section>
-
-      <section className="mk-section"><div className="container"><h2 className="mk-h2">Explore TypeWit</h2><div className="seo-cards">
-        <Link href="/google-docs-auto-typer/"><h3>Google Docs auto typer</h3><p>Cloud sessions, formatted paste and scheduled starts without a browser extension.</p></Link>
-        <Link href="/word-auto-typer/"><h3>Microsoft Word auto typer</h3><p>Use the Word add-in to enter approved text into an open document.</p></Link>
-        <Link href="/guides/"><h3>Setup and writing guides</h3><p>Learn about formatted paste, session timing and document version history.</p></Link>
-      </div></div></section>
       <GetStartedBar />
       <JsonLd data={STRUCTURED_DATA} />
     </>
