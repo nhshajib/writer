@@ -2683,3 +2683,5 @@ button.mk-pause:active { transform: scale(0.98); }
   .rhythm-preview { padding: 1rem; }
   .rhythm-preview dl { gap: 0.85rem; }
 }
+.seo-questions { margin-top: 2.5rem; }
+.seo-questions h3 { font-size: 1.05rem; margin: 1.5rem 0 0.4rem; }

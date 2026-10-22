@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: "Is there a free plan?",
-    a: "Yes. Free includes 250 words a day and sessions up to 60 minutes, with every insertion mode and accessibility feature, and no card needed. Pro removes the daily limit and adds week-long sessions, custom pacing, saved presets and scheduled starts, with 7 days free.",
+    a: "Yes. Free includes 250 words a day and sessions up to 60 minutes, with every insertion mode and accessibility feature, and no card needed. A $4.99 Day Pass removes the word limit for 24 hours with no subscription. Pro adds week-long sessions, custom pacing, saved presets and scheduled starts, with 7 days free.",
   },
 ];
 

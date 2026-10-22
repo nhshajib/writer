@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { PUBLIC_PAGES } from '../lib/search-content';
 
 test('guides have visible breadcrumbs and working related links', async ({page}) => {
   await page.goto('/guides/');
@@ -35,7 +36,7 @@ test('public metadata is present without JavaScript and private pages are exclud
   expect(home).toContain('<title>Auto Typer for Google Docs &amp; Word · TypeWit</title>');
   expect(home).not.toContain('It never imitates human typing');
   const xml=await (await request.get('/sitemap.xml')).text();
-  expect((xml.match(/<loc>/g)||[]).length).toBe(12);
+  expect((xml.match(/<loc>/g)||[]).length).toBe(PUBLIC_PAGES.length);
   expect(xml).not.toContain('/app/');
   const login=await (await request.get('/login/')).text();
   expect(login).toMatch(/name="robots" content="noindex/);
