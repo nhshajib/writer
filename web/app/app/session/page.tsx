@@ -372,9 +372,10 @@ function SessionView() {
             </p>
           )
           : (
-            <p id="edit-session" tabIndex={-1} className="hint mb-6 edit-locked">
-              Editing a paused session&apos;s text and settings is part of Pro.<PlanLock plan={dashboard.profile.plan} feature="pausedEdit" />{" "}
-              <Link href="/app/billing/">Compare plans</Link>
+            <p className="mb-6">
+              <button id="edit-session" type="button" className="btn btn-secondary" data-locked="pausedEdit" aria-disabled="true">
+                <Icon.sliders />Edit text &amp; settings<PlanLock plan={dashboard.profile.plan} feature="pausedEdit" />
+              </button>
             </p>
           )
       )}

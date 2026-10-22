@@ -5,6 +5,7 @@ import { type ReactNode, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { PlanLock } from "@/components/app/PlanLock";
 import { Popover } from "@/components/app/Popover";
+import { useUpgrade } from "@/components/app/UpgradeSheet";
 import { Sheet } from "@/components/app/mobile/Sheet";
 import { titleOf } from "@/components/app/SessionCards";
 import { ACTIVE_STATUSES, useDashboard } from "@/lib/dashboard";
@@ -24,6 +25,7 @@ export function SessionActionsMenu({ drip, control, before, buttonClass }: {
   buttonClass?: string;
 }) {
   const { profile } = useDashboard();
+  const upgrade = useUpgrade();
   const [confirm, setConfirm] = useState<"stop" | "delete" | null>(null);
   const title = titleOf(drip);
   const word = drip.provider === "microsoft";
@@ -60,7 +62,7 @@ export function SessionActionsMenu({ drip, control, before, buttonClass }: {
             )}
             {editable && (canEdit
               ? <li><Link href={`/app/session?id=${drip.id}&edit=1`}><Icon.sliders />Edit text &amp; settings</Link></li>
-              : <li><button type="button" disabled title="Editing a session's text and settings is part of Pro"><Icon.sliders />Edit text &amp; settings<PlanLock plan={profile.plan} feature="pausedEdit" /></button></li>)}
+              : <li><button type="button" aria-disabled="true" onClick={() => { close(); upgrade("pausedEdit"); }}><Icon.sliders />Edit text &amp; settings<PlanLock plan={profile.plan} feature="pausedEdit" /></button></li>)}
             {!active && (word
               ? <li><button type="button" disabled title="Word sessions start from the TypeWit add-in in Word"><Icon.refresh />Run again from Word</button></li>
               : <li><Link href={`/app/new?from=${drip.id}`}><Icon.refresh />Run again…</Link></li>)}

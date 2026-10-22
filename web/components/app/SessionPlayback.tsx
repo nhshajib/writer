@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { api } from "@/lib/api";
 import { executionText } from "../../../supabase/functions/_shared/drafting";
 
@@ -27,7 +26,7 @@ export function SessionPlayback({ id, pro, recorded }: { id: string; pro: boolea
   }, [playing, data, speed]);
   useEffect(() => { if (data && position >= data.chunks.length) setPlaying(false); }, [data, position]);
   const text = useMemo(() => data ? executionText(data.chunks, data.deletions, 0, position) : "", [data, position]);
-  if (!pro) return <p className="hint">Replay recorded TypeWit session actions with <Link href="/app/billing/">Pro</Link>. Your activity log remains available on every plan.</p>;
+  if (!pro) return <p className="hint">Replay recorded TypeWit session actions with Pro. Your activity log remains available on every plan. <button type="button" className="link-btn" data-locked="playback">See what Pro adds</button></p>;
   if (error) return <p className="alert alert-error" role="alert">{error}</p>;
   if (!data) return <p role="status">Loading session playback…</p>;
   return <div>

@@ -186,8 +186,14 @@ test("editing settings is offered on every plan: Pro pauses to edit, Free sees w
 
   await request.post("/__test/profile", { data: { plan: "free", subscription_status: null } });
   await page.goto(`/app/session/?id=${id}&edit=1`);
-  await expect(page.getByText("Editing a paused session's text and settings is part of Pro.")).toBeVisible();
+  const locked = page.getByRole("button", { name: /Edit text & settings/ });
+  await expect(locked).toBeFocused();
   await expect(page.getByRole("heading", { name: /Edit the remaining session/ })).toHaveCount(0);
+  await locked.click({ force: true });
+  const sheet = page.getByRole("dialog", { name: "Unlock edit while paused" });
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
 });
 
 test("session defaults saved in Settings are where New session starts, and every Settings link lands on a section", async ({ page }) => {

@@ -2728,3 +2728,80 @@ button.mk-pause:active { transform: scale(0.98); }
 .preset-list { list-style: none; display: grid; gap: 0.25rem; margin: 0.25rem 0 0; padding: 0; }
 .preset-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 40px; border-bottom: 1px solid var(--separator, var(--border)); }
 form[aria-label="Session defaults"] fieldset { border: 0; padding: 0; margin: 0; }
+
+/* ---------------------------------------------------------------------------
+ * Locked features: tappable, and they open the upgrade pop-up
+ * ------------------------------------------------------------------------- */
+[data-locked] { cursor: pointer; }
+.choice[data-locked] > span, .check[data-locked] > span, .check[data-locked] { color: var(--muted); }
+.choice[data-locked] strong { color: var(--text-2); }
+.choice[data-locked] input, .check[data-locked] input { opacity: 0.5; }
+.rhythm-card[aria-disabled="true"] { background: var(--surface); }
+.rhythm-card[aria-disabled="true"] > span { color: var(--muted); }
+.btn[aria-disabled="true"], .menu-list button[aria-disabled="true"] { color: var(--muted); }
+.btn[aria-disabled="true"] .plan-lock, .menu-list button[aria-disabled="true"] .plan-lock { margin-left: auto; }
+.menu-list button[aria-disabled="true"] .plan-lock { margin-left: 0.5rem; }
+
+/* The upgrade pop-up: one message, one main action, a close button */
+.upgrade { display: grid; justify-items: center; gap: 0.9rem; padding: 0.25rem 0.5rem 0.5rem; text-align: center; }
+.upgrade-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--accent-soft); color: var(--accent); }
+.upgrade-icon svg { width: 26px; height: 26px; }
+.upgrade-text { max-width: 26rem; font-size: 1rem; line-height: 1.5; color: var(--text-2); }
+.upgrade-actions { display: grid; gap: 0.6rem; width: 100%; max-width: 26rem; }
+.upgrade-actions .btn-lg { min-height: 52px; border-radius: 14px; font-size: 1.0625rem; }
+.upgrade-note-line { font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.25rem; }
+.upgrade-fine { font-size: 0.75rem; color: var(--muted); max-width: 26rem; }
+.upgrade .alert { width: 100%; max-width: 26rem; text-align: left; }
+@media (min-width: 768px) {
+  .sheet.upgrade-sheet { margin: auto; max-width: 440px; border-radius: 20px; }
+  .upgrade-sheet .sheet-grabber { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * The dashboard on iPhone: native details
+ * ------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* iOS zooms into fields with text under 16px; keep every field at 16px. */
+  .app input:not([type="checkbox"]):not([type="radio"]), .app select, .app textarea { font-size: 16px; }
+
+  /* Press feedback, like a native control */
+  .app .btn:active:not(:disabled):not([aria-disabled="true"]) { transform: scale(0.97); }
+  .app .menu-list a:active, .app .menu-list button:active, .row-item:active, .doc-row:active, .attention-card:active { background: var(--surface-2); }
+
+  /* Back button instead of a breadcrumb trail */
+  .app-main .crumbs { margin: -0.25rem 0 0.25rem -0.35rem; font-size: 1.0625rem; }
+  .app-main .crumbs > :not(:first-child) { display: none; }
+  .app-main .crumbs > a:first-child { display: inline-flex; align-items: center; gap: 0.1rem; min-height: 44px; padding: 0 0.35rem; color: var(--accent); font-weight: 500; }
+  .app-main .crumbs > a:first-child::before { content: ""; width: 10px; height: 10px; border-left: 2.5px solid currentColor; border-bottom: 2.5px solid currentColor; transform: rotate(45deg); margin-right: 0.35rem; border-radius: 1px; }
+
+  /* Settings as grouped, inset lists: small grey headers outside the cards */
+  .settings { border: 0; background: none; box-shadow: none; display: grid; gap: 1.5rem; }
+  .setting { display: block; padding: 0; border: 0 !important; }
+  .setting > div:first-child { padding: 0 0.25rem 0.4rem; }
+  .setting h2 { font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+  .setting > div:first-child p { font-size: 0.8125rem; }
+  .setting > :not(:first-child) { padding: 1rem; border-radius: 14px; background: var(--raised); border: 1px solid var(--border); }
+  .setting > :not(:first-child) + :not(:first-child) { margin-top: 0.75rem; }
+  .setting .check { min-height: 44px; }
+  .setting .check + .check { border-top: 1px solid var(--separator); padding-top: 0.6rem; margin-top: 0.4rem; }
+
+  /* Plan & usage: body-size copy in cards, not headline size */
+  .card[aria-labelledby="buy-pass-title"] p:not(.hint) { font-size: 0.9375rem; color: var(--text-2); margin: 0.5rem 0 1rem; }
+
+  /* Formatting toolbar: the style menu keeps its label readable */
+  .rich-toolbar { grid-template-columns: minmax(0, 1fr) 44px 44px; }
+  .rich-toolbar > .btn:first-child { grid-column: 1; grid-row: 1; }
+  .rich-toolbar > .btn:last-child { grid-column: 2 / -1; grid-row: 1; padding-inline: 0.5rem; }
+  .rich-toolbar > select { grid-row: 2; }
+
+  /* Disclosure summaries: the action label stays on one line */
+  .destination-options > summary .summary-action { white-space: nowrap; }
+
+  /* Sheets: grouped rows with hairlines, like an action sheet */
+  .sheet .menu-list { border-radius: 14px; background: var(--surface); overflow: hidden; gap: 0; }
+  .sheet .menu-list li + li { border-top: 1px solid var(--separator); }
+  .sheet .menu-list a, .sheet .menu-list button { border-radius: 0; }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .app .btn:active:not(:disabled) { transform: none; }
+}

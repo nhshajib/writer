@@ -11,7 +11,7 @@ export function WorkWindowControls({ value, onChange, enabled, plan }: { value: 
   const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   return <fieldset className="field" style={{ marginTop: "1rem" }}>
     <legend className="label">Writing hours{plan && <PlanLock plan={plan} feature="writingHours" />}</legend>
-    <label className="check"><input type="checkbox" checked={Boolean(value)} disabled={!enabled} onChange={e => onChange(e.target.checked ? { start: "09:00", end: "17:00", time_zone: zone() } : null)} />Write only during chosen hours</label>
+    <label className="check" {...(plan && !enabled ? { "data-locked": "writingHours" } : {})}><input type="checkbox" checked={Boolean(value)} {...(plan && !enabled ? { "aria-disabled": true } : { disabled: !enabled })} onChange={e => onChange(e.target.checked ? { start: "09:00", end: "17:00", time_zone: zone() } : null)} />Write only during chosen hours</label>
     <p className="hint">{enabled ? "Optional. Try 9 AM–5 PM in your time zone. Outside these hours the session waits automatically, then continues. Overnight windows work too. This can move the finish time later." : plan ? "Outside the hours you choose, the session waits, then continues." : <>Included with <Link href="/app/billing/">Day Pass and Pro</Link>. Free sessions can still run in the background.</>}</p>
     {value && <div className="row" style={{ gap: "1rem", flexWrap: "wrap", alignItems: "end" }}>
       <div className="field"><label className="label" htmlFor={`${id}-start`}>Write from</label><input id={`${id}-start`} type="time" value={value.start} required onChange={e => onChange({ ...value, start: e.target.value })} /></div>

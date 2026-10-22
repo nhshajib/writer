@@ -216,3 +216,19 @@ test("Home on a phone leads with the session and a full-width control on the ses
   await pause.click();
   await expect(page.locator(".session-primary").getByRole("button", { name: "Resume" })).toBeVisible();
 });
+
+test("tapping a Pro feature on Free opens a simple upgrade sheet that closes with its X", async ({ page, request }) => {
+  await request.post("/__test/profile", { data: { plan: "free" } });
+  await page.goto("/app/new/");
+  const drafting = page.getByRole("button", { name: /^Drafting/ });
+  await expect(drafting).toBeDisabled();
+  await drafting.click({ force: true });
+  const sheet = page.getByRole("dialog", { name: "Unlock drafting rhythm" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Try Pro free for 7 days" })).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "Compare plans" })).toHaveAttribute("href", "/app/billing/");
+  await expectNoAxeViolations(page);
+  await sheet.getByRole("button", { name: /^Close/ }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole("button", { name: /^Natural/ })).toHaveAttribute("aria-pressed", "true");
+});

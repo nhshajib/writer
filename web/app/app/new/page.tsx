@@ -5,6 +5,7 @@ import { WorkWindowControls } from "@/components/app/WorkWindowControls";
 import type { WorkWindow } from "../../../../supabase/functions/_shared/workWindow";
 import { RichTextEditor } from "@/components/app/RichTextEditor";
 import { PlanLock, UpgradeNote } from "@/components/app/PlanLock";
+import { lockedProps, lockedWrap } from "@/components/app/UpgradeSheet";
 import { canUse, PLAN_NAME, planForMinutes } from "@/lib/plans";
 import { DURATIONS } from "@/lib/durations";
 
@@ -727,7 +728,7 @@ export default function NewSessionPage() {
               <label className="label" htmlFor="text">Text to enter</label>
               <div className="text-actions">
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
-                  disabled={!canUse(plan, "import") || importing}>
+                  disabled={importing} {...lockedProps(plan, "import")}>
                   <Icon.doc />{importing ? "Importing…" : "Import file"}<PlanLock plan={plan} feature="import" />
                 </button>
                 <input ref={fileInput} type="file" accept={IMPORT_ACCEPT} hidden data-testid="import-file"
@@ -825,7 +826,7 @@ export default function NewSessionPage() {
           <div className="rhythm-cards" role="group" aria-label="Writing rhythm">
             {RHYTHMS.map(([key, name, description]) => (
               <button key={key} type="button" className="rhythm-card" aria-pressed={timing !== "asap" && rhythm === key}
-                disabled={timing === "asap" || key === "drafting" && !canUse(plan, "drafting")} onClick={() => chooseRhythm(key)}>
+                disabled={timing === "asap"} {...(key === "drafting" ? lockedProps(plan, "drafting") : {})} onClick={() => chooseRhythm(key)}>
                 <strong>{name}{key === "natural" && <span className="badge badge-blue">Recommended</span>}{key === "drafting" && <PlanLock plan={plan} feature="drafting" />}</strong>
                 <span>{description}</span>
               </button>
@@ -889,8 +890,8 @@ export default function NewSessionPage() {
               <input type="radio" name="place" value="end" checked={place === "end"} onChange={() => setPlace("end")} />
               <span><strong>End of the document</strong><small>After everything already in it.</small></span>
             </label>
-            <label className="choice">
-              <input type="radio" name="place" value="heading" checked={place === "heading"} onChange={() => setPlace("heading")} disabled={!canUse(plan, "headingPlacement")} />
+            <label className="choice" {...lockedWrap(plan, "headingPlacement")}>
+              <input type="radio" name="place" value="heading" checked={place === "heading"} onChange={() => setPlace("heading")} {...lockedProps(plan, "headingPlacement")} />
               <span>
                 <strong>Under a heading<PlanLock plan={plan} feature="headingPlacement" /></strong>
                 <small>At the end of a section of an existing Google Doc.</small>
@@ -952,8 +953,8 @@ export default function NewSessionPage() {
               <input type="radio" name="timing" value="duration" checked={timing === "duration"} onChange={() => setTiming("duration")} />
               <span><strong>Finish time</strong><small>Fit everything, breaks included, into the time chosen under Rhythm.</small></span>
             </label>
-            <label className="choice">
-              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => { updatePace(effectivePace); rememberRhythm("custom"); setTiming("speed"); }} disabled={!canUse(plan, "typingSpeed")} />
+            <label className="choice" {...lockedWrap(plan, "typingSpeed")}>
+              <input type="radio" name="timing" value="speed" checked={timing === "speed"} onChange={() => { updatePace(effectivePace); rememberRhythm("custom"); setTiming("speed"); }} {...lockedProps(plan, "typingSpeed")} />
               <span><strong>Typing speed<PlanLock plan={plan} feature="typingSpeed" /></strong><small>Set words per minute; see how long it takes.</small></span>
             </label>
             <label className="choice">
@@ -973,13 +974,18 @@ export default function NewSessionPage() {
                 <PaceControls timing={timing} pace={effectivePace} onChange={customize} collapsed={isMobile} />
               </>
             )
-            : <p className="hint">Natural and Steady set the pace for you. Custom speed, pauses, breaks, corrected mistakes and saved presets come with Pro.</p>}
+            : (
+              <p className="hint">
+                Natural and Steady set the pace for you. Custom speed, pauses, breaks, corrected mistakes and saved presets come with Pro.{" "}
+                <button type="button" className="link-btn" data-locked="customPace">See what Pro adds</button>
+              </p>
+            )}
 
           <WorkWindowControls value={workWindow} onChange={setWorkWindow} enabled={canUse(plan, "writingHours")} plan={plan} />
 
           <div className="field" style={{ marginTop: "1.25rem" }}>
-            <label className="check" htmlFor="start-later">
-              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} disabled={!canUse(plan, "startLater")} />
+            <label className="check" htmlFor="start-later" {...lockedWrap(plan, "startLater")}>
+              <input id="start-later" type="checkbox" checked={startLater} onChange={(e) => setStartLater(e.target.checked)} {...lockedProps(plan, "startLater")} />
               <span>Start later instead of now<PlanLock plan={plan} feature="startLater" /></span>
             </label>
             {startLater && (
@@ -996,8 +1002,8 @@ export default function NewSessionPage() {
           </div>
 
           <div className="field" style={{ marginTop: "1rem" }}>
-            <label className="check" htmlFor="revision-sweep">
-              <input id="revision-sweep" type="checkbox" checked={revisionSweep} disabled={!canUse(plan, "revisionPass") || timing === "asap"} onChange={e => setRevisionSweep(e.target.checked)} />
+            <label className="check" htmlFor="revision-sweep" {...lockedWrap(plan, "revisionPass")}>
+              <input id="revision-sweep" type="checkbox" checked={revisionSweep} disabled={timing === "asap"} onChange={e => setRevisionSweep(e.target.checked)} {...lockedProps(plan, "revisionPass")} />
               <span>Final revision pass<PlanLock plan={plan} feature="revisionPass" /></span>
             </label>
             <span className="hint">After entry, briefly revisits up to three ending words, then restores your exact approved text. Keep the session running until it finishes.</span>

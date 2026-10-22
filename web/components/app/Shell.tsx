@@ -12,6 +12,7 @@ import { AgreementGate } from "@/components/dashboard/AgreementGate";
 import { Icon } from "@/components/Icons";
 import { Logo, Wordmark } from "@/components/Logo";
 import { ToastProvider } from "@/components/Toast";
+import { UpgradeProvider } from "@/components/app/UpgradeSheet";
 import { DashboardProvider, needsYouOf, PLAN_LIMITS, useDashboardLoader } from "@/lib/dashboard";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
@@ -115,6 +116,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <DashboardProvider value={value}>
       <ToastProvider>
+      <UpgradeProvider>
       <div className="app">
         <div className="scrim" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
 
@@ -162,6 +164,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {!focused && <TabBar needsYou={needsYou} />}
         </div>
       </div>
+      </UpgradeProvider>
       </ToastProvider>
     </DashboardProvider>
   );

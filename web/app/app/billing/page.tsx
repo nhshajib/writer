@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
 import { PRO_PRICE, YEARLY_SAVING } from "@/lib/site";
 import { PRO_FEATURES } from "@/lib/plans";
-import { ADULT_AGE, ageFrom } from "@/lib/age";
+import { isMinor, startCheckout } from "@/lib/billing";
 import { dailyResetTime, span, when } from "@/lib/time";
 
 type Interval = "year" | "month";
@@ -58,15 +58,14 @@ export default function BillingPage() {
   const limits = PLAN_LIMITS[profile.plan];
   const active = drips.filter((d) => ACTIVE_STATUSES.has(d.status)).length;
   // Pro has to be bought by an adult (the server refuses under-18s too).
-  const minor = profile.birth_year != null && profile.birth_month != null && ageFrom(profile.birth_year, profile.birth_month) < ADULT_AGE;
+  const minor = isMinor(profile);
   const usagePercent = limits.dailyWords ? Math.min(100, Math.round((wordsToday / limits.dailyWords) * 100)) : 0;
 
   async function startTrial(offer: Interval | "day") {
     setBusy(true);
     setError(null);
     try {
-      const { url } = await api<{ url: string }>("billing/checkout", { method: "POST", body: { interval: offer } });
-      window.location.assign(url);
+      await startCheckout(offer);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start checkout.");
       setBusy(false);

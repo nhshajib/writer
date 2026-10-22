@@ -95,7 +95,7 @@ export function SessionDefaultsForm() {
       <div className="field">
         <p className="label">Saved pace presets<PlanLock plan={profile.plan} feature="presets" /></p>
         {!canUse(profile.plan, "presets")
-          ? <p className="hint">Save custom pace settings under a name on New session, then apply them in one click.</p>
+          ? <p className="hint">Save custom pace settings under a name on New session, then apply them in one click. <button type="button" className="link-btn" data-locked="presets">See what Pro adds</button></p>
           : presets.length === 0
           ? <p className="hint">None yet. Save one from More options › Pace &amp; corrections on New session.</p>
           : (
