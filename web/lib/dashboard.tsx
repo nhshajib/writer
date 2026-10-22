@@ -7,7 +7,7 @@ import { rememberAgeBlock } from "./age";
 import { recordPendingAge, recordPendingAgreement } from "./googleAuth";
 import { supabase } from "./supabase";
 import { CURRENT_TERMS_VERSION } from "./terms";
-import type { Connection, Drip } from "./types";
+import type { Connection, Drip, InsertionUnit } from "./types";
 import { effectivePlan, type PlanTier, PLAN_LIMITS as SERVER_PLAN_LIMITS } from "../../supabase/functions/_shared/limits";
 import { useRequireSession } from "./useRequireSession";
 
@@ -28,6 +28,16 @@ export interface Profile {
   birth_month?: number | null;
   /** Pro: saved pacing settings (see set_pace_presets). */
   pace_presets?: PacePreset[];
+  /** What New session starts from (see set_session_defaults); missing until the column exists. */
+  session_defaults?: SessionDefaults;
+}
+
+/** Starting values for New session, saved on the account. Every session is still checked against the plan. */
+export interface SessionDefaults {
+  rhythm?: "natural" | "steady" | "drafting";
+  minutes?: number;
+  word_grouping?: "random" | "single";
+  unit?: InsertionUnit;
 }
 
 export interface PacePreset {
@@ -103,10 +113,12 @@ export function useDashboardLoader() {
     try {
       await finishGoogleConnectReturn();
       const client = supabase();
-      const [{ data: profile, error: profileError }, conns, list, { data: notes }] = await Promise.all([
+      const [{ data: profile, error: profileError }, { data: defaults }, conns, list, { data: notes }] = await Promise.all([
         client.from("profiles")
           .select("plan, day_pass_expires_at, subscription_status, email_notifications, email_on_completed, email_on_attention, agreed_terms_version, words_used_today, usage_date, age_confirmed_at, birth_year, birth_month, pace_presets")
           .maybeSingle(),
+        // Read on its own, so the dashboard still loads where the session_defaults migration hasn't run yet.
+        client.from("profiles").select("session_defaults").maybeSingle(),
         api<{ connections: Connection[] }>("drips/connections"),
         api<{ drips: Drip[] }>("drips"),
         client.from("notifications").select("id, drip_id, kind, title, body, read_at, created_at")
@@ -117,7 +129,7 @@ export function useDashboardLoader() {
         plan: "free", subscription_status: null, email_notifications: true, agreed_terms_version: null,
         words_used_today: 0, usage_date: "",
       }) as Profile;
-      current = { ...current, plan: effectivePlan(current) };
+      current = { ...current, plan: effectivePlan(current), session_defaults: (defaults as { session_defaults?: SessionDefaults } | null)?.session_defaults ?? {} };
       // Someone who ticked the agreement before choosing Google has it recorded now.
       if (current.agreed_terms_version !== CURRENT_TERMS_VERSION && await recordPendingAgreement()) {
         current = { ...current, agreed_terms_version: CURRENT_TERMS_VERSION };

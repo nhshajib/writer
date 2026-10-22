@@ -184,7 +184,7 @@ export function DocumentsWorkspace({ accountsOnly = false }: { accountsOnly?: bo
           website or a phone browser; pause, resume and stop also work from here.
         </p>
       </section>
-      </div> : <p className="mb-5"><Link href="/app/connections/">Manage connected Google accounts →</Link></p>}
+      </div> : <p className="mb-5"><Link href="/app/connections/">Manage connected accounts →</Link></p>}
 
       {!accountsOnly && <section aria-labelledby="docs-title">
         <h2 id="docs-title" className="section-title mb-3">Documents</h2>

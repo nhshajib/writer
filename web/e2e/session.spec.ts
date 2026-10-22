@@ -182,10 +182,12 @@ test("screen readers hear progress milestones, not every insertion", async ({ pa
   const second = await live.textContent();
   expect(second === first || /^\d0% entered: 4 of 10 parts\.$/.test(second ?? "")).toBe(true);
 
-  // Turning milestones off keeps status changes. The option is on the "Settings & data" tab.
-  await page.getByRole("tab", { name: "Settings & data" }).click();
-  await page.getByLabel(/Announce progress every 10%/).uncheck();
-  await page.getByRole("tab", { name: "Activity" }).click();
+  // Turning milestones off keeps status changes. The option lives in Settings › Accessibility, linked from Details.
+  await page.getByRole("tab", { name: "Details" }).click();
+  await page.getByRole("link", { name: "Change in Settings" }).click();
+  await page.waitForURL(/\/app\/settings\/?#accessibility$/);
+  await page.getByRole("switch", { name: /Announce session progress every 10%/ }).uncheck();
+  await page.goto(`/app/session/?id=${id}`);
   await request.post("/__test/advance", { data: { id, written: 7 } });
   await reload();
   await expect(page.getByText("Part 7 of 10 entered", { exact: false })).toBeVisible();
@@ -205,11 +207,11 @@ test("Timeline insertion labels remain distinct from the activity log for screen
   // Both panels remain mounted. The activity wording must still identify one
   // entry even when Timeline is hidden, preserving unambiguous reader output.
   await expect(page.getByText("Part 3 of 10 entered", { exact: false })).toHaveCount(1);
-  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
-  await expect(page.getByRole("tabpanel", { name: "Timeline" }).getByText("Insertion 3 of 10", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await expect(page.getByRole("tabpanel", { name: "Activity" }).getByText("Insertion 3 of 10", { exact: true })).toBeVisible();
   await expect(page.getByText("Part 3 of 10 entered", { exact: false })).toHaveCount(1);
   await expectNoAxeViolations(page);
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByRole("button", { name: "Log", exact: true }).click();
   await expect(page.getByText("Part 3 of 10 entered", { exact: false })).toBeVisible();
 });
 
@@ -378,7 +380,7 @@ test("the session page shows state, activity, breaks and test connection; finish
   await request.post("/__test/advance", { data: { id, written: 10 } });
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(page.locator(".badge").filter({ hasText: "State: Completed" })).toBeVisible();
-  await page.getByRole("tab", { name: "Settings & data" }).click();
+  await page.getByRole("tab", { name: "Details" }).click();
   await page.getByRole("button", { name: "Delete this session" }).click();
   await expect(page.getByRole("alertdialog", { name: /Delete this session/ })).toBeVisible();
   await page.keyboard.press("Enter");

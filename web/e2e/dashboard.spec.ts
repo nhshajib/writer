@@ -189,3 +189,30 @@ test("editing settings is offered on every plan: Pro pauses to edit, Free sees w
   await expect(page.getByText("Editing a paused session's text and settings is part of Pro.")).toBeVisible();
   await expect(page.getByRole("heading", { name: /Edit the remaining session/ })).toHaveCount(0);
 });
+
+test("session defaults saved in Settings are where New session starts, and every Settings link lands on a section", async ({ page }) => {
+  await page.goto("/app/settings/");
+  for (const id of ["profile", "defaults", "notifications", "accessibility", "security", "data", "danger"]) {
+    await expect(page.locator(`section#${id}`)).toHaveCount(1);
+  }
+  const form = page.getByRole("form", { name: "Session defaults" });
+  await form.getByLabel("Rhythm").selectOption("steady");
+  await form.getByLabel("Finish within").selectOption("120");
+  await form.getByLabel("Steps").selectOption("sentence");
+  await form.getByRole("button", { name: "Save defaults" }).click();
+  await expect(page.locator(".toast")).toHaveText(/New sessions start from these settings/);
+  await expectNoAxeViolations(page);
+
+  await page.goto("/app/new/");
+  await expect(page.getByRole("button", { name: /^Steady/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Finish within", { exact: true })).toHaveValue("120");
+  await page.locator(".session-advanced").evaluate((el: HTMLDetailsElement) => { el.open = true; });
+  await expect(page.getByRole("radio", { name: /^Sentences/ })).toBeChecked();
+
+  // Changing a session and saving it as the defaults updates Settings too.
+  await page.getByRole("button", { name: /^Natural/ }).click();
+  await page.getByRole("button", { name: /Save rhythm, finish time and steps as my defaults/ }).click();
+  await expect(page.locator(".toast")).toHaveText(/Saved as your defaults/);
+  await page.goto("/app/settings/#defaults");
+  await expect(page.getByRole("form", { name: "Session defaults" }).getByLabel("Rhythm")).toHaveValue("natural");
+});

@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard";
+import { readAnnounceProgress } from "@/lib/announce";
 import { supabase } from "@/lib/supabase";
 import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
@@ -35,7 +36,6 @@ import { describe, type Detail, num, str } from "@/lib/sessionLog";
 
 const ACTIVE = new Set(["scheduled", "running"]);
 const MILESTONE = 10;
-const ANNOUNCE_KEY = "typewit.announceProgress";
 
 function SessionView() {
   const params = useSearchParams();
@@ -62,16 +62,15 @@ function SessionView() {
   const [now, setNow] = useState(() => Date.now());
   const [announcement, setAnnouncement] = useState("");
   const [announceProgress, setAnnounceProgress] = useState(true);
+  const [activityView, setActivityView] = useState<"log" | "timeline">("log");
   const announceRef = useRef(true);
   const lastMilestone = useRef<number | null>(null);
   const lastStatus = useRef<string | null>(null);
 
   useEffect(() => {
-    try {
-      const on = localStorage.getItem(ANNOUNCE_KEY) !== "off";
-      setAnnounceProgress(on);
-      announceRef.current = on;
-    } catch { /* storage unavailable: keep the default */ }
+    const on = readAnnounceProgress();
+    setAnnounceProgress(on);
+    announceRef.current = on;
   }, []);
 
   const load = useCallback(async () => {
@@ -135,14 +134,6 @@ function SessionView() {
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(tick);
   }, []);
-
-  function setAnnounce(on: boolean) {
-    setAnnounceProgress(on);
-    announceRef.current = on;
-    try {
-      localStorage.setItem(ANNOUNCE_KEY, on ? "on" : "off");
-    } catch { /* storage unavailable */ }
-  }
 
   async function control(action: "pause" | "resume" | "cancel", body: Record<string, unknown> = {}): Promise<boolean> {
     setBusy(true);
@@ -458,42 +449,11 @@ function SessionView() {
                           : `For comparison: Google Drive listed ${revisions.in_window} revision${revisions.in_window === 1 ? "" : "s"} during this session for ${progress.chunks_total} insertions.`}
                       </p>
                     )}
-                    <ol className="log" aria-label="Session log, newest first" tabIndex={0}>
-                      {events.map((event, i) => {
-                        const { text, sub, late } = describe(event);
-                        return (
-                          <li key={`${event.created_at}-${i}`} className={late ? "late" : undefined}>
-                            <time dateTime={event.created_at}>{when(event.created_at, true)}</time>
-                            <span>{text}{sub && <span className="sub"><Problem message={sub} /></span>}</span>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </>
-                ),
-              },
-              {
-                title: <><Icon.doc />Text</>,
-                content: (
-                  <div className="grid-2">
-                    <div>
-                      <h3 className="drawer-sub">Entered so far</h3>
-                      <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
-                        {progress.written_text ? progress.written_text : <span className="pending">Nothing has been entered yet.</span>}
-                      </div>
+                    <div className="seg view-switch" role="group" aria-label="Show activity as" style={{ "--n": 2, "--i": activityView === "log" ? 0 : 1 } as React.CSSProperties}>
+                      <button type="button" aria-pressed={activityView === "log"} onClick={() => setActivityView("log")}>Log</button>
+                      <button type="button" aria-pressed={activityView === "timeline"} onClick={() => setActivityView("timeline")}>Timeline</button>
                     </div>
-                    <div>
-                      <h3 className="drawer-sub">Still to come</h3>
-                      <div className="preview" tabIndex={0} role="region" aria-label="Remaining text">
-                        {progress.remaining_text ? progress.remaining_text : <span className="pending">Nothing left to enter.</span>}
-                      </div>
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                title: <><Icon.activity />Timeline</>,
-                content: (() => {
+                    <div hidden={activityView !== "timeline"}>{(() => {
                   const insertions = [...events].reverse().filter((e) => e.kind === "chunk_written");
                   const createdEv = [...events].reverse().find((e) => e.kind === "created");
                   const pauseEvents = [...events].reverse().filter((e) => e.kind === "paused" || e.kind === "resumed");
@@ -547,16 +507,48 @@ function SessionView() {
                       </ol>
                     </div>
                   );
-                })(),
+                })()}</div>
+                    <ol className="log" aria-label="Session log, newest first" tabIndex={0} hidden={activityView !== "log"}>
+                      {events.map((event, i) => {
+                        const { text, sub, late } = describe(event);
+                        return (
+                          <li key={`${event.created_at}-${i}`} className={late ? "late" : undefined}>
+                            <time dateTime={event.created_at}>{when(event.created_at, true)}</time>
+                            <span>{text}{sub && <span className="sub"><Problem message={sub} /></span>}</span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </>
+                ),
               },
               {
-                title: <><Icon.gear />Settings &amp; data</>,
+                title: <><Icon.doc />Text</>,
+                content: (
+                  <div className="grid-2">
+                    <div>
+                      <h3 className="drawer-sub">Entered so far</h3>
+                      <div className="preview" tabIndex={0} role="region" aria-label="Entered text">
+                        {progress.written_text ? progress.written_text : <span className="pending">Nothing has been entered yet.</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="drawer-sub">Still to come</h3>
+                      <div className="preview" tabIndex={0} role="region" aria-label="Remaining text">
+                        {progress.remaining_text ? progress.remaining_text : <span className="pending">Nothing left to enter.</span>}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                title: <><Icon.gear />Details</>,
                 content: (
                   <div className="stack-6">
-                    <label className="check small">
-                      <input type="checkbox" checked={announceProgress} onChange={(e) => setAnnounce(e.target.checked)} />
-                      <span>Announce progress every {MILESTONE}% to screen readers (status changes are always announced)</span>
-                    </label>
+                    <p className="small muted">
+                      Progress announcements for screen readers are {announceProgress ? "on" : "off"}.{" "}
+                      <Link href="/app/settings/#accessibility">Change in Settings</Link>
+                    </p>
                     {finished
                       ? (
                         <div>

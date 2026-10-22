@@ -2673,8 +2673,6 @@ button.mk-pause:active { transform: scale(0.98); }
 .rhythm-preview dt { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
 .rhythm-preview dd { font-size: 0.9rem; margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
 .advanced-intro { padding: 0 1.5rem; color: var(--text-2); line-height: 1.6; }
-.settings-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0 1.5rem 1rem; }
-.settings-nav a { padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.85rem; }
 #entry-settings, #timing-settings { scroll-margin-top: 90px; }
 .pace-reset { margin-top: 0.75rem; }
 @media (max-width: 480px) {
@@ -2723,3 +2721,10 @@ button.mk-pause:active { transform: scale(0.98); }
   .lh-menu { position: absolute; top: 0; right: 0; }
   .live-more li { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title act" "meta act" "bar pct"; row-gap: 0.35rem; }
 }
+
+/* Session page: one Activity tab, shown as a log or a timeline */
+.view-switch { max-width: 240px; margin-bottom: 1rem; }
+/* Settings › Session defaults */
+.preset-list { list-style: none; display: grid; gap: 0.25rem; margin: 0.25rem 0 0; padding: 0; }
+.preset-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 40px; border-bottom: 1px solid var(--separator, var(--border)); }
+form[aria-label="Session defaults"] fieldset { border: 0; padding: 0; margin: 0; }

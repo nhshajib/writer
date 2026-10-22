@@ -171,6 +171,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       birth_year: 1990,
       birth_month: 5,
       pace_presets: [],
+      session_defaults: {},
       ...profileChanges,
     };
     const single = (req.headers.accept ?? "").includes("vnd.pgrst.object");
@@ -196,6 +197,16 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if ((profileChanges.plan !== undefined && profileChanges.plan !== "pro")) return send(res, 400, { message: "Saved presets are part of Pro." });
     profileChanges.pace_presets = body.presets;
     return send(res, 200, body.presets);
+  }
+  // Session defaults, with the same rules as set_session_defaults.
+  if (path === "/rest/v1/rpc/set_session_defaults") {
+    const d = body.defaults as Record<string, unknown>;
+    const ok = d && typeof d === "object" && Object.keys(d).every((k) => ["rhythm", "minutes", "word_grouping", "unit"].includes(k))
+      && (d.rhythm === undefined || ["natural", "steady", "drafting"].includes(String(d.rhythm)))
+      && (d.minutes === undefined || (Number.isInteger(d.minutes) && Number(d.minutes) >= 1 && Number(d.minutes) <= 10080));
+    if (!ok) return send(res, 400, { message: "Those defaults aren't supported." });
+    profileChanges.session_defaults = d;
+    return send(res, 200, d);
   }
   // The age check, with the same rules as the database's confirm_age.
   if (path === "/rest/v1/rpc/confirm_age") {

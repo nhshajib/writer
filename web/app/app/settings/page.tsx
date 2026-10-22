@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Icon } from "@/components/Icons";
+import { SessionDefaultsForm } from "@/components/app/SessionDefaultsForm";
+import { readAnnounceProgress, writeAnnounceProgress } from "@/lib/announce";
 import { useToast } from "@/components/Toast";
 import { api } from "@/lib/api";
 import { formatDate, useDashboard } from "@/lib/dashboard";
@@ -13,9 +15,11 @@ import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
 const SECTIONS = [
   ["profile", "Profile", Icon.user],
+  ["defaults", "Session defaults", Icon.sliders],
   ["notifications", "Notifications", Icon.bell],
+  ["accessibility", "Accessibility", Icon.eye],
   ["security", "Security", Icon.lock],
-  ["privacy", "Data & privacy", Icon.shield],
+  ["data", "Data & privacy", Icon.shield],
   ["danger", "Delete account", Icon.trash],
 ] as const;
 
@@ -35,6 +39,8 @@ export default function SettingsPage() {
   const [deleteEmail, setDeleteEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState(true);
+  useEffect(() => setAnnounce(readAnnounceProgress()), []);
 
   const finishedCount = drips.filter((d) => ["completed", "canceled", "failed"].includes(d.status)).length;
   const [confirmClear, setConfirmClear] = useState(false);
@@ -198,7 +204,7 @@ export default function SettingsPage() {
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <p>Your profile, notifications, security and data.</p>
+          <p>Your profile, session defaults, notifications, security and data.</p>
         </div>
       </div>
 
@@ -237,6 +243,11 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        <section className="setting" id="defaults" aria-labelledby="defaults-title">
+          <div><h2 id="defaults-title">Session defaults</h2><p>What New session starts from, on any device. You can still change anything per session.</p></div>
+          <SessionDefaultsForm />
+        </section>
+
         <section className="setting" id="notifications" aria-labelledby="notify-title">
           <div><h2 id="notify-title">Notifications</h2><p>Updates always appear under the bell at the top of every page.</p></div>
           <div className="stack" style={{ gap: 0 }}>
@@ -251,6 +262,14 @@ export default function SettingsPage() {
               <span>Email me when a session pauses and needs me (for example, the document can&apos;t be reached).</span>
             </label>
           </div>
+        </section>
+
+        <section className="setting" id="accessibility" aria-labelledby="a11y-title">
+          <div><h2 id="a11y-title">Accessibility</h2><p>Kept in this browser.</p></div>
+          <label className="check" htmlFor="announce-progress">
+            <input id="announce-progress" type="checkbox" role="switch" checked={announce} onChange={(e) => { setAnnounce(e.target.checked); writeAnnounceProgress(e.target.checked); }} />
+            <span>Announce session progress every 10% to screen readers. Status changes, such as paused or finished, are always announced.</span>
+          </label>
         </section>
 
         <section className="setting" id="security" aria-labelledby="security-title">
@@ -300,7 +319,7 @@ export default function SettingsPage() {
             )}
         </section>
 
-        <section className="setting" id="privacy" aria-labelledby="agreement-title">
+        <section className="setting" id="agreement" aria-labelledby="agreement-title">
           <div><h2 id="agreement-title">Responsible use</h2><p>The agreement everyone accepts.</p></div>
           <p className="small" style={{ color: "var(--text-2)" }}>
             {profile.agreed_terms_version === CURRENT_TERMS_VERSION ? <>You accepted version {CURRENT_TERMS_VERSION}. </> : <>You haven&apos;t accepted the current version. </>}
@@ -308,7 +327,7 @@ export default function SettingsPage() {
           </p>
         </section>
 
-        <section className="setting" aria-labelledby="data-title">
+        <section className="setting" id="data" aria-labelledby="data-title">
           <div><h2 id="data-title">Your data</h2><p>What TypeWit keeps, and clearing it.</p></div>
           <div className="stack" style={{ gap: "0.75rem", justifyItems: "start" }}>
             <ul className="small muted" style={{ paddingLeft: "1.1rem" }}>
@@ -316,7 +335,7 @@ export default function SettingsPage() {
               <li>The activity log stores times, counts and outcomes, not your text.</li>
               <li>Your Google access token is stored encrypted. A short-lived copy is sent to your browser only while Google&apos;s file picker is open. TypeWit can only open documents it created or that you chose in that picker (Google&apos;s <code>drive.file</code> permission).</li>
               <li>Word sessions run in the TypeWit add-in inside Word, which edits only the document it is open in. TypeWit stores no Microsoft password or token.</li>
-              <li>This browser remembers only your pace settings and announcement preference.</li>
+              <li>Session defaults and saved presets are stored on your account. This browser also remembers your custom pace, last-used rhythm, any unsent draft, your theme and your announcement preference.</li>
             </ul>
             <button type="button" className="btn btn-secondary btn-sm" onClick={downloadData}>Download my data</button>
             {!confirmClear

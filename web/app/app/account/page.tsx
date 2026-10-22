@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Group, Row } from "@/components/app/mobile/Grouped";
 import { Icon } from "@/components/Icons";
@@ -50,11 +51,12 @@ export default function AccountPage() {
       </Group>
 
       <Group title="Settings">
-        <Row icon={Icon.user} href="/app/connections/" label="Connected Google accounts" />
+        <Row icon={Icon.user} href="/app/connections/" label="Connected accounts" />
         <Row icon={Icon.user} href="/app/settings/#profile" label="Profile" />
+        <Row icon={Icon.sliders} href="/app/settings/#defaults" label="Session defaults" />
         <Row icon={Icon.bell} href="/app/settings/#notifications" label="Notifications" />
         <Row icon={Icon.lock} href="/app/settings/#security" label="Security" />
-        <Row icon={Icon.shield} href="/app/settings/#privacy" label="Data & privacy" />
+        <Row icon={Icon.shield} href="/app/settings/#data" label="Data & privacy" />
       </Group>
 
       <section className="group" aria-labelledby="appearance-title">
@@ -81,7 +83,7 @@ export default function AccountPage() {
       <Group>
         <Row label="Sign out" onClick={signOut} tone="accent" icon={Icon.logout} />
       </Group>
-      <p className="group-footer center">Deleting your account is in <a href="/app/settings/#danger">Settings</a>.</p>
+      <p className="group-footer center">Deleting your account is in <Link href="/app/settings/#danger">Settings</Link>.</p>
     </>
   );
 }

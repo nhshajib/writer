@@ -16,7 +16,7 @@ test('Connected accounts is a dedicated desktop destination and a mobile Account
   await page.getByRole('button',{name:'Cancel',exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await page.goto('/app/account/');
-  await page.getByRole('link',{name:'Connected Google accounts'}).click();
+  await page.getByRole('link',{name:'Connected accounts'}).click();
   await expect(page.getByRole('heading',{level:1})).toHaveText('Connected accounts');
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();
   expect(result.violations.map(v=>v.id)).toEqual([]);

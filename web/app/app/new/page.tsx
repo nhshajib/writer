@@ -6,6 +6,7 @@ import type { WorkWindow } from "../../../../supabase/functions/_shared/workWind
 import { RichTextEditor } from "@/components/app/RichTextEditor";
 import { PlanLock, UpgradeNote } from "@/components/app/PlanLock";
 import { canUse, PLAN_NAME, planForMinutes } from "@/lib/plans";
+import { DURATIONS } from "@/lib/durations";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,7 +18,9 @@ import { ConnectionReport } from "@/components/app/ConnectionReport";
 import { ScheduleStrip } from "@/components/app/ScheduleStrip";
 import { DEFAULT_PACE, PaceControls, paceFromSettings, pacingFor, usePace } from "@/components/app/PaceControls";
 import { api, ApiError, sha256Hex } from "@/lib/api";
-import { ACTIVE_STATUSES, type PacePreset, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
+import { ACTIVE_STATUSES, type PacePreset, PLAN_LIMITS, type SessionDefaults, useDashboard } from "@/lib/dashboard";
+import { saveSessionDefaults } from "@/components/app/SessionDefaultsForm";
+import { useToast } from "@/components/Toast";
 import { PacePresets } from "@/components/app/PacePresets";
 import { MarkdownPreview } from "@/components/app/MarkdownPreview";
 import { IMPORT_ACCEPT, importFile } from "@/lib/importDoc";
@@ -44,18 +47,6 @@ interface DocHeading { id: string; text: string; level: number }
 /** Where a setup problem lives, so the page can open and focus it. */
 interface SetupProblem { message: string; field: string; open?: "destination" | "more" }
 
-const DURATIONS: { minutes: number; label: string }[] = [
-  { minutes: 5, label: "5 minutes" },
-  { minutes: 15, label: "15 minutes" },
-  { minutes: 30, label: "30 minutes" },
-  { minutes: 60, label: "1 hour" },
-  { minutes: 120, label: "2 hours" },
-  { minutes: 180, label: "3 hours" },
-  { minutes: 480, label: "8 hours" },
-  { minutes: 1440, label: "1 day" },
-  { minutes: 4320, label: "3 days" },
-  { minutes: 10080, label: "1 week" },
-];
 
 /** The unsent text is kept in this browser only, so a closed tab or a failed Start doesn't lose it. */
 const DRAFT_KEY = "typewit.draft";
@@ -111,6 +102,7 @@ interface PastDoc {
 
 export default function NewSessionPage() {
   const router = useRouter();
+  const toast = useToast();
   const dashboard = useDashboard();
   const plan = dashboard.profile.plan;
   const connections = useMemo(
@@ -137,19 +129,45 @@ export default function NewSessionPage() {
   const [title, setTitle] = useState("");
   const [pastDocKey, setPastDocKey] = useState("");
   const [text, setText] = useState("");
-  const [unit, setUnit] = useState<InsertionUnit>("word");
+  // Start from the account's saved defaults; "Run again" replaces them with that session's settings.
+  const defaults = dashboard.profile.session_defaults;
+  const defaultMinutes = defaults?.minutes;
+  const [unit, setUnit] = useState<InsertionUnit>(defaults?.unit ?? "word");
   const [timing, setTiming] = useState<Timing>("duration");
-  const [preset, setPreset] = useState<string>("15");
-  const [customMinutes, setCustomMinutes] = useState("90");
+  const [preset, setPreset] = useState<string>(() =>
+    defaultMinutes ? DURATIONS.some((d) => d.minutes === defaultMinutes) ? String(defaultMinutes) : "custom" : "15");
+  const [customMinutes, setCustomMinutes] = useState(() => String(defaultMinutes ?? 90));
   const [pace, updatePace] = usePace();
   const [rhythm, setRhythm] = useState<SessionRhythm>("natural");
-  const [autoDuration, setAutoDuration] = useState(true);
+  const [autoDuration, setAutoDuration] = useState(!defaultMinutes);
   useEffect(() => {
+    // The account's saved defaults come first; without one, the rhythm last used in this browser.
+    if (defaults?.rhythm && (defaults.rhythm !== "drafting" || canUse(plan, "drafting"))) return setRhythm(defaults.rhythm);
     try {
       const saved = localStorage.getItem("typewit.rhythm");
       if (saved === "natural" || saved === "steady" || plan === "pro" && (saved === "custom" || saved === "drafting")) setRhythm(saved);
     } catch { /* Keep the recommended rhythm if browser storage is unavailable. */ }
-  }, [plan]);
+  }, [plan, defaults?.rhythm]);
+  // The saved word style goes into the pace, which loads from this browser first.
+  const groupingApplied = useRef(false);
+  useEffect(() => {
+    if (groupingApplied.current || !defaults?.word_grouping) return;
+    groupingApplied.current = true;
+    updatePace({ wordGrouping: defaults.word_grouping });
+  }, [defaults, updatePace]);
+
+  async function saveAsDefaults() {
+    const next: SessionDefaults = {
+      ...(rhythm !== "custom" ? { rhythm } : {}),
+      ...(timing === "duration" && minutesValid ? { minutes: Math.round(minutes) } : {}),
+      word_grouping: pace.wordGrouping,
+      unit,
+    };
+    const problem = await saveSessionDefaults(next);
+    if (problem) return setStepError(`Couldn't save your defaults: ${problem}`);
+    dashboard.setProfile({ session_defaults: next });
+    toast("Saved as your defaults. Change them any time in Settings.");
+  }
   function rememberRhythm(next: SessionRhythm) {
     setRhythm(next);
     try { localStorage.setItem("typewit.rhythm", next); } catch { /* Browser storage is optional. */ }
@@ -859,7 +877,10 @@ export default function NewSessionPage() {
 
         <details className="session-advanced" data-step-section="1" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
         <summary>More options <span className="hint"> · {changed.length ? `Changed: ${changed.join(", ")}` : "placement, steps, timing, writing hours, start time"}</span></summary>
-        <p className="advanced-intro">All optional. Changes update the schedule before you approve it.</p>
+        <p className="advanced-intro">
+          All optional. Changes update the schedule before you approve it.{" "}
+          <button type="button" className="link-btn" onClick={saveAsDefaults}>Save rhythm, finish time and steps as my defaults</button>
+        </p>
         <fieldset id="entry-settings" className="form-section">
           <legend className="sr-only">Placement and steps</legend>
           <h3 className="review-sub" id="place-title">Where the text goes</h3>
