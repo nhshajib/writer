@@ -376,10 +376,20 @@ export function planSession(req: PlanRequest): SessionPlan {
   }
 
   if (req.workWindow && problems.length === 0) {
-    const before = schedule;
-    schedule = windowSchedule(schedule, req.startsAt ?? Date.now(), req.workWindow);
-    breaks = breaks.map((b) => ({ ...b, start_ms: b.start_ms + (schedule[b.after_index] - before[b.after_index]) }));
-    totalMs = schedule.at(-1) ?? totalMs;
+    try {
+      const before = schedule;
+      schedule = windowSchedule(schedule, req.startsAt ?? Date.now(), req.workWindow, limits.maxDurationSeconds * 1000);
+      breaks = breaks.map((b) => ({ ...b, start_ms: b.start_ms + (schedule[b.after_index] - before[b.after_index]) }));
+      totalMs = schedule.at(-1) ?? totalMs;
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      problems.push({
+        code: "duration_over_plan",
+        message: `Your plan allows sessions up to ${
+          formatSeconds(limits.maxDurationSeconds)
+        }. Choose wider writing hours or a shorter session.`,
+      });
+    }
   }
   const durationSeconds = Math.ceil(totalMs / 1000);
   if (durationSeconds > limits.maxDurationSeconds) {

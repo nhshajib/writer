@@ -414,7 +414,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   // Splits the text and builds the complete schedule before anything starts.
   const plan = planSession({ ...input, plan: tier });
   if (!plan.ok) return json({ error: plan.problems[0].message, problems: plan.problems }, 422);
-  if (tier === "day_pass" && expiresAt && input.startsAt + (plan.schedule.at(-1) ?? 0) > Date.parse(expiresAt)) {
+  if (tier === "day_pass" && expiresAt && input.startsAt + (plan.schedule.at(-1) ?? 0) >= Date.parse(expiresAt)) {
     throw new HttpError(
       422,
       "This schedule finishes after your Day Pass expires. Choose a shorter session or upgrade to Pro.",
@@ -497,7 +497,7 @@ async function startSession(
   const checkAccess = () => {
     if (
       accessExpiresAt &&
-      Math.max(Date.now(), requestedStart?.getTime() ?? 0) + (plan.schedule.at(-1) ?? 0) > Date.parse(accessExpiresAt)
+      Math.max(Date.now(), requestedStart?.getTime() ?? 0) + (plan.schedule.at(-1) ?? 0) >= Date.parse(accessExpiresAt)
     ) {
       throw new HttpError(
         422,

@@ -268,3 +268,28 @@ Deno.test("worker completes the final revision pass exactly after a lost conditi
   assertEquals(doc.content, "Existing collaborator notes.\n" + text);
   assert(doc.lost);
 });
+
+Deno.test("narrow writing windows stop projecting as soon as the plan's elapsed limit is exceeded", () => {
+  const original = Intl.DateTimeFormat.prototype.formatToParts;
+  let minutes = 0;
+  Intl.DateTimeFormat.prototype.formatToParts = function (...args) {
+    minutes++;
+    return original.apply(this, args);
+  };
+  try {
+    const plan = planSession({
+      text: "Approved sentence. ".repeat(100),
+      plan: "day_pass",
+      unit: "sentence",
+      seed: 1,
+      durationSeconds: 86400,
+      startsAt: Date.parse("2026-10-19T00:00:00Z"),
+      workWindow: { start: "00:00", end: "00:01", time_zone: "UTC" },
+    });
+    assert(!plan.ok);
+    assert(plan.problems.some((p) => p.code === "duration_over_plan"));
+    assert(minutes <= 1500, `Projection evaluated ${minutes} minutes past the one-day budget`);
+  } finally {
+    Intl.DateTimeFormat.prototype.formatToParts = original;
+  }
+});

@@ -37,7 +37,7 @@ export function readWorkWindow(raw: unknown): WorkWindow | null {
 }
 
 /** Cache minute decisions for one projection; no customer-specific global cache. */
-export function writingClock(window: WorkWindow) {
+export function writingClock(window: WorkWindow, latest = Infinity) {
   const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: window.time_zone,
     weekday: "short",
@@ -63,19 +63,28 @@ export function writingClock(window: WorkWindow) {
   };
   return (at: number): number => {
     if (!Number.isFinite(at)) throw new RangeError("Invalid writing time.");
+    if (at > latest) throw new RangeError("Writing hours exceed the allowed session duration.");
     if (allowed(at)) return at;
     // UTC minutes make nonexistent and repeated local DST times unambiguous.
     const first = Math.floor(at / 60_000) * 60_000 + 60_000;
     for (let i = 0; i <= 8 * 24 * 60; i++) {
       const candidate = first + i * 60_000;
+      if (candidate > latest) break;
       if (allowed(candidate)) return candidate;
     }
     throw new RangeError("No writing window is available in the next week.");
   };
 }
 
-export function windowSchedule(offsets: number[], startsAt: number, window: WorkWindow): number[] {
-  const next = writingClock(window);
+export function windowSchedule(
+  offsets: number[],
+  startsAt: number,
+  window: WorkWindow,
+  maxElapsedMs = 7 * 86400_000,
+): number[] {
+  // Stop as soon as a narrow window exceeds the plan, rather than projecting
+  // thousands of units across thousands of days before rejecting the result.
+  const next = writingClock(window, startsAt + Math.min(maxElapsedMs, 7 * 86400_000));
   let shift = 0;
   return offsets.map((offset) => {
     const wanted = startsAt + offset + shift;
