@@ -22,9 +22,9 @@ export function LivePreview() {
         <div className="lp-doc-page">
           <p className="lp-doc-h">Access to care</p>
           <p>
-            Rural communities face unique challenges in accessing healthcare, including distance, transportation and
-            limited specialist availability. <span className="lp-arriving">Telehealth can help reduce these barriers
-            and increase access to care.</span><span className="lp-caret" />
+            Rural communities face unique challenges in accessing healthcare<span className="lp-doc-detail">, including distance, transportation and
+            limited specialist availability</span>. <span className="lp-arriving">Telehealth can help reduce these barriers<span className="lp-doc-detail">
+            and increase access to care</span>.</span><span className="lp-caret" />
           </p>
           <span className="lp-line" /><span className="lp-line short" />
         </div>
