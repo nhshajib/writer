@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Logo, Wordmark } from "@/components/Logo";
 import { Icon } from "@/components/Icons";
 
-export function Footer() {
+export function Footer({compact=false}:{compact?:boolean}) {
+  if(compact) return <footer className="site-footer home-footer"><div className="home-compatibility"><span>Works with the documents you use</span><Link href="/google-docs-auto-typer/">Google Docs</Link><Link href="/word-auto-typer/">Microsoft Word</Link></div><div className="home-footer-base"><span>© {new Date().getFullYear()} TypeWit</span><nav aria-label="Resources and legal"><Link href="/guides/">Guides</Link><Link href="/support/">Support</Link><Link href="/privacy/">Privacy</Link><Link href="/terms/">Terms</Link><Link href="/responsible-use/">Responsible use</Link></nav></div></footer>;
+
   return (
     <footer className="site-footer">
       <div className="container">
@@ -18,8 +20,9 @@ export function Footer() {
           <nav aria-labelledby="f-product">
             <h2 id="f-product">Explore</h2>
             <ul>
-              <li><Link href="/#how">How it works</Link></li>
-              <li><Link href="/#features">Features</Link></li>
+              <li><Link href="/how-it-works/">How it works</Link></li>
+              <li><Link href="/features/">Features</Link></li>
+              <li><Link href="/use-cases/">Use cases</Link></li>
               <li><Link href="/google-docs-auto-typer/">Google Docs</Link></li>
               <li><Link href="/word-auto-typer/">Microsoft Word</Link></li>
               <li><Link href="/pricing/">Plans &amp; pricing</Link></li>
@@ -30,7 +33,7 @@ export function Footer() {
             <ul>
               <li><Link href="/guides/">Guides</Link></li>
               <li><Link href="/support/">Support</Link></li>
-              <li><Link href="/#faq">Common questions</Link></li>
+              <li><Link href="/faq/">Common questions</Link></li>
               <li><Link href="/login/">Sign in</Link></li>
             </ul>
           </nav>

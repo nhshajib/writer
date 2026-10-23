@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { Logo, Wordmark } from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 
 export function Header() {
   const pathname = usePathname();
+  const home = pathname === "/";
   const [signedIn, setSignedIn] = useState(false);
   const [open, setOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const client = supabase();
@@ -42,7 +44,7 @@ export function Header() {
   }, []);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); menuButton.current?.focus(); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
@@ -50,10 +52,11 @@ export function Header() {
   const current = (href: string) => (pathname.replace(/\/$/, "") === href ? "page" : undefined);
   const links = (
     <>
-      <Link href="/#how">How it works</Link>
-      <Link href="/#features">Features</Link>
-      <Link href="/guides/" aria-current={current("/guides")}>Guides</Link>
+      <Link href="/how-it-works/" aria-current={current("/how-it-works")}>How it works</Link>
+      <Link href="/use-cases/" aria-current={current("/use-cases")}>Use cases</Link>
+      <Link href="/features/" aria-current={current("/features")}>Features</Link>
       <Link href="/pricing/" aria-current={current("/pricing")}>Pricing</Link>
+      <Link href="/faq/" aria-current={current("/faq")}>FAQ</Link>
     </>
   );
 
@@ -69,13 +72,13 @@ export function Header() {
               ? <Link href="/app" className="btn btn-primary btn-sm">Open dashboard</Link>
               : (
                 <>
-                  <Link href="/login/" aria-current={current("/login")}>Sign in</Link>
-                  <Link href="/signup/" className="btn btn-primary btn-sm">Get started free</Link>
+                  <Link href="/login/" className={home ? "home-account" : undefined} aria-current={current("/login")}>Sign in</Link>
+                  {!home && <Link href="/signup/" className="btn btn-primary btn-sm">Get started free</Link>}
                 </>
               )}
           </div>
           <Link href={signedIn ? "/app" : "/login/"} className="nav-compact">{signedIn ? "Open app" : "Sign in"}</Link>
-          <button type="button" className="menu-btn" aria-expanded={open} aria-controls="mobile-menu" onClick={() => setOpen((v) => !v)}>
+          <button ref={menuButton} type="button" className="menu-btn" aria-expanded={open} aria-controls="mobile-menu" onClick={() => setOpen((v) => !v)}>
             {open ? <Icon.close /> : <Icon.menu />}
             <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
           </button>

@@ -213,11 +213,11 @@ export const GUIDES: Guide[] = [
 
 /** When each public page last changed substantively; the sitemap's lastmod. Pages not listed use CONTENT_UPDATED. */
 export const PAGE_UPDATED: Record<string, string> = {
-  "/": "2026-10-22", "/google-docs-auto-typer/": "2026-10-22", "/word-auto-typer/": "2026-10-22", "/guides/": "2026-10-22",
+  "/": "2026-10-23", "/how-it-works/":"2026-10-23", "/features/":"2026-10-23", "/use-cases/":"2026-10-23", "/faq/":"2026-10-23", "/google-docs-auto-typer/": "2026-10-22", "/word-auto-typer/": "2026-10-22", "/guides/": "2026-10-22",
   ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
 };
 
 export const PUBLIC_PAGES = [
-  "/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),
+  "/", "/how-it-works/", "/features/", "/use-cases/", "/faq/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),
   "/pricing/", "/support/", "/responsible-use/", "/privacy/", "/terms/",
 ];

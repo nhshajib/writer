@@ -155,39 +155,26 @@ test("Connected accounts explains where Word sessions run", async ({ page }) => 
   await expectNoAxeViolations(page);
 });
 
-test("the public homepage on a phone works like an app screen", async ({ page }) => {
+test("the compact homepage on a phone links to its details without a long landing page", async ({ page }) => {
   await page.goto("/");
   const header = page.locator(".site-header");
   await expect(header.getByRole("link", { name: "Sign in" })).toBeVisible();
-  await expect(header.getByRole("button", { name: /menu/i })).toBeHidden();
-  // The large title collapses into the bar once it scrolls away.
-  await expect(header).not.toHaveAttribute("data-title", "true");
-  await page.mouse.wheel(0, 500);
-  await expect(header).toHaveAttribute("data-title", "true");
-
-  // The bottom bar takes over the main action once the top button has gone.
-  const bar = page.locator(".get-bar");
-  await expect(bar).toHaveAttribute("data-shown", "true");
-  await expect(bar.getByRole("link", { name: "Get started free" })).toHaveAttribute("href", "/signup/");
-
-  // The example session can be paused, and only the example changes.
+  await expect(header.getByRole("button", { name: "Open menu" })).toBeVisible();
+  await expect(page.locator(".get-bar")).toHaveCount(0);
+  await expect(page.locator(".lp-plans")).toHaveCount(0);
   const preview = page.getByRole("figure", { name: /Preview · an example session/ });
   await preview.getByRole("button", { name: "Pause the example session" }).click();
   await expect(preview).toContainText("Paused");
-
-  // One set of plans for every screen, with the real prices.
-  const plans = page.locator(".lp-plans");
-  await expect(plans).toContainText("$0");
-  await expect(plans).toContainText("$4.99");
-  await expect(plans).toContainText("$5");
-  await expect(plans).toContainText("$6.99 monthly");
-
-  // Every feature is on the page, with nothing hidden behind a button.
-  await expect(page.getByRole("heading", { name: "A clear record" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Show all/ })).toHaveCount(0);
   await expectNoAxeViolations(page);
   await page.emulateMedia({ colorScheme: "dark" });
   await expectNoAxeViolations(page);
+  await header.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("navigation",{name:"Main mobile",exact:true}).getByRole("link",{name:"Features",exact:true}).click();
+  await expect(page).toHaveURL(/\/features\//);
+  await expect(page.getByRole("heading", { name: "A clear record",exact:true })).toBeVisible();
+  await expectNoAxeViolations(page);
+  await page.goto("/pricing/");
+  await expect(page.getByText("$4.99",{exact:true}).first()).toBeVisible();
 });
 
 test("passwords can be shown before signing in", async ({ page }) => {
