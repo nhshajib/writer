@@ -32,6 +32,12 @@ export default function SettingsPage() {
   const toast = useToast();
   const router = useRouter();
   const [name, setName] = useState(displayName);
+  const [activeSection, setActiveSection] = useState("");
+  useEffect(() => {
+    const read = () => { const id=window.location.hash.slice(1); setActiveSection(SECTIONS.some(([key])=>key===id) ? id : ""); };
+    read(); window.addEventListener("hashchange",read);
+    return () => window.removeEventListener("hashchange",read);
+  }, []);
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -210,6 +216,12 @@ export default function SettingsPage() {
 
       {error && <p className="alert alert-error mb-5" role="alert">{error}</p>}
 
+      <label className="settings-jump">Go to section
+        <select aria-label="Settings section" value={activeSection} onChange={e => { if(e.target.value) { setActiveSection(e.target.value); window.location.hash=e.target.value; document.getElementById(e.target.value)?.scrollIntoView({block:"start",behavior:"auto"}); } }}>
+          <option value="" disabled>Choose a setting</option>
+          {SECTIONS.map(([id,label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </label>
       <div className="settings-layout">
       <nav className="settings-nav" aria-label="Settings sections">
         <ul>

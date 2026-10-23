@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { MobileViewport } from "@/components/MobileViewport";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 import { PUBLIC_ROBOTS, SITE_URL } from "@/lib/seo";
 import { THEME_SCRIPT } from "@/lib/themeScript";
@@ -50,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <a href="#main" className="skip-link">Skip to main content</a>
-        <RecoveryRedirect />
+        <MobileViewport /><RecoveryRedirect />
         {children}
       </body>
     </html>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icons";
+import { Sheet } from "@/components/app/mobile/Sheet";
 import { Logo, Wordmark } from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 
@@ -78,12 +79,13 @@ export function Header() {
               )}
           </div>
           <Link href={signedIn ? "/app" : "/login/"} className="nav-compact">{signedIn ? "Open app" : "Sign in"}</Link>
-          <button ref={menuButton} type="button" className="menu-btn" aria-expanded={open} aria-controls="mobile-menu" onClick={() => setOpen((v) => !v)}>
+          <button ref={menuButton} type="button" className="menu-btn" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((v) => !v)}>
             {open ? <Icon.close /> : <Icon.menu />}
             <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
           </button>
         </div>
-        <nav id="mobile-menu" className="mobile-menu" data-open={open} hidden={!open} aria-label="Main mobile">
+        <Sheet open={open} onClose={() => setOpen(false)} title="Explore TypeWit" className="site-menu-sheet">
+        <nav className="public-menu-links" aria-label="Main mobile" onClick={() => setOpen(false)}>
           {links}
           {signedIn
             ? <Link href="/app" className="btn btn-primary btn-block">Open dashboard</Link>
@@ -94,6 +96,7 @@ export function Header() {
               </>
             )}
         </nav>
+        </Sheet>
       </div>
     </header>
   );

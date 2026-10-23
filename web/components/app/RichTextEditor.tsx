@@ -79,12 +79,15 @@ export function RichTextEditor({ text, format, onChange, id = "text", label = "T
   const tool=(name:string,title:string,content:React.ReactNode)=> <button key={name} type="button" className="editor-tool" title={title} aria-label={title} aria-pressed={Boolean(active[name])} disabled={disabled} onMouseDown={e=>e.preventDefault()} onClick={()=>command(name)}>{content}</button>;
   return <>
     <div className="rich-toolbar editor-toolbar" role="toolbar" aria-label="Text formatting">
+      <div className="editor-primary">
       <select aria-label="Paragraph style" defaultValue="p" disabled={disabled} onChange={e => command('formatBlock', e.target.value)}>
         <option value="p">Paragraph</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option>
       </select>
       <div className="editor-tool-group">
         {tool('bold','Bold',<strong>B</strong>)}{tool('italic','Italic',<em>I</em>)}{tool('underline','Underline',<u>U</u>)}{tool('strikeThrough','Strikethrough',<s>S</s>)}
       </div>
+      </div>
+      <div className="editor-secondary">
       <div className="editor-tool-group">
         {tool('justifyLeft','Align left',<Lines align="left" />)}{tool('justifyCenter','Align center',<Lines align="center" />)}{tool('justifyRight','Align right',<Lines align="right" />)}{tool('justifyFull','Justify text',<Lines align="justify" />)}
       </div>
@@ -94,6 +97,7 @@ export function RichTextEditor({ text, format, onChange, id = "text", label = "T
       <button type="button" className="editor-tool" title="Highlight" aria-label="Highlight" disabled={disabled} onMouseDown={e=>e.preventDefault()} onClick={()=>command('hiliteColor','#ffff00')}><span className="editor-highlight">H</span></button>
       <button type="button" className="editor-tool" aria-label={importEnabled?'Import file':'Import file (Pro)'} title="Import .txt, .md or .docx" disabled={disabled} aria-disabled={!importEnabled||undefined} {...(!importEnabled?{'data-locked':'import'}:{})} onClick={()=>{if(importEnabled)(onImportRequest??(()=>file.current?.click()))();else setNote('File import is included with Pro.');}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L13 2a4 4 0 0 1 6 6L8 19" /></svg></button>
       <button type="button" className="editor-paste" onClick={paste} disabled={disabled}>Paste formatted text</button>
+      </div>
       <input ref={file} type="file" accept={IMPORT_ACCEPT} hidden onChange={e=>void attach(e.target.files?.[0])} />
     </div>
     <div id={id} ref={editor} role="textbox" aria-label={label} aria-multiline="true" aria-describedby={`${id}-help`} className="rich-editor" contentEditable={!disabled} aria-disabled={disabled || undefined} suppressContentEditableWarning onInput={update}

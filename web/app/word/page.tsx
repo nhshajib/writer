@@ -76,7 +76,7 @@ export default function WordPane() {
   else if (!env.inWord) {
     body = (
       <div className="card">
-        <h2>Open TypeWit from Word</h2>
+        <h1 className="word-title">Open TypeWit from Word</h1>
         <p>
           This page is TypeWit&apos;s add-in for Microsoft Word. In Word, choose Home → Add-ins (or Insert → Add-ins),
           then TypeWit. To add it to Word the first time, follow the steps on the Documents page.

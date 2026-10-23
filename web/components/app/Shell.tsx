@@ -103,6 +103,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const needsYou = needsYouOf(value.drips, Date.now()).length;
   // Creating a session is a focused flow: no tab bar, its own Back and Continue.
   const focused = pathname === "/app/new";
+  const mobileTitle = pathname === "/app" ? "TypeWit"
+    : pathname.startsWith("/app/billing") ? "Plan & usage"
+    : pathname === "/app/new" ? "New session"
+    : pathname === "/app/session" ? "Session"
+    : pathname === "/app/connections" ? "Connected accounts"
+    : pathname.split("/").at(-1)!.replace(/^./, c => c.toUpperCase());
+  const parent = pathname === "/app/billing/manage" ? { href: "/app/billing/", label: "Plan & usage" }
+    : ["/app/settings", "/app/billing", "/app/connections"].includes(pathname) ? { href: "/app/account/", label: "Account" }
+    : null;
 
   const navItem = ({ href, label, icon: NavIcon }: (typeof MAIN_NAV)[number]) => (
     <li key={href}>
@@ -150,6 +159,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Icon.menu /><span className="sr-only">Open menu</span>
             </button>
             <Link href="/app" className="brand top-brand"><Logo /><span className="sr-only">TypeWit home</span></Link>
+            <span className="app-mobile-title" aria-hidden="true">{mobileTitle}</span>
             <CommandPalette />
             <div className="top-actions">
               <NotificationBell />
@@ -159,7 +169,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           <main id="main" className="app-main" tabIndex={-1} data-tabs={!focused}>
-            <div className="app-inner">{children}</div>
+            <div className="app-inner">{parent && <Link className="mobile-parent-link" href={parent.href}><Icon.chevronRight />{parent.label}</Link>}{children}</div>
           </main>
           {!focused && <TabBar needsYou={needsYou} />}
         </div>
