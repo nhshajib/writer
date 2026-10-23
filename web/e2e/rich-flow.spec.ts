@@ -21,18 +21,19 @@ test('Connected accounts is a dedicated desktop destination and a mobile Account
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();
   expect(result.violations.map(v=>v.id)).toEqual([]);
 });
-test('pricing has four transparent options and each Pro button selects the correct interval', async ({page}) => {
+test('pricing shows three plans and the Pro billing choice sends the correct interval', async ({page}) => {
   const intervals:string[]=[];
   await page.route('**/functions/v1/billing/checkout',async route=>{
     intervals.push(route.request().postDataJSON().interval);
     await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Checkout test response'})});
   });
   await page.goto('/pricing/');
-  await expect(page.locator('.pricing-cards .plan')).toHaveCount(4);
-  await expect(page.getByRole('heading',{name:'Yearly',exact:true})).toBeVisible();
+  await expect(page.locator('.pricing-cards .plan')).toHaveCount(3);
+  await expect(page.getByRole('heading',{name:'Pro',exact:true})).toBeVisible();
   await expect(page.getByText('$60 billed yearly · save 28%')).toBeVisible();
   await page.getByRole('button',{name:'Try Yearly free'}).click();
   await expect(page.getByRole('alert').filter({hasText:'Checkout test response'})).toBeVisible();
+  await page.getByRole('group',{name:'Pro billing period'}).getByRole('button',{name:'Monthly',exact:true}).click();
   await page.getByRole('button',{name:'Try Monthly free'}).click();
   await expect.poll(()=>intervals.length).toBe(2);
   expect(intervals).toEqual(['year','month']);
@@ -62,4 +63,26 @@ test('HTML whitespace between bold and italic runs does not join words', async (
     el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));
   });
   await expect(page.getByLabel('Text to enter')).toHaveText('First second');
+});
+
+test('formatting toolbar saves underline, strike, alignment and numbered lists on Free', async ({page,request}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/app/new/');
+  const editor=page.getByLabel('Text to enter',{exact:true});
+  await editor.fill('Approved words');
+  await editor.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const selection=getSelection()!;selection.removeAllRanges();selection.addRange(range);});
+  for(const name of ['Underline','Strikethrough','Align center','Numbered list']) await page.getByRole('button',{name,exact:true}).click();
+  await expect(editor.locator('ol')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/editor-mobile.png',fullPage:true});
+  await page.getByRole('button',{name:'Review session',exact:true}).click();
+  await page.getByLabel(/I've read this exact text/).check();
+  await page.getByRole('button',{name:'Start session',exact:true}).click();
+  await expect(page).toHaveURL(/\/app\/session/);
+  const {requests}=await (await request.get('/__test/requests')).json();
+  const create=requests.find((r:{path:string;method:string})=>r.method==='POST'&&r.path==='/functions/v1/drips');
+  expect(create.body.text_format).toBe('rich');
+  const rich=JSON.parse(create.body.text);
+  expect(rich.spans.some((s:{underline?:boolean;strikethrough?:boolean})=>s.underline&&s.strikethrough)).toBe(true);
+  expect(rich.paragraphs.some((p:{kind:string;alignment?:string})=>p.kind==='numbered'&&p.alignment==='center')).toBe(true);
 });

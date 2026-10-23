@@ -2735,3 +2735,97 @@ body:has(.lp-hero) { background: var(--bg); }
 }
 .home-account { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding-inline: 16px; border: 1px solid var(--border-strong); border-radius: 14px; color: var(--text); font-size: 0.8125rem; }
 .home-frame .home-footer nav a:hover { color: var(--accent); }
+
+/* A single page surface: no outer frame, gradient, or extra canvas. */
+.home-backdrop { padding: 0; min-height: 100svh; background: var(--bg); }
+.home-frame { min-height: 100svh; display: flex; flex-direction: column; border: 0; border-radius: 0; background: var(--bg); box-shadow: none; }
+.home-frame main { flex: 1; display: grid; align-content: center; }
+.home-frame .site-header { border-radius: 0; background: var(--bg); }
+.home-frame .home-footer { min-height: 0; padding: 15px 32px 14px; border-radius: 0; background: transparent; }
+.home-footer-base { margin-top: 10px; }
+.home-visual .lp-doc-page { padding-bottom: 8rem; }
+@media (max-width: 767px) {
+  .home-frame main { display: block; }
+  .home-visual { padding: 0; }
+  .home-visual .lp-demo { display: flex; flex-direction: column; gap: 12px; padding: 0; }
+  .home-visual .lp-doc { margin: 0; transform: none; width: 100%; }
+  .home-visual .lp-doc-page { padding: 16px; font-size: 0.8125rem; line-height: 1.65; }
+  .home-visual .lp-card { position: static; width: 100%; }
+  .home-visual-label { position: static; width: fit-content; margin: 0 0 12px; }
+  .home-orbit { display: none; }
+  .home-break-note { position: static; width: fit-content; margin-top: 12px; }
+  .home-frame .home-footer { padding: 16px 24px calc(12px + var(--safe-bottom)); }
+  .home-footer-base { margin-top: 4px; }
+}
+/* Questions: an editorial introduction beside individual disclosure cards. */
+.faq-page { padding-block: 24px 64px; }
+.faq-layout { display: grid; grid-template-columns: minmax(0,0.9fr) minmax(0,1.1fr); gap: 64px; padding-block: 32px; }
+.faq-introduction { display: flex; flex-direction: column; justify-content: space-between; gap: 48px; }
+.faq-introduction h1 { font-size: clamp(2.25rem,4vw,3.25rem); font-weight: 600; letter-spacing: -0.05em; line-height: 1.08; }
+.faq-introduction p { color: var(--text-2); max-width: 350px; margin-bottom: 20px; }
+.faq-introduction .btn { border-radius: 999px; }
+.question-cards details, .pricing-grid-section ~ #faq details { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; }
+.question-cards summary, .pricing-grid-section ~ #faq summary { padding: 23px 58px 23px 24px; font-size: 1rem; font-weight: 550; position: relative; list-style: none; }
+.question-cards summary::-webkit-details-marker { display: none; }
+.question-cards summary::after, .pricing-grid-section ~ #faq summary::after { content: "+"; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--muted); border-radius: 50%; position: absolute; right: 22px; top: 24px; font-size: 20px; font-weight: 400; line-height: 1; }
+.question-cards details[open] summary::after, .pricing-grid-section ~ #faq details[open] summary::after { content: "−"; }
+.question-cards details p, .pricing-grid-section ~ #faq details p { padding: 0 24px 24px; color: var(--text-2); line-height: 1.65; }
+/* Three real access levels, one shared Pro card with transparent billing. */
+.pricing-hero { padding-top: 48px; padding-bottom: 28px; background: transparent; }
+.pricing-hero .pricing-display { font-size: clamp(2.25rem,4vw,3.25rem); letter-spacing: -0.045em; }
+.billing-choice { width: min(440px,100%); display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 5px; margin: 0 auto 20px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.billing-choice button { border: 0; border-radius: 999px; min-height: 46px; padding: 10px; font-size: 0.875rem; background: transparent; cursor: pointer; }
+.billing-choice button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm); }
+.billing-choice span { margin-left: 5px; font-size: 0.6875rem; font-weight: 650; }
+.pricing-grid-section > .pricing-intro { max-width: 760px; margin: 0 auto 32px; text-align: center; font-size: 0.875rem; }
+.pricing-cards { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 22px; }
+.pricing-cards .plan { border-radius: 26px; padding: 26px; display: flex; flex-direction: column; min-height: 510px; background: var(--raised); border: 1px solid var(--border); box-shadow: none; }
+.pricing-cards .plan.featured { background: var(--accent-soft); border-color: var(--accent-line); }
+.pricing-cards .plan h2 { display: inline-flex; width: fit-content; padding: 7px 13px; border-radius: 12px; background: var(--surface-2); font-size: 1rem; }
+.pricing-cards .plan.featured h2 { background: var(--accent); color: var(--on-accent); }
+.pricing-cards .plan .desc { min-height: 50px; margin-top: 16px; }
+.pricing-cards .plan .price { margin-top: 28px; }
+.pricing-cards .plan .price strong { font-size: 2.75rem; letter-spacing: -0.045em; }
+.pricing-cards .plan .ticks { order: 1; padding-top: 22px; margin-block: 22px 28px; border-top: 1px solid var(--border); flex: 1; }
+.pricing-cards .plan > .btn { order: 2; margin-top: auto; min-height: 46px; border-radius: 12px; }
+@media (max-width: 767px) {
+  .faq-layout { grid-template-columns: 1fr; gap: 32px; padding-top: 22px; }
+  .faq-introduction { gap: 22px; }
+  .faq-introduction p { max-width: 100%; }
+  .question-cards summary { padding: 20px 54px 20px 20px; font-size: 0.9375rem; }
+  .question-cards details p { padding-inline: 20px; }
+  .question-cards summary::after { right: 18px; top: 21px; }
+  .pricing-cards { grid-template-columns: 1fr; gap: 16px; }
+  .pricing-cards .plan { min-height: 0; padding: 24px; border-radius: 24px; }
+  .pricing-cards .plan .desc { min-height: 0; }
+  .pricing-cards .plan .price { margin-top: 22px; }
+}
+/* Wrapping toolbar groups keep every control visible on phones. */
+.rich-toolbar.editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 7px; border: 1px solid var(--border); border-radius: 18px; background: var(--raised); }
+.editor-tool-group { display: inline-flex; align-items: center; border-right: 1px solid var(--border); padding-right: 4px; }
+.editor-toolbar .editor-tool { min-width: 38px; min-height: 42px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--text-2); cursor: pointer; font-size: 1.0625rem; }
+.editor-toolbar .editor-tool:hover { background: var(--surface-2); }
+.editor-toolbar .editor-tool[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.editor-toolbar .editor-tool:disabled { opacity: 0.45; cursor: default; }
+.editor-toolbar select { width: auto; min-width: 110px; min-height: 42px; border: 0; background: transparent; font-size: 0.8125rem; }
+.editor-paste { min-height: 38px; border: 0; border-radius: 10px; padding: 6px 10px; background: var(--surface); color: var(--text-2); font-size: 0.75rem; cursor: pointer; }
+.editor-highlight { text-decoration: underline; text-decoration-thickness: 4px; text-decoration-color: #e0c531; }
+.rich-editor ol, .rich-editor ul { padding-left: 1.5rem; }
+@media (max-width: 767px) {
+  .editor-toolbar .editor-tool { min-width: 40px; min-height: 44px; }
+  .editor-toolbar select { min-height: 44px; }
+}
+/* Keep the resource footer useful without oversized padding. */
+.site-footer:not(.home-footer) { margin-top: 2.5rem; padding-bottom: 1.5rem; }
+.footer-invitation { padding-block: 2rem; }
+.site-footer .footer-grid { padding-block: 2rem; gap: 2rem; }
+.site-footer .footer-base { padding-top: 1rem; }
+.footer-responsibility { margin-top: 0.5rem; }
+@media (max-width: 767px) {
+  .footer-invitation { padding-block: 1.5rem; }
+  .site-footer .footer-grid { padding-block: 1.5rem; gap: 1.5rem; }
+}
+/* Card toggles use literal plus/minus signs, without the legacy chevron rotation. */
+.faq.question-cards { border-top: 0; }
+.question-cards summary::after, .question-cards details[open] summary::after,
+.pricing-grid-section ~ #faq summary::after, .pricing-grid-section ~ #faq details[open] summary::after { transform: none; }

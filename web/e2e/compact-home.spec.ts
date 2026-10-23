@@ -9,7 +9,9 @@ test(
     await page.goto("/");
     const frame = await page.locator(".home-frame").boundingBox();
     expect(frame!.width).toBeCloseTo(1136, 0);
-    expect(frame!.height).toBeLessThanOrEqual(830);
+    expect(frame!.height).toBeLessThanOrEqual(980);
+    await expect(page.locator(".home-backdrop")).toHaveCSS("background-image", "none");
+    await expect(page.locator(".home-frame")).toHaveCSS("box-shadow", "none");
     expect(await page.evaluate(() => document.documentElement.scrollHeight))
       .toBeLessThanOrEqual(980);
     await expect(page.locator("main > section")).toHaveCount(1);
@@ -66,9 +68,13 @@ test(
         document.documentElement.scrollWidth <= innerWidth
       ),
     ).toBe(true);
+    const doc = await page.locator(".home-visual .lp-doc").boundingBox();
+    const card = await page.locator(".home-visual .lp-card").boundingBox();
+    expect(card!.y).toBeGreaterThanOrEqual(doc!.y + doc!.height);
     const privacy = page.locator(".home-footer").getByRole("link", {name:"Privacy",exact:true});
     await privacy.hover();
     await expect(privacy).toHaveCSS("color", "rgb(63, 101, 147)");
+    await page.evaluate(() => scrollTo(0,0));
     await page.screenshot({
       path: info.outputPath("homepage-mobile.png"),
       fullPage: true,
@@ -133,6 +139,23 @@ test("standalone information pages retain their content, breadcrumbs and small-s
           "wcag21aa",
         ]).analyze()).violations.map((v) => v.id),
       ).toEqual([]);
+    }
+  }
+});
+
+test('FAQ cards and three pricing cards adapt without horizontal overflow', async ({page},info)=>{
+  for(const width of [1280,390]) {
+    await page.setViewportSize({width,height:900});
+    for(const path of ['/faq/','/pricing/']) {
+      await page.goto(path);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if(path==='/faq/') {
+        const cards=page.locator('.question-cards details');
+        expect(await cards.count()).toBeGreaterThan(3);
+        await cards.nth(1).locator('summary').click();
+        await expect(cards.nth(1)).toHaveAttribute('open','');
+      } else await expect(page.locator('.pricing-cards .plan')).toHaveCount(3);
+      await page.screenshot({path:info.outputPath(`${path.replaceAll('/','')}-${width}.png`),fullPage:true});
     }
   }
 });

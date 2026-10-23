@@ -50,6 +50,7 @@ function PricingContent() {
   const [canceled, setCanceled] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [billing, setBilling] = useState<"month" | "year">("year");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,7 +89,7 @@ function PricingContent() {
         <div className="container">
           <p className="kicker">Pricing</p>
           <h1 id="pricing-title" className="display pricing-display">
-            Simple pricing. <span className="soft">Start free.</span>
+            Choose the plan <span className="soft">that fits.</span>
           </h1>
           <p className="lead">Try every Pro feature free for 7 days. Cancel any time.</p>
           {canceled && (
@@ -101,8 +102,12 @@ function PricingContent() {
 
       <section className="container pricing-grid-section" aria-label="Plans and comparison">
         {error && <p className="alert alert-error" role="alert">{error}</p>}
+        <div className="billing-choice" role="group" aria-label="Pro billing period">
+          <button type="button" aria-pressed={billing === "month"} disabled={busy} onClick={() => setBilling("month")}>Monthly</button>
+          <button type="button" aria-pressed={billing === "year"} disabled={busy} onClick={() => setBilling("year")}>Yearly <span>Save 28%</span></button>
+        </div>
+        <p className="pricing-intro muted">Monthly and Yearly include the same Pro features; Yearly costs $23.88 less than 12 monthly payments. A Day Pass gives you one day without a subscription.</p>
         <div className="pricing-cards">
-          <p className="pricing-intro muted">Monthly and Yearly include the same Pro features; Yearly costs $23.88 less than 12 monthly payments. A Day Pass gives you one day without a subscription.</p>
           <section className="plan" aria-labelledby="free-title">
             <h2 id="free-title">Free</h2><p className="desc">Try a short document session.</p>
             <div className="price"><strong>$0</strong><span>/ month</span></div><p className="price-note">Free forever · no card needed</p>
@@ -115,17 +120,12 @@ function PricingContent() {
             <button type="button" className="btn btn-secondary btn-block" onClick={() => startPro("day")} disabled={busy}>{busy ? "Opening checkout…" : "Get Day Pass"}</button>
             <ul className="ticks">{DAY_PASS_FEATURES.slice(1, 6).map(f => tick(f, f))}</ul>
           </section>
-          <section className="plan" aria-labelledby="monthly-title">
-            <h2 id="monthly-title">Monthly</h2><p className="desc">All Pro features, billed monthly.</p>
-            <div className="price"><strong>{PRO_PRICE.month.amount}</strong><span>/ month</span></div><p className="price-note">$6.99 billed each month after trial</p>
-            <button type="button" className="btn btn-secondary btn-block" onClick={() => startPro("month")} disabled={busy}>{busy ? "Opening checkout…" : "Try Monthly free"}</button>
-            <ul className="ticks">{["Unlimited words · up to 3 sessions at once", "Drafting rhythm and all advanced controls", "Import files and edit paused sessions"].map(f => tick(f,f))}</ul>
-          </section>
-          <section className="plan featured" aria-labelledby="yearly-title">
-            <div className="plan-top"><h2 id="yearly-title">Yearly</h2><span className="badge badge-blue">Best value</span></div><p className="desc">All Pro features, at our lowest rate.</p>
-            <div className="price"><strong>{PRO_PRICE.year.amount}</strong><span>/ month equivalent</span></div><p className="price-note"><span className="save">$60 billed yearly · {YEARLY_SAVING}</span></p>
-            <button type="button" className="btn btn-primary btn-block" onClick={() => startPro("year")} disabled={busy}>{busy ? "Opening checkout…" : "Try Yearly free"}</button>
-            <ul className="ticks">{["Everything in Monthly", "$23.88 less per year than paying monthly", "One annual payment · cancel renewal anytime"].map(f => tick(f,f))}</ul>
+          <section className="plan featured" aria-labelledby="pro-title">
+            <div className="plan-top"><h2 id="pro-title">Pro</h2><span className="badge badge-blue">{billing === "year" ? "Best value" : "Full control"}</span></div><p className="desc">Every Pro feature, with the billing that suits you.</p>
+            <div className="price"><strong>{billing === "year" ? PRO_PRICE.year.amount : PRO_PRICE.month.amount}</strong><span>{billing === "year" ? "/ month equivalent" : "/ month"}</span></div>
+            <p className="price-note">{billing === "year" ? <span className="save">$60 billed yearly · {YEARLY_SAVING}</span> : "$6.99 billed each month after trial"}</p>
+            <button type="button" className="btn btn-primary btn-block" onClick={() => startPro(billing)} disabled={busy}>{busy ? "Opening checkout…" : billing === "year" ? "Try Yearly free" : "Try Monthly free"}</button>
+            <ul className="ticks">{["Unlimited words · up to 3 sessions at once", "Drafting rhythm and all advanced controls", "Import files and edit paused sessions", "7 days free for eligible new subscribers"].map(f => tick(f,f))}</ul>
           </section>
         </div>
         <p className="hint pricing-disclosure">Eligible new Pro subscribers get 7 days free with a card. Then $6.99/month or $60/year, paid upfront and renewed automatically until canceled. Cancel before the trial ends to avoid the first charge. Taxes may apply. Existing subscribers can manage their plan in <Link href="/app/billing/">Plan &amp; usage</Link>.</p>
