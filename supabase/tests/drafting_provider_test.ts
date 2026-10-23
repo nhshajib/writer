@@ -200,8 +200,8 @@ Deno.test("drafting Google: explicit empty Markdown format resets inherited bold
     {
       updateTextStyle: {
         range: { startIndex: 12, endIndex: 23 },
-        textStyle: { bold: false, italic: false, backgroundColor: {} },
-        fields: "bold,italic,backgroundColor",
+        textStyle: { bold: false, italic: false, underline: false, strikethrough: false, backgroundColor: {} },
+        fields: "bold,italic,underline,strikethrough,backgroundColor",
       },
     },
   ]);

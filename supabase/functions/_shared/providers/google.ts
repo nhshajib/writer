@@ -572,6 +572,7 @@ const NAMED_STYLE: Record<ParagraphKind, string> = {
   h2: "HEADING_2",
   h3: "HEADING_3",
   bullet: "NORMAL_TEXT",
+  numbered: "NORMAL_TEXT",
 };
 
 /**
@@ -587,8 +588,8 @@ export function formatRequests(format: ChunkFormat, index: number, length: numbe
     requests.push({
       updateTextStyle: {
         range: range(0, length),
-        textStyle: { bold: false, italic: false, backgroundColor: {} },
-        fields: "bold,italic,backgroundColor",
+        textStyle: { bold: false, italic: false, underline: false, strikethrough: false, backgroundColor: {} },
+        fields: "bold,italic,underline,strikethrough,backgroundColor",
       },
     });
   }
@@ -596,6 +597,8 @@ export function formatRequests(format: ChunkFormat, index: number, length: numbe
     const textStyle: Record<string, unknown> = {};
     if (span.bold) textStyle.bold = true;
     if (span.italic) textStyle.italic = true;
+    if (span.underline) textStyle.underline = true;
+    if (span.strikethrough) textStyle.strikethrough = true;
     if (span.highlight) {
       const hex = span.highlight.slice(1);
       textStyle.backgroundColor = {
@@ -620,12 +623,22 @@ export function formatRequests(format: ChunkFormat, index: number, length: numbe
     requests.push({
       updateParagraphStyle: {
         range: r,
-        paragraphStyle: { namedStyleType: NAMED_STYLE[p.kind] },
-        fields: "namedStyleType",
+        paragraphStyle: {
+          namedStyleType: NAMED_STYLE[p.kind],
+          ...(p.alignment
+            ? { alignment: { left: "START", center: "CENTER", right: "END", justify: "JUSTIFIED" }[p.alignment] }
+            : {}),
+        },
+        fields: p.alignment ? "namedStyleType,alignment" : "namedStyleType",
       },
     });
-    if (p.kind === "bullet") {
-      requests.push({ createParagraphBullets: { range: r, bulletPreset: "BULLET_DISC_CIRCLE_SQUARE" } });
+    if (p.kind === "bullet" || p.kind === "numbered") {
+      requests.push({
+        createParagraphBullets: {
+          range: r,
+          bulletPreset: p.kind === "numbered" ? "NUMBERED_DIGIT_ALPHA_ROMAN" : "BULLET_DISC_CIRCLE_SQUARE",
+        },
+      });
     } else if (p.after_bullet) {
       requests.push({ deleteParagraphBullets: { range: r } });
     }

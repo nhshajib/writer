@@ -6,13 +6,14 @@
  */
 
 export type TextFormat = "plain" | "markdown" | "rich";
-export type ParagraphKind = "normal" | "title" | "subtitle" | "h1" | "h2" | "h3" | "bullet";
+export type ParagraphKind = "normal" | "title" | "subtitle" | "h1" | "h2" | "h3" | "bullet" | "numbered";
 
 export interface ParagraphRange {
   start: number;
   /** Exclusive; includes the paragraph's line break when it has one. */
   end: number;
   kind: ParagraphKind;
+  alignment?: "left" | "center" | "right" | "justify";
   /** Follows a bullet, so it would inherit the bullet unless it is removed. */
   after_bullet?: boolean;
 }
@@ -22,6 +23,8 @@ export interface SpanRange {
   end: number;
   bold?: boolean;
   italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
   highlight?: string;
 }
 
@@ -99,9 +102,16 @@ export function formatsForUnits(parsed: ParsedMarkdown, units: string[]): ChunkF
     parsed.paragraphs.forEach((p, i) => {
       if (p.start < from || p.start >= to) return;
       const previous = parsed.paragraphs[i - 1];
-      if (p.kind === "normal" && i > 0 && previous?.kind === "normal") return;
-      const range: ParagraphRange = { start: p.start - from, end: Math.min(p.end, to) - from, kind: p.kind };
-      if (previous?.kind === "bullet" && p.kind !== "bullet") range.after_bullet = true;
+      if (p.kind === "normal" && i > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) return;
+      const range: ParagraphRange = {
+        start: p.start - from,
+        end: Math.min(p.end, to) - from,
+        kind: p.kind,
+        ...(p.alignment || previous?.alignment ? { alignment: p.alignment ?? "left" } : {}),
+      };
+      if (["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)) {
+        range.after_bullet = true;
+      }
       paragraphs.push(range);
     });
     const spans: SpanRange[] = [];
@@ -138,18 +148,22 @@ export function parseRichText(source: string): ParsedMarkdown {
   let end = 0;
   const paragraphs: ParagraphRange[] = doc.paragraphs.map((p: ParagraphRange) => {
     if (
-      !range(p) || p.start !== end || !["normal", "title", "subtitle", "h1", "h2", "h3", "bullet"].includes(p.kind) ||
+      !range(p) || p.start !== end ||
+      !["normal", "title", "subtitle", "h1", "h2", "h3", "bullet", "numbered"].includes(p.kind) ||
+      (p.alignment !== undefined && !["left", "center", "right", "justify"].includes(p.alignment)) ||
       (p.start > 0 && doc.plain[p.start - 1] !== "\n") ||
       (p.end < doc.plain.length && doc.plain[p.end - 1] !== "\n")
     ) throw new Error("Invalid paragraph range.");
     end = p.end;
-    return { start: p.start, end: p.end, kind: p.kind };
+    return { start: p.start, end: p.end, kind: p.kind, ...(p.alignment ? { alignment: p.alignment } : {}) };
   });
   if (end !== doc.plain.length) throw new Error("Incomplete paragraph ranges.");
   const spans: SpanRange[] = doc.spans.map((s: SpanRange) => {
     if (
       !range(s) || (s.bold !== undefined && typeof s.bold !== "boolean") ||
       (s.italic !== undefined && typeof s.italic !== "boolean") ||
+      (s.underline !== undefined && typeof s.underline !== "boolean") ||
+      (s.strikethrough !== undefined && typeof s.strikethrough !== "boolean") ||
       (s.highlight !== undefined && !/^#[0-9a-f]{6}$/i.test(s.highlight))
     ) throw new Error("Invalid text style.");
     return {
@@ -157,6 +171,8 @@ export function parseRichText(source: string): ParsedMarkdown {
       end: s.end,
       ...(s.bold ? { bold: true } : {}),
       ...(s.italic ? { italic: true } : {}),
+      ...(s.underline ? { underline: true } : {}),
+      ...(s.strikethrough ? { strikethrough: true } : {}),
       ...(s.highlight ? { highlight: s.highlight } : {}),
     };
   });

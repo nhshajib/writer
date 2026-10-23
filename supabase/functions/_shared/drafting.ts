@@ -143,12 +143,15 @@ function formatSlice(parsed: ParsedMarkdown, from: number, to: number): ChunkFor
   parsed.paragraphs.forEach((p, i) => {
     if (p.start < from || p.start >= to) return;
     const previous = parsed.paragraphs[i - 1];
-    if (p.kind === "normal" && i > 0 && previous?.kind === "normal") return;
+    if (p.kind === "normal" && i > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) return;
     paragraphs.push({
       start: p.start - from,
       end: Math.min(p.end, to) - from,
       kind: p.kind,
-      ...(previous?.kind === "bullet" && p.kind !== "bullet" ? { after_bullet: true } : {}),
+      ...(p.alignment || previous?.alignment ? { alignment: p.alignment ?? "left" } : {}),
+      ...(["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)
+        ? { after_bullet: true }
+        : {}),
     });
   });
   return {
