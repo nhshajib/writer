@@ -58,13 +58,20 @@ function PricingContent() {
   }, []);
 
   async function startPro(interval: Interval) {
-    if (!signedIn) {
-      router.push("/signup?next=/pricing");
-      return;
-    }
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
+      // A click can arrive before the initial effect updates signedIn.
+      // Resolve the persisted session before deciding this is a guest.
+      const { data, error: sessionError } = await supabase().auth.getSession();
+      if (sessionError) throw new Error("Couldn't check your sign-in. Please try again.");
+      if (!data.session) {
+        router.push("/signup?next=/pricing");
+        setBusy(false);
+        return;
+      }
+      setSignedIn(true);
       const { url } = await api<{ url: string }>("billing/checkout", { method: "POST", body: { interval } });
       window.location.assign(url);
     } catch (e) {
