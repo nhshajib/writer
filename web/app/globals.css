@@ -2690,6 +2690,7 @@ body:has(.lp-hero) { background: var(--bg); }
   .home-actions .btn { min-height: 48px; padding-inline: 14px; font-size: 0.8125rem; flex: 1; white-space: nowrap; }
   .home-benefits { margin-top: 18px; gap: 5px 12px; font-size: 0.625rem; }
   .home-visual { width: min(100%, 420px); margin: 0 auto; padding-top: 25px; }
+  .home-orbit { inset: 24px 30px; transform: rotate(-25deg) scale(0.85); }
   .home-visual-label { top: 0; padding: 6px 10px; }
   .home-visual .lp-doc { margin-right: 12%; }
   .home-visual .lp-doc-page { padding: 0.9rem 1rem 5.5rem; font-size: 0.6875rem; line-height: 1.6; }
