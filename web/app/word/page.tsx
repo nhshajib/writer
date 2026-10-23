@@ -339,7 +339,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
     <form onSubmit={start} noValidate aria-label="New Word session">
       <div className="field">
         <label className="label" htmlFor="text">Text to enter</label>
-        <RichTextEditor text={text} format={textFormat} onChange={(next, format) => { setText(next); setTextFormat(format); setApproved(false); }} />
+        <RichTextEditor importEnabled={tier === "pro"} text={text} format={textFormat} onChange={(next, format) => { setText(next); setTextFormat(format); setApproved(false); }} />
         <span id="text-count" className="hint">{words.toLocaleString()} words · {plainText.length.toLocaleString()} characters</span>
       </div>
 

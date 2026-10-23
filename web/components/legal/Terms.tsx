@@ -98,7 +98,7 @@ export function TermsBody() {
 
       <h2>9. Availability and changes</h2>
       <p>
-        Supported paste preserves text, headings, bold, italic, bullets and highlight colors; it does not reproduce images, tables, fonts or page layout. Review the preview and destination before starting. Timing is a target, not a deadline. We work to keep TypeWit reliable, but it may sometimes be unavailable, and sessions can be delayed or stop
+        Supported paste preserves text, headings, bold, italic, underline, strikethrough, paragraph alignment, bullets, numbered lists and highlight colors; it does not reproduce images, tables, fonts or page layout. Review the preview and destination before starting. Timing is a target, not a deadline. We work to keep TypeWit reliable, but it may sometimes be unavailable, and sessions can be delayed or stop
         because of problems with Google or other services. You can always see what was entered in your activity log.
         We may improve or change features over time.
       </p>

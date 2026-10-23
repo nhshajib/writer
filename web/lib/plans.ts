@@ -89,7 +89,7 @@ const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Neighbor-key typos", free: "No", pro: "Adjustable rate; automatically corrected" },
   { feature: "False starts", free: "No", pro: "Adjustable rate; wrong words deleted and replaced" },
   { feature: "Natural breaks after sentences", free: "Included in Natural rhythm", pro: "Fully adjustable" },
-  { feature: "Paste headings, bold, italic, bullets and highlights", free: "Yes", pro: "Yes" },
+  { feature: "Paste headings, emphasis, lists, alignment and highlights", free: "Yes", pro: "Yes" },
   { feature: "Insert under a heading (Google Docs)", free: "No", pro: "Yes" },
   { feature: "Import .docx, .md and .txt files", free: "No", pro: "Yes" },
   { feature: "Edit remaining text and settings while paused", free: "No", pro: "Yes" },

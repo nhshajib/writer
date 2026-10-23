@@ -5,24 +5,27 @@ import type { ParsedMarkdown } from "../../../supabase/functions/_shared/markdow
 export function MarkdownPreview({ parsed }: { parsed: ParsedMarkdown }) {
   const blocks: ReactNode[] = [];
   let list: ReactNode[] = [];
+  let listKind = "bullet";
   const flush = () => {
-    if (list.length) blocks.push(<ul key={`ul-${blocks.length}`}>{list}</ul>);
+    if (list.length) blocks.push(listKind === "numbered" ? <ol key={`ol-${blocks.length}`}>{list}</ol> : <ul key={`ul-${blocks.length}`}>{list}</ul>);
     list = [];
   };
   parsed.paragraphs.forEach((p, i) => {
     const end = parsed.plain[p.end - 1] === "\n" ? p.end - 1 : p.end;
     const content = runs(parsed, p.start, end);
-    if (p.kind === "bullet") {
-      list.push(<li key={i}>{content}</li>);
+    if (p.kind === "bullet" || p.kind === "numbered") {
+      if (p.kind !== listKind) flush();
+      listKind = p.kind;
+      list.push(<li key={i} style={{textAlign:p.alignment}}>{content}</li>);
       return;
     }
     flush();
-    if (p.kind === "title") blocks.push(<h3 key={i} className="md-title">{content}</h3>);
-    else if (p.kind === "subtitle") blocks.push(<p key={i} className="md-subtitle">{content}</p>);
-    else if (p.kind === "h1") blocks.push(<h3 key={i} className="md-h1">{content}</h3>);
-    else if (p.kind === "h2") blocks.push(<h4 key={i} className="md-h2">{content}</h4>);
-    else if (p.kind === "h3") blocks.push(<h5 key={i} className="md-h3">{content}</h5>);
-    else blocks.push(<p key={i}>{end > p.start ? content : <br />}</p>);
+    if (p.kind === "title") blocks.push(<h3 style={{textAlign:p.alignment}} key={i} className="md-title">{content}</h3>);
+    else if (p.kind === "subtitle") blocks.push(<p style={{textAlign:p.alignment}} key={i} className="md-subtitle">{content}</p>);
+    else if (p.kind === "h1") blocks.push(<h3 style={{textAlign:p.alignment}} key={i} className="md-h1">{content}</h3>);
+    else if (p.kind === "h2") blocks.push(<h4 style={{textAlign:p.alignment}} key={i} className="md-h2">{content}</h4>);
+    else if (p.kind === "h3") blocks.push(<h5 style={{textAlign:p.alignment}} key={i} className="md-h3">{content}</h5>);
+    else blocks.push(<p style={{textAlign:p.alignment}} key={i}>{end > p.start ? content : <br />}</p>);
   });
   flush();
   return <div className="md-preview">{blocks}</div>;
@@ -44,6 +47,8 @@ function runs(parsed: ParsedMarkdown, from: number, to: number): ReactNode[] {
     const italic = parsed.spans.some((s) => s.italic && s.start <= at && at < s.end);
     const highlight = parsed.spans.findLast((s) => s.highlight && s.start <= at && at < s.end)?.highlight;
     let node: ReactNode = highlight ? <mark style={{ backgroundColor: highlight }}>{text}</mark> : text;
+    if (parsed.spans.some(s=>s.underline && s.start<=at && at<s.end)) node=<u>{node}</u>;
+    if (parsed.spans.some(s=>s.strikethrough && s.start<=at && at<s.end)) node=<s>{node}</s>;
     if (italic) node = <em>{node}</em>;
     if (bold) node = <strong>{node}</strong>;
     out.push(<span key={at}>{node}</span>);

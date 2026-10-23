@@ -81,7 +81,7 @@ export function PausedSessionEditor({ drip, onSaved, onCancel }: {
         <legend className="sr-only">Remaining text and settings</legend>
         <div className="field">
           <label className="label" htmlFor="remaining-text">Remaining text</label>
-          <RichTextEditor id="remaining-text" label="Remaining text" text={text} format={format} disabled={busy} onChange={(next, kind) => change(() => { setText(next); setFormat(kind); })} />
+          <RichTextEditor importEnabled id="remaining-text" label="Remaining text" text={text} format={format} disabled={busy} onChange={(next, kind) => change(() => { setText(next); setFormat(kind); })} />
           <p className="hint">Keep spaces or line breaks needed to join the entered text. Leave this text unchanged to retain its original formatting; paste a formatted replacement to change it. Saving does not resume the session.</p>
         </div>
         <div className="field">

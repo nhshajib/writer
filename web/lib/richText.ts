@@ -7,12 +7,13 @@ export function readRichHtml(html: string): ParsedMarkdown {
   const root = template.content;
   const doc: ParsedMarkdown = { plain: '', paragraphs: [], spans: [] };
   let kind: ParagraphKind = 'normal';
+  let alignment: 'left' | 'center' | 'right' | 'justify' | undefined;
   let start = 0;
   let syntheticTail = false;
   const finish = () => {
     if (doc.plain.length > start) {
       if (!doc.plain.endsWith('\n')) { doc.plain += '\n'; syntheticTail = true; }
-      doc.paragraphs.push({ start, end: doc.plain.length, kind });
+      doc.paragraphs.push({ start, end: doc.plain.length, kind, ...(alignment ? {alignment} : {}) });
       start = doc.plain.length;
     }
   };
@@ -44,9 +45,12 @@ export function readRichHtml(html: string): ParsedMarkdown {
     }
     const block = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr', 'blockquote', 'pre'].includes(tag);
     const previous = kind;
+    const previousAlignment = alignment;
     if (block) {
       finish();
-      kind = tag === 'li' ? 'bullet' : /^h[1-6]$/.test(tag) ? `h${Math.min(3, Number(tag[1]))}` as ParagraphKind : 'normal';
+      kind = tag === 'li' ? (node.closest('ol') || node.dataset.kind === 'numbered' ? 'numbered' : 'bullet') : /^h[1-6]$/.test(tag) ? `h${Math.min(3, Number(tag[1]))}` as ParagraphKind : 'normal';
+      const align = node.style.textAlign;
+      if (["left", "center", "right", "justify"].includes(align)) alignment = align as typeof alignment;
       const size = parseFloat(node.style.fontSize);
       if (kind === 'normal' && size >= 26) kind = 'title';
       if (/msotitle/i.test(node.className) || node.getAttribute('data-kind') === 'title') kind = 'title';
@@ -60,6 +64,9 @@ export function readRichHtml(html: string): ParsedMarkdown {
     const style = { ...inherited };
     if (['b', 'strong'].includes(tag)) style.bold = true;
     if (['i', 'em'].includes(tag)) style.italic = true;
+    const decoration = node.style.textDecorationLine || node.style.textDecoration;
+    if (tag === 'u' || decoration.includes('underline')) style.underline = true;
+    if (['s','strike','del'].includes(tag) || decoration.includes('line-through')) style.strikethrough = true;
     if (node.style.fontWeight) style.bold = node.style.fontWeight === 'bold' || Number(node.style.fontWeight) >= 600;
     if (node.style.fontStyle) style.italic = node.style.fontStyle === 'italic';
     let color = node.style.backgroundColor || (tag === 'mark' ? '#ffff00' : '');
@@ -71,7 +78,7 @@ export function readRichHtml(html: string): ParsedMarkdown {
     if (/^#[0-9a-f]{6}$/i.test(color)) style.highlight = color;
     else if (rgb && (rgb[4] === undefined || Number(rgb[4]) === 1)) style.highlight = '#' + rgb.slice(1, 4).map(v => Number(v).toString(16).padStart(2, '0')).join('');
     node.childNodes.forEach(child => walk(child, style));
-    if (block) { finish(); kind = previous; }
+    if (block) { finish(); kind = previous; alignment = previousAlignment; }
   }
   root.childNodes.forEach(n => walk(n));
   finish();
@@ -95,8 +102,12 @@ export function formattedDocument(text: string, format: TextFormat): ParsedMarkd
 
 export function richFragment(doc: ParsedMarkdown): DocumentFragment {
   const fragment = document.createDocumentFragment();
+  let list: HTMLElement | null = null;
+  let listKind = "";
   for (const p of doc.paragraphs) {
-    const el = document.createElement(p.kind === 'h1' ? 'h1' : p.kind === 'h2' ? 'h2' : p.kind === 'h3' ? 'h3' : p.kind === 'bullet' ? 'li' : 'p');
+    const el = document.createElement(p.kind === 'h1' ? 'h1' : p.kind === 'h2' ? 'h2' : p.kind === 'h3' ? 'h3' : p.kind === 'bullet' || p.kind === 'numbered' ? 'li' : 'p');
+    if (p.alignment) el.style.textAlign = p.alignment;
+    if (p.kind === 'numbered') { el.dataset.kind = 'numbered'; el.style.listStyleType = 'decimal'; }
     if (p.kind === 'title' || p.kind === 'subtitle') { el.dataset.kind = p.kind; el.className = `md-${p.kind}`; }
     const end = doc.plain[p.end - 1] === '\n' ? p.end - 1 : p.end;
     const cuts = [...new Set([p.start, end, ...doc.spans.flatMap(s => [s.start, s.end]).filter(n => n > p.start && n < end)])].sort((a,b) => a-b);
@@ -107,12 +118,16 @@ export function richFragment(doc: ParsedMarkdown): DocumentFragment {
       for (const s of doc.spans) if (s.start <= at && at < s.end) {
         if (s.bold) span.style.fontWeight = 'bold';
         if (s.italic) span.style.fontStyle = 'italic';
+        if (s.underline || s.strikethrough) span.style.textDecoration = [s.underline ? 'underline' : '', s.strikethrough ? 'line-through' : ''].filter(Boolean).join(' ');
         if (s.highlight) span.style.backgroundColor = s.highlight;
       }
       el.append(span);
     }
     if (!el.childNodes.length || (p.end === doc.plain.length && doc.plain.endsWith('\n'))) el.append(document.createElement('br'));
-    fragment.append(el);
+    if (p.kind === "bullet" || p.kind === "numbered") {
+      if (!list || listKind !== p.kind) { list = document.createElement(p.kind === "numbered" ? "ol" : "ul"); listKind = p.kind; fragment.append(list); }
+      list.append(el);
+    } else { list = null; listKind = ""; fragment.append(el); }
   }
   return fragment;
 }

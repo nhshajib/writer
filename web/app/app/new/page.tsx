@@ -738,16 +738,12 @@ export default function NewSessionPage() {
             <div className="text-head">
               <label className="label" htmlFor="text">Text to enter</label>
               <div className="text-actions">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}
-                  disabled={importing} {...lockedProps(plan, "import")}>
-                  <Icon.doc />{importing ? "Importing…" : "Import file"}<PlanLock plan={plan} feature="import" />
-                </button>
                 <input ref={fileInput} type="file" accept={IMPORT_ACCEPT} hidden data-testid="import-file"
                   onChange={(e) => onImport(e.target.files?.[0])} />
               </div>
             </div>
             {importNote && <p className="hint" role="status">{importNote}</p>}
-            <RichTextEditor text={text} format={format} onChange={(next, kind) => { changeText(next); changeFormat(kind); }} />
+            <RichTextEditor importEnabled={plan === "pro"} onImportRequest={() => fileInput.current?.click()} text={text} format={format} onChange={(next, kind) => { changeText(next); changeFormat(kind); }} />
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span id="text-count" className={overWords ? "error-text" : "hint"}>
                 {words.toLocaleString()} {words === 1 ? "word" : "words"} · {plainText.length.toLocaleString()} characters
@@ -1043,7 +1039,7 @@ export default function NewSessionPage() {
             <ReviewRow label="Word entry" value={entryLabel} onEdit={() => edit(unit === "word" && timing !== "asap" ? "rhythm-title" : "entry-settings", unit === "word" && timing !== "asap" ? undefined : "more")} />
             <ReviewRow label="Rhythm" value={rhythmLabel} onEdit={() => edit("rhythm-title")} />
             <ReviewRow label="Timing" value={timingLabel} onEdit={() => edit(timing === "duration" ? "duration" : "timing-settings", timing === "duration" ? undefined : "more")} />
-            {format !== "plain" && <ReviewRow label="Formatting" value="Headings, bold, italic, bullets and highlights kept" />}
+            {format !== "plain" && <ReviewRow label="Formatting" value="Headings, emphasis, lists, alignment and highlights kept" />}
             {startLater && <ReviewRow label="Starts" value={when(new Date(startAt).getTime())} onEdit={() => edit("start-at", "more")} />}
             {workWindow && <ReviewRow label="Writing hours" value={`${workWindow.start}–${workWindow.end} · ${workWindow.time_zone}. Waiting may move the finish later.`} onEdit={() => edit("timing-settings", "more")} />}
             {revisionSweep && <ReviewRow label="Final revision pass" value="A small temporary edit at the end, then your exact approved text is restored." onEdit={() => edit("revision-sweep", "more")} />}

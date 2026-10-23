@@ -4,12 +4,13 @@ import type { ChunkFormat, ParagraphKind } from "../../supabase/functions/_share
 
 /* Word's JavaScript API (Office.js, WordApi 1.1; styleBuiltIn needs 1.3), only the parts TypeWit uses. */
 interface WordRange {
-  font: { bold: boolean; italic: boolean; highlightColor?: string | null };
+  font: { bold: boolean; italic: boolean; highlightColor?: string | null; underline?: string; strikeThrough?: boolean };
   delete(): void;
 }
 interface WordParagraph {
   text: string;
   styleBuiltIn?: string;
+  alignment?: string;
   search(text: string, options: { matchCase: boolean; matchWildcards: boolean; ignoreSpace: boolean; ignorePunct: boolean }): {
     items: WordRange[];
     load(properties: string): void;
@@ -124,11 +125,16 @@ export const officeWordHost: WordHost = {
             const range = paragraph.insertText(segment.text, "End");
             range.font.bold = segment.bold;
             range.font.italic = segment.italic;
+            range.font.underline = segment.underline ? "Single" : "None";
+            range.font.strikeThrough = Boolean(segment.strikethrough);
             range.font.highlightColor = segment.highlight ?? null;
           }
           // The person's own paragraph keeps its style; new paragraphs get theirs.
           const style = format.paragraphs.find((p) => p.start === offset);
-          if (style && styles && (i > 0 || lastWasEmpty)) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
+          if (style && (i > 0 || lastWasEmpty)) {
+            if (styles) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
+            if (style.alignment) paragraph.alignment = {left:"Left",center:"Centered",right:"Right",justify:"Justified"}[style.alignment];
+          }
           offset += line.length + 1;
         });
       }
@@ -187,10 +193,15 @@ export const officeWordHost: WordHost = {
             const inserted = paragraph.insertText(segment.text, "End");
             inserted.font.bold = segment.bold;
             inserted.font.italic = segment.italic;
+            inserted.font.underline = segment.underline ? "Single" : "None";
+            inserted.font.strikeThrough = Boolean(segment.strikethrough);
             inserted.font.highlightColor = segment.highlight ?? null;
           }
           const style = format.paragraphs.find((p) => p.start === offset);
-          if (style && styles && (i > 0 || lastWasEmpty)) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
+          if (style && (i > 0 || lastWasEmpty)) {
+            if (styles) paragraph.styleBuiltIn = WORD_STYLE[style.kind];
+            if (style.alignment) paragraph.alignment = {left:"Left",center:"Centered",right:"Right",justify:"Justified"}[style.alignment];
+          }
           offset += line.length + 1;
         });
       }
@@ -213,6 +224,7 @@ const WORD_STYLE: Record<ParagraphKind, string> = {
   h2: "Heading2",
   h3: "Heading3",
   bullet: "ListBullet",
+  numbered: "ListNumber",
 };
 
 /** Paragraph styles need WordApi 1.3; older Word still gets bold and italic. */
@@ -227,12 +239,12 @@ export function segments(line: string, lineStart: number, format: ChunkFormat) {
     for (const at of [s.start - lineStart, s.end - lineStart]) if (at > 0 && at < line.length) cuts.add(at);
   }
   const points = [...cuts].sort((a, b) => a - b);
-  const out: { text: string; bold: boolean; italic: boolean; highlight?: string }[] = [];
+  const out: { text: string; bold: boolean; italic: boolean; underline?: boolean; strikethrough?: boolean; highlight?: string }[] = [];
   for (let i = 0; i < points.length - 1; i++) {
     const from = lineStart + points[i];
-    const inSpan = (key: "bold" | "italic") => format.spans.some((s) => s[key] && s.start <= from && from < s.end);
+    const inSpan = (key: "bold" | "italic" | "underline" | "strikethrough") => format.spans.some((s) => s[key] && s.start <= from && from < s.end);
     const highlight = format.spans.findLast(s => s.highlight && s.start <= from && from < s.end)?.highlight;
-    out.push({ text: line.slice(points[i], points[i + 1]), bold: inSpan("bold"), italic: inSpan("italic"), ...(highlight ? { highlight } : {}) });
+    out.push({ text: line.slice(points[i], points[i + 1]), bold: inSpan("bold"), italic: inSpan("italic"), ...(inSpan("underline") ? {underline:true} : {}), ...(inSpan("strikethrough") ? {strikethrough:true} : {}), ...(highlight ? { highlight } : {}) });
   }
   return out;
 }
