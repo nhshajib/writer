@@ -50,6 +50,7 @@ test(
   "legacy section links reach the standalone pages and mobile menu closes with Escape",
   async ({ page }, info) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/#faq");
     await expect(page).toHaveURL(/\/faq\//);
     await page.goto("/");
@@ -65,6 +66,9 @@ test(
         document.documentElement.scrollWidth <= innerWidth
       ),
     ).toBe(true);
+    const privacy = page.locator(".home-footer").getByRole("link", {name:"Privacy",exact:true});
+    await privacy.hover();
+    await expect(privacy).toHaveCSS("color", "rgb(63, 101, 147)");
     await page.screenshot({
       path: info.outputPath("homepage-mobile.png"),
       fullPage: true,

@@ -2734,3 +2734,4 @@ body:has(.lp-hero) { background: var(--bg); }
   .auth-main .btn-primary { border-radius: 14px; }
 }
 .home-account { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding-inline: 16px; border: 1px solid var(--border-strong); border-radius: 14px; color: var(--text); font-size: 0.8125rem; }
+.home-frame .home-footer nav a:hover { color: var(--accent); }
