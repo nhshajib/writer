@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 export function Header() {
   const pathname = usePathname();
   const home = pathname === "/";
-  const [signedIn, setSignedIn] = useState(false);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [open, setOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -69,7 +69,9 @@ export function Header() {
           <span className="nav-title" aria-hidden="true">TypeWit</span>
           <nav className="nav nav-center" aria-label="Main">{links}</nav>
           <div className="nav nav-end">
-            {signedIn
+            {signedIn === null
+              ? <Link href="/app" className="btn btn-primary btn-sm">Account</Link>
+              : signedIn
               ? <Link href="/app" className="btn btn-primary btn-sm">Open dashboard</Link>
               : (
                 <>
@@ -78,7 +80,7 @@ export function Header() {
                 </>
               )}
           </div>
-          <Link href={signedIn ? "/app" : "/login/"} className="nav-compact">{signedIn ? "Open app" : "Sign in"}</Link>
+          <Link href={signedIn ? "/app" : "/login/"} className="nav-compact">{signedIn === null ? "Account" : signedIn ? "Open app" : "Sign in"}</Link>
           <button ref={menuButton} type="button" className="menu-btn" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((v) => !v)}>
             {open ? <Icon.close /> : <Icon.menu />}
             <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
@@ -87,7 +89,9 @@ export function Header() {
         <Sheet open={open} onClose={() => setOpen(false)} title="Explore TypeWit" className="site-menu-sheet">
         <nav className="public-menu-links" aria-label="Main mobile" onClick={() => setOpen(false)}>
           {links}
-          {signedIn
+          {signedIn === null
+            ? <Link href="/app" className="btn btn-primary btn-block">Account</Link>
+            : signedIn
             ? <Link href="/app" className="btn btn-primary btn-block">Open dashboard</Link>
             : (
               <>

@@ -158,7 +158,8 @@ test("Connected accounts explains where Word sessions run", async ({ page }) => 
 test("the compact homepage on a phone links to its details without a long landing page", async ({ page }) => {
   await page.goto("/");
   const header = page.locator(".site-header");
-  await expect(header.getByRole("link", { name: "Sign in" })).toBeVisible();
+  // The shared fixture is authenticated; wait for the settled account action, not a loading flash.
+  await expect(header.getByRole("link", { name: "Open app", exact: true })).toBeVisible();
   await expect(header.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.locator(".get-bar")).toHaveCount(0);
   await expect(page.locator(".lp-plans")).toHaveCount(0);
