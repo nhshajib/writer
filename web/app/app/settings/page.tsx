@@ -250,7 +250,7 @@ export default function SettingsPage() {
             </form>
             <dl className="kv">
               <dt>Email</dt><dd>{user.email}</dd>
-              <dt>Sign-in</dt><dd>{providers.map((p) => (p === "google" ? "Google" : "Email and password")).join(", ")}</dd>
+              <dt>Sign-in</dt><dd>{providers.map((p) => (p === "google" ? "Google" : p === "discord" ? "Discord" : p === "email" ? "Email and password" : p)).join(", ")}</dd>
             </dl>
           </div>
         </section>
@@ -317,8 +317,8 @@ export default function SettingsPage() {
             : (
               <form onSubmit={setFirstPassword} className="field" style={{ maxWidth: 420 }} aria-label="Set a password">
                 <p className="small muted" style={{ marginBottom: "0.5rem" }}>
-                  You sign in with Google. To use the TypeWit add-in in Microsoft Word, which can&apos;t show Google&apos;s
-                  sign-in, set a TypeWit password too. Google sign-in keeps working.
+                  You use a social account to sign in. To use the TypeWit add-in in Microsoft Word, set a TypeWit password
+                  here and use your email and password in the add-in. Your Google or Discord sign-in keeps working.
                 </p>
                 <label className="label" htmlFor="first-password">Password</label>
                 <div className="row input-row">

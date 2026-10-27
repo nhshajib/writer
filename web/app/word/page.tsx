@@ -157,7 +157,7 @@ function SignIn() {
       <ul className="hint mt-3 pane-list">
         <li>No account yet? <a href="/signup/" target="_blank" rel="noopener">Create one on typewit.com</a> (opens in your browser).</li>
         <li>
-          You sign in with Google? Word can&apos;t open Google&apos;s sign-in here. On typewit.com, go to{" "}
+          Use Google or Discord to sign in? Use an email and password in the Word add-in. On typewit.com, go to{" "}
           <a href="/app/settings/" target="_blank" rel="noopener">Settings → Security</a> and set a password, then use it here.
         </li>
       </ul>

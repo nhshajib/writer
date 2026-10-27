@@ -2974,3 +2974,9 @@ body:has(.lp-hero) { background: var(--bg); }
   .home-frame .home-footer-base nav { gap: 0 14px; }
   .home-frame .home-footer nav a { font-size: 0.75rem; }
 }
+
+/* Account OAuth options share sizing and spacing on desktop and phones. */
+.social-sign-in { display: grid; gap: 0.65rem; }
+.btn-discord { background: #5865f2; color: #fff; border-color: #5865f2; font-weight: 550; }
+.btn-discord:hover { background: #4752c4; color: #fff; border-color: #4752c4; }
+.btn-discord svg { width: 20px; height: 20px; flex-shrink: 0; }

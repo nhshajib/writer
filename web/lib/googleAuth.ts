@@ -5,7 +5,7 @@ import { CURRENT_TERMS_VERSION } from "./terms";
 const PENDING_KEY = "typewit:agreed-before-google";
 const PENDING_AGE_KEY = "typewit:age-before-google";
 
-/** Age answers from the Join form, recorded once the person is back from Google. */
+/** Age answers from the Join form, recorded once the person is back from social sign-in. */
 export interface AgeAnswers {
   country: string;
   birth_year: number;
@@ -13,12 +13,15 @@ export interface AgeAnswers {
   guardian_agreed: boolean;
 }
 
+export type SocialProvider = "google" | "discord";
+type SignInOptions = { agreed: boolean; next?: string; age?: AgeAnswers };
+
 /**
- * Starts "Continue with Google". When the person ticked the agreement on the
+ * Starts social sign-in with Google or Discord. When the person ticked the agreement on the
  * sign-up page first, we remember that and record it once they are back
- * (Google sign-in can't carry it in the sign-up metadata).
+ * (OAuth sign-in cannot carry it in the sign-up metadata).
  */
-export async function continueWithGoogle(options: { agreed: boolean; next?: string; age?: AgeAnswers }): Promise<string | null> {
+export async function continueWithProvider(provider: SocialProvider, options: SignInOptions): Promise<string | null> {
   try {
     if (options.agreed) sessionStorage.setItem(PENDING_KEY, CURRENT_TERMS_VERSION);
     if (options.age) sessionStorage.setItem(PENDING_AGE_KEY, JSON.stringify(options.age));
@@ -28,17 +31,22 @@ export async function continueWithGoogle(options: { agreed: boolean; next?: stri
   const next = safeNext(options.next);
   try {
     const { error } = await supabase().auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: { redirectTo: `${window.location.origin}${next}` },
     });
     return error ? error.message : null;
   } catch {
-    return "Google sign-in could not start. Check your connection and try again.";
+    return `${provider === "discord" ? "Discord" : "Google"} sign-in could not start. Check your connection and try again.`;
   }
 
 }
 
-/** Records an agreement the person gave on the sign-up page before using Google. Returns true if recorded. */
+/** Existing callers keep the same Google entry point and pending-storage keys. */
+export function continueWithGoogle(options: SignInOptions): Promise<string | null> {
+  return continueWithProvider("google", options);
+}
+
+/** Records an agreement the person gave on the sign-up page before social sign-in. Returns true if recorded. */
 export async function recordPendingAgreement(): Promise<boolean> {
   let version: string | null = null;
   try {
@@ -80,7 +88,7 @@ export async function confirmAge(age: AgeAnswers): Promise<AgeResult> {
   return data as AgeResult;
 }
 
-/** Records age answers given on the Join form before using Google, if any. Returns null when there were none. */
+/** Records age answers given on the Join form before social sign-in, if any. Returns null when there were none. */
 export async function recordPendingAge(): Promise<AgeResult | null> {
   let age: AgeAnswers | null = null;
   try {

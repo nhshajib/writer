@@ -4,8 +4,8 @@ import Link from "next/link";
 import { PasswordField } from "@/components/PasswordField";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
-import { GoogleMark } from "@/components/Icons";
-import { continueWithGoogle } from "@/lib/googleAuth";
+import { SocialSignInButtons } from "@/components/auth/SocialSignInButtons";
+import { continueWithProvider, type SocialProvider } from "@/lib/googleAuth";
 import { safeNext } from "@/lib/nextPath";
 import { supabase } from "@/lib/supabase";
 
@@ -26,10 +26,10 @@ export default function LoginPage() {
     setNext(safeNext(params.get("next")));
   }, []);
 
-  async function google() {
+  async function social(provider: SocialProvider) {
     setError(null);
     setBusy(true);
-    const problem = await continueWithGoogle({ agreed: false, next });
+    const problem = await continueWithProvider(provider, { agreed: false, next });
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -89,9 +89,7 @@ export default function LoginPage() {
         <h1 id="login-title">Welcome back</h1>
         <p className="sub">Sign in to TypeWit.</p>
         <form className="auth-form" onSubmit={onSubmit} aria-labelledby="login-title">
-          <button type="button" className="btn btn-google btn-lg btn-block" onClick={google} disabled={busy}>
-            <GoogleMark /> Continue with Google
-          </button>
+          <SocialSignInButtons busy={busy} onContinue={social} />
           <p className="or">or with email</p>
           <div className="field">
             <label className="label" htmlFor="email">Email</label>

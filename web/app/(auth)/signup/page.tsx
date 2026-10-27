@@ -4,12 +4,13 @@ import Link from "next/link";
 import { PasswordField } from "@/components/PasswordField";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
-import { GoogleMark, Icon } from "@/components/Icons";
+import { Icon } from "@/components/Icons";
+import { SocialSignInButtons } from "@/components/auth/SocialSignInButtons";
 import { LegalDialog } from "@/components/LegalDialog";
 import { ageBlocked, rememberAgeBlock } from "@/lib/age";
 import { emailProblem } from "@/lib/emailPolicy";
 import { safeNext } from "@/lib/nextPath";
-import { continueWithGoogle } from "@/lib/googleAuth";
+import { continueWithProvider, type SocialProvider } from "@/lib/googleAuth";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
@@ -60,11 +61,11 @@ function SignupForm() {
     finally { setResending(false); }
   }
 
-  /** Both signup methods ask age after authentication, before dashboard access. */
-  async function google() {
+  /** All signup methods ask age after authentication, before dashboard access. */
+  async function social(provider: SocialProvider) {
     setError(null);
     setBusy(true);
-    const problem = await continueWithGoogle({ agreed, next });
+    const problem = await continueWithProvider(provider, { agreed, next });
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -150,9 +151,7 @@ function SignupForm() {
         <form className="auth-form signup" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
           <fieldset className="signup-account" disabled={busy}>
             <legend className="sr-only">Your account</legend>
-            <button type="button" className="btn btn-google btn-lg btn-block" onClick={google}>
-              <GoogleMark /> Continue with Google
-            </button>
+            <SocialSignInButtons busy={busy} onContinue={social} />
             <p className="or">or with email</p>
             <div className="field">
               <label className="label" htmlFor="email">Email</label>

@@ -131,11 +131,11 @@ export function useDashboardLoader() {
         words_used_today: 0, usage_date: "",
       }) as Profile;
       current = { ...current, plan: effectivePlan(current), session_defaults: (defaults as { session_defaults?: SessionDefaults } | null)?.session_defaults ?? {} };
-      // Someone who ticked the agreement before choosing Google has it recorded now.
+      // Someone who ticked the agreement before social sign-in has it recorded now.
       if (current.agreed_terms_version !== CURRENT_TERMS_VERSION && await recordPendingAgreement()) {
         current = { ...current, agreed_terms_version: CURRENT_TERMS_VERSION };
       }
-      // Age answers given on the Join form before using Google.
+      // Age answers given on the Join form before social sign-in.
       if (!current.age_confirmed_at) {
         const age = await recordPendingAge();
         if (age === "too_young") {
