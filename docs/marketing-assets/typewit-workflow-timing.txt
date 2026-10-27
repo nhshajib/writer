@@ -1,0 +1,14 @@
+TypeWit workflow visual — 21 seconds, 1920x1080, 30 fps, silent H.264 MP4.
+Place the supplied voiceover at 00:00 in Clipchamp. The timing follows the previously supplied script; exact phrase synchronization requires the actual audio.
+
+00:00.0–00:04.2  Introduction / approved text on your schedule
+00:04.2–00:05.5  Formatted paste
+00:05.5–00:07.0  Document selection
+00:07.0–00:08.5  Rhythm and duration
+00:08.5–00:10.0  Review and approval
+00:10.0–00:12.5  Cloud session monitoring
+00:12.5–00:15.0  Paused session / resume control
+00:15.0–00:18.5  Word setup overview (not a recording of Microsoft Word)
+00:18.5–00:21.0  TypeWit / start free / typewit.com
+
+Actual TypeWit interface captured in the local mock environment using synthetic sample text. No real customer account, Google document, provider grant or payment was used. Progress is illustrative. No voiceover or music track is included.
