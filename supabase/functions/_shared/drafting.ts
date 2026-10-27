@@ -2,7 +2,7 @@
  * Opt-in automated drafting effects. The complete edit script is generated
  * before starting; the only temporary text it deletes is text it generated.
  */
-import { splitText } from "./chunker.ts";
+import { splitIntoUnits } from "./chunker.ts";
 import { type ChunkFormat, type ParsedMarkdown } from "./markdown.ts";
 import { seededRandom } from "./schedule.ts";
 
@@ -203,7 +203,7 @@ export function compileDrafting(
   const pauses = new Map<number, number>();
   if (cfg.sentence_pause_seconds > 0) {
     let boundary = 0;
-    for (const sentence of splitText(text, "sentence")) {
+    for (const sentence of splitIntoUnits(text, "sentence")) {
       boundary += sentence.length;
       if (boundary < text.length && sentence.trim()) {
         const scale = 1 + cfg.sentence_pause_variation_pct / 100 * (2 * random() - 1);

@@ -201,7 +201,9 @@ Deno.test("plan: typing-speed mode estimates the total including breaks and expl
   });
   assert(plan.ok);
   assertEquals(plan.active_seconds, 600);
-  assertEquals(plan.duration_seconds, 600); // one unit: no break before the only insertion
+  assertEquals(plan.source_chunks.length, 2); // the long sentence is now two balanced insertion steps
+  assertEquals(plan.break_seconds, 60); // one break can fit between them with align: "any"
+  assertEquals(plan.duration_seconds, 660);
   const words = planSession({
     ...base,
     text,

@@ -29,6 +29,9 @@ export function countWords(text: string): number {
  */
 export type InsertionUnit = "sentence" | "paragraph" | "word" | "character" | "chunk";
 
+export const DEFAULT_INSERTION_UNIT: InsertionUnit = "sentence";
+export const LONG_SENTENCE_WORDS = 20;
+
 export const INSERTION_UNITS: InsertionUnit[] = ["sentence", "paragraph", "word", "character", "chunk"];
 
 const sentenceSegmenter = new Intl.Segmenter("und", { granularity: "sentence" });
@@ -169,6 +172,14 @@ export function splitIntoGraphemes(text: string): string[] {
 export function splitText(text: string, unit: InsertionUnit): string[] {
   switch (unit) {
     case "sentence":
+      return splitIntoUnits(text, "sentence").flatMap((sentence) => {
+        const words = tokenize(sentence);
+        if (words.length <= LONG_SENTENCE_WORDS) return [sentence];
+        // Exactly two balanced parts, at a whitespace boundary. Never rewrite punctuation,
+        // discard spacing, or split a Unicode character. A true sentence end stays unchanged.
+        const middle = Math.ceil(words.length / 2);
+        return [words.slice(0, middle).join(""), words.slice(middle).join("")];
+      });
     case "paragraph":
       return splitIntoUnits(text, unit);
     case "word":

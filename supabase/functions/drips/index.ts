@@ -26,7 +26,7 @@ import { parseFormatted, parseRichText, plainDocument, replaceFormattedTail } fr
 //   POST /drips/account/delete      delete my account and everything TypeWit stores for it
 
 import { requireUser } from "../_shared/auth.ts";
-import { countWords, INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
+import { countWords, DEFAULT_INSERTION_UNIT, INSERTION_UNITS, type InsertionUnit } from "../_shared/chunker.ts";
 import { decrypt, sha256Hex } from "../_shared/crypto.ts";
 import { googleAccessToken, loadConnection, providerFor } from "../_shared/connections.ts";
 import { adminClient, encryptionKey, getSecret, requireEnv, testProviderEnabled } from "../_shared/env.ts";
@@ -255,7 +255,7 @@ function readPlanInput(body: PlanBody) {
     throw new HttpError(400, "Choose a supported writing rhythm.");
   }
   const text = typeof body.text === "string" ? body.text : "";
-  const unit = body.insertion_unit ?? "sentence";
+  const unit = body.insertion_unit ?? DEFAULT_INSERTION_UNIT;
   const mode = body.mode ?? "scheduled";
   const durationMinutes = Number(body.duration_minutes);
   if (!INSERTION_UNITS.includes(unit)) {
