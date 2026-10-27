@@ -1,5 +1,7 @@
 # TypeWit SEO audit and keyword plan
 
+Latest follow-up: [26 October research, content changes and search-growth audit](seo/growth-audit.md), [keyword map](seo/keyword-map.csv), and [listing/outreach pack](seo/backlink-submissions.md). Earlier findings below are historical.
+
 Audit date: 21 October 2026. Scope: all public pages, authentication routes, signed-in routes, Word add-in, generated metadata, static export, discovery links and hosting rules. Production is Netlify at https://typewit.com; Vercel is a test version, including Vercel’s production deployment alias.
 
 ## Evidence and limits

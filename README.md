@@ -1,5 +1,7 @@
 # TypeWit
 
+[TypeWit website](https://typewit.com/) — scheduled, approved text entry for Google Docs and Microsoft Word.
+
 Users paste and approve text, pick a document and a pace (a target duration or a
 typing speed, with optional breaks), and TypeWit enters the text into that
 Google Doc step by step (one sentence at a time by default) at varied,
