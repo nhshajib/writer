@@ -210,6 +210,12 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     profileChanges.session_defaults = d;
     return send(res, 200, d);
   }
+  // Persist accepted terms like the real RPC; later profile refreshes must see them.
+  if (path === "/rest/v1/rpc/agree_to_terms") {
+    if (body.version !== TERMS) return send(res, 400, { message: "Please accept the current terms version." });
+    profileChanges.agreed_terms_version = TERMS;
+    return send(res, 200, null);
+  }
   // The age check, with the same rules as the database's confirm_age.
   if (path === "/rest/v1/rpc/confirm_age") {
     const check = checkAge(String(body.country), Number(body.birth_year), Number(body.birth_month));
