@@ -23,3 +23,5 @@ Baseline: 235 backend and 120 browser tests passed before changes. Final checks:
 - The speed-mode fixture's 400-word sentence now yields two steps, so its configured align-any break can occur between them. The test still asserts 600 active seconds and now explicitly asserts two steps, a 60-second break and 660 total seconds.
 
 Deployment uses the existing import map and unchanged JWT settings. Publication status is recorded after deployment verification.
+
+Deployment verification: drips v43 retains JWT verification; drip-tick v36 retains its existing secret-based authentication with platform JWT verification disabled. All returned deployed source files match the repository exactly, including the shared code and import map. The public worker health check is healthy and the first two scheduled POST ticks on v36 returned HTTP 200. No real writing session or customer account was changed for testing. Code and release notes are pushed to main; Netlify publication is not independently verified here.
