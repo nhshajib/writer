@@ -9,6 +9,51 @@ export interface Guide {
 }
 export const GUIDES: Guide[] = [
   {
+    slug: "choose-google-docs-auto-typer", published: "2026-10-26", updated: "2026-10-26",
+    title: "How to Choose a Google Docs Auto Typer",
+    description: "Compare Google Docs auto typers by background execution, formatting, permissions, pacing and free limits. Use a short test before committing to a paid plan.",
+    summary: "The right Google Docs auto typer depends on what you need to test: a live typing demonstration, scheduled document entry, or a repeatable formatted workflow. Start with those requirements, then compare tools using the same sample.",
+    sections: [
+      { heading: "First, decide whether you need an auto typer", paragraphs: [
+        "For an immediate transfer, ordinary Google Docs paste is enough. For speech-to-text, use Google Docs voice typing. An auto typer is useful when approved text must arrive gradually for an authorized demonstration or document-entry test.",
+        "A typing simulator does not write the content for you. Separate text generation, rewriting and paced entry when comparing products: buying one does not necessarily include the others. Automated edits do not prove human authorship.",
+      ] },
+      { heading: "Check where the typing actually runs", paragraphs: [
+        "Ask whether the tool requires an open browser tab, a browser extension, a desktop app or a cloud service. Background-tab support is different from continuing after the computer shuts down. Confirm the provider’s requirements rather than assuming every auto typer runs the same way.",
+        "TypeWit Google Docs sessions run on its servers through Google’s API, so the dashboard can close after starting. No Chrome extension is required. Its Microsoft Word add-in works differently: Word and the TypeWit panel must remain open.",
+      ] },
+      { heading: "Test formatting and exact text, not just typing speed", paragraphs: [
+        "Use a disposable document and a short sample containing a heading, two sentences, bold text, a bullet list and a highlight. Include a sentence longer than 20 words if you want to inspect TypeWit’s balanced sentence steps. Review formatting before approval and compare the completed document with your sample.",
+        "TypeWit defaults to sentence steps. A sentence over 20 words is entered in two balanced parts; the split preserves the original words and punctuation. Natural varies the timing, Steady uses a more consistent rhythm, and Pro Drafting adds approved temporary mistakes and corrections. Advanced settings remain available when you need a different unit or rhythm.",
+        "Formatting support is not full document conversion. TypeWit preserves supported text styles, but does not reproduce images, tables, source fonts or page layout. Test the styles you rely on before using a longer passage.",
+      ], steps: [
+        "Paste the same short sample into each tool and check the preview.",
+        "Select the destination and a duration allowed by the free plan; approve only test text.",
+        "Pause partway through, then resume and verify that completed text is not duplicated.",
+        "For a cloud tool, close its dashboard and check the document later from another device.",
+        "After completion, compare the exact text, formatting and activity log. Check temporary corrections have finished.",
+      ] },
+      { heading: "Read Google permissions before connecting", paragraphs: [
+        "Check the consent screen, privacy policy, disconnect controls and account-deletion process. Google’s drive.file scope permits access to files created by the app or explicitly shared with it through a picker; it is different from broad access to every file in Drive.",
+        "TypeWit uses drive.file for Google Docs and lets you manage authorizations in Connected accounts. It processes approved text to run sessions; cloud execution does not mean the service never receives your text. Read its Privacy Policy before submitting sensitive material.",
+      ] },
+      { heading: "Compare free limits and the actual billing period", paragraphs: [
+        "Free can mean a daily allowance, a one-time trial, or an unlimited tool with fewer controls. Compare word limits, session length, concurrent sessions, existing-document access and whether a payment automatically renews. Check each product’s current pricing page instead of relying on an old comparison article.",
+        "TypeWit Free includes 250 words daily, sessions up to 60 minutes, one active session, formatted paste, and Natural and Steady rhythms. The $4.99 Day Pass lasts 24 hours without renewal, with unlimited words, writing blocks and sessions that fit the remaining access window. Pro is $6.99 monthly or $60 billed yearly; it adds Drafting, advanced pacing, paused text editing and up to three active sessions. Yearly and monthly Pro have the same features.",
+        "A long rest is part of elapsed time. A Day Pass schedule must still have access when entry resumes and finishes. Review the schedule preview rather than assuming a 24-hour pass can start a new 24-hour session near expiry.",
+      ] },
+      { heading: "Treat version-history promises carefully", paragraphs: [
+        "Google decides how document changes are grouped and retained. More API writes, word-sized steps or longer rests do not guarantee separate visible versions. Check the document itself and the tool’s activity log instead of judging success by a promised number of history entries.",
+        "Choose a tool whose explanations distinguish automation from authorship. TypeWit is for authorized testing and prohibits academic cheating, fabricated writing histories and deceptive authorship claims. A realistic demonstration is still an automated demonstration.",
+      ] },
+    ], sources: [
+      { label: "Google Drive: choose scopes and understand drive.file", url: "https://developers.google.com/workspace/drive/api/guides/api-specific-auth" },
+      { label: "Google Docs: view and name document versions", url: "https://support.google.com/docs/answer/190843" },
+      { label: "Google Docs: voice typing in supported browsers", url: "https://support.google.com/docs/answer/4492226" },
+    ],
+  },
+
+  {
     slug: "schedule-text-google-docs", published: "2026-10-21", updated: "2026-10-22", title: "How to Schedule Text Entry in Google Docs",
     description: "Schedule approved text entry into a new or existing Google Doc with TypeWit. Learn about session duration, scheduled starts, pauses and formatting.",
     summary: "Choose when automated entry should run, how long it should take, and which document should receive your approved text. A scheduled start and a session’s duration are two different settings.",
@@ -182,13 +227,13 @@ export const GUIDES: Guide[] = [
     ],
   },
   {
-    slug: "voice-typing-google-docs", published: "2026-10-22", updated: "2026-10-22",
+    slug: "voice-typing-google-docs", published: "2026-10-22", updated: "2026-10-26",
     title: "Google Docs Voice Typing and Hands-Free Entry",
     description: "Use Google Docs voice typing to dictate, then let TypeWit enter the reviewed text at your pace. Helpful when typing is hard because of injury or disability.",
     summary: "Google Docs can type what you say. When you’d rather dictate somewhere else, review the text first, or have it entered gradually without keeping your hands on the keyboard, TypeWit can do the entry for you.",
     sections: [
       { heading: "Turn on voice typing in Google Docs", paragraphs: [
-        "Voice typing works in Google Docs in Chrome on a computer. Open a document, choose Tools → Voice typing (or press Ctrl+Shift+S, ⌘+Shift+S on Mac), click the microphone, and start speaking. Say punctuation such as “period” or “new line”.",
+        "Google Docs voice typing works on a computer in current Chrome, Edge and Safari browsers. Your organization’s administrator may disable it. Open a document, choose Tools → Voice typing (or press Ctrl+Shift+S, ⌘+Shift+S on Mac), click the microphone, and start speaking. Say punctuation such as “period” or “new line”.",
         "Google’s help page lists the supported languages and commands, including editing and formatting commands in some languages.",
       ] },
       { heading: "When dictating straight into the document isn’t ideal", paragraphs: [
@@ -213,7 +258,7 @@ export const GUIDES: Guide[] = [
 
 /** When each public page last changed substantively; the sitemap's lastmod. Pages not listed use CONTENT_UPDATED. */
 export const PAGE_UPDATED: Record<string, string> = {
-  "/": "2026-10-23", "/how-it-works/":"2026-10-23", "/features/":"2026-10-23", "/use-cases/":"2026-10-23", "/faq/":"2026-10-23", "/google-docs-auto-typer/": "2026-10-22", "/word-auto-typer/": "2026-10-22", "/guides/": "2026-10-22",
+  "/": "2026-10-23", "/how-it-works/":"2026-10-23", "/features/":"2026-10-23", "/use-cases/":"2026-10-23", "/faq/":"2026-10-23", "/google-docs-auto-typer/": "2026-10-26", "/word-auto-typer/": "2026-10-26", "/guides/": "2026-10-26",
   ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
 };
 

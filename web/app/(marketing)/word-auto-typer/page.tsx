@@ -16,6 +16,7 @@ export default function WordAutoTyper() {
     <h2>Supported formatting and pacing</h2>
     <p>Paste into the visual editor to keep supported bold, italic, headings, bullets and highlights without adding Markdown markers. Heading styles depend on the Word host’s API support; font and page-layout reproduction are not promised. Always inspect the document after testing.</p>
     <p>Free includes Natural and Steady rhythms and 250 words a day; a {DAY_PASS_PRICE} Day Pass removes the word limit for 24 hours. Pro adds Drafting and advanced pacing controls, including adjustable speed, timing variation, temporary typos, false starts and sentence pauses. These are simulations; they do not establish human authorship. Review enabled temporary edits before approval.</p>
+    <p>New sessions start with sentences. Sentences over 20 words are entered in two balanced parts, preserving the original text. Advanced settings let you choose other text units when your test needs them.</p>
     <h2>Word sessions need an open document</h2>
     <p>Unlike TypeWit’s Google Docs sessions, Word entry runs through the open add-in. Closing the panel or document prevents entry. When execution resumes, the remaining schedule can move later rather than inserting the delayed text in a burst.</p>
     <p>Pause, resume and stop controls are also available in the dashboard. For Pro sessions, safely pause before editing remaining text or timing. The entered prefix stays in the document; review and approve a replacement before resuming.</p>
