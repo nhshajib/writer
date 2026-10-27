@@ -1,4 +1,4 @@
-TypeWit workflow visual — 21 seconds, 1920x1080, 30 fps, silent H.264 MP4.
+TypeWit workflow visual — 21 seconds, 1920x1080, 60 fps, silent H.264 MP4.
 Place the supplied voiceover at 00:00 in Clipchamp. The timing follows the previously supplied script; exact phrase synchronization requires the actual audio.
 
 00:00.0–00:04.2  Introduction / approved text on your schedule
@@ -12,3 +12,5 @@ Place the supplied voiceover at 00:00 in Clipchamp. The timing follows the previ
 00:18.5–00:21.0  TypeWit / start free / typewit.com
 
 Actual TypeWit interface captured in the local mock environment using synthetic sample text. No real customer account, Google document, provider grant or payment was used. Progress is illustrative. No voiceover or music track is included.
+
+Final revision: stationary screenshots, animated title entrances, logo fade-in, and 0.4-second crossfades centered on the listed scene boundaries. Duration remains exactly 21 seconds. Use typewit-workflow-final-21s.mp4 for the latest version.
