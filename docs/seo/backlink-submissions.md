@@ -2,6 +2,24 @@
 
 Research date: 26 October 2026 (America/New_York). All opportunities below are **unsubmitted**. No third-party account is connected and no external listing, email or comment was published. Submission access, any required account verification, editorial acceptance and actual link placement remain pending. The SaaSHub form is visible through read-only web research, but a direct request from this workspace is blocked by its outbound proxy (CONNECT 403); no form-capable connection is available. No fee has been paid. Authorization to promote TypeWit exists; submission capability and any required account access are the blockers, not a request for another approval.
 
+## Approved keyword use — 27 October 2026
+
+The primary targets are Google Docs auto typer, Auto typer for Google Docs, Google Docs auto typer without extension, Background auto typing, and Microsoft Word auto typer. Use them where they describe a real capability, not as a repeated list in submissions.
+
+- General product listings link to `https://typewit.com/` using the official website field.
+- Google Docs-specific editorial coverage can reference `https://typewit.com/google-docs-auto-typer/`.
+- Word-specific editorial coverage can reference `https://typewit.com/word-auto-typer/`, stating that the add-in must stay open.
+- Tool-selection coverage can cite the practical checklist already prepared below.
+- Prefer TypeWit as a natural brand anchor; let editors choose their wording. No anchor quotas, forced exact-match links or reciprocal-link requirements.
+
+Copy-ready variants (pick the appropriate one; do not publish all as duplicates):
+
+**Google Docs listing:** TypeWit is an auto typer for Google Docs with cloud-based background auto typing. No browser extension is needed. Review your text and supported formatting, choose a schedule, then pause or resume from the dashboard. Free includes 250 words daily.
+
+**Word listing:** TypeWit’s Microsoft Word auto typer enters approved text through a Word add-in, with sentence-based pacing, supported formatting and pause/resume controls. Keep Word and its TypeWit panel open during entry. Free, Day Pass and Pro plans are available.
+
+All external submissions remain pending. Keyword approval does not change the account, network or editorial-access limitations recorded below.
+
 ## Owned project documentation
 
 The GitHub connector confirmed `nhshajib/writer` is public. Added a natural official-site link to this repository’s README on `main`. This is an owned documentation link, not an independent editorial endorsement; no ranking benefit is claimed. The repository’s default branch is a different branch, so this does not establish that GitHub’s default repository landing page displays the new README. Do not change repository settings just to claim a backlink.
@@ -30,7 +48,7 @@ No domain-authority scores, dofollow promises or guaranteed ranking gains are cl
 
 Short description:
 
-> TypeWit enters approved text into Google Docs on a schedule, with supported formatting, sentence-based pacing and pause/resume controls. Google Docs sessions run in the cloud. Microsoft Word uses an add-in that stays open during entry.
+> TypeWit is a Google Docs auto typer with cloud-based background entry, supported formatting and pause/resume controls. No browser extension is needed. Its Microsoft Word auto typer uses an add-in that stays open during entry.
 
 Long description (no embedded links, suitable for AlternativeTo):
 

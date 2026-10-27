@@ -6,7 +6,7 @@ import { DAY_PASS_PRICE } from "@/lib/site";
 export const metadata = pageMeta("/word-auto-typer/", "Microsoft Word Auto Typer Add-in", "Enter approved text into Microsoft Word with the TypeWit add-in. Choose pacing and supported formatting, then pause or resume while the document stays open.");
 export default function WordAutoTyper() {
   return <article className="prose seo-landing"><Breadcrumbs items={[{name:"Word auto typer",path:"/word-auto-typer/"}]} />
-    <p className="kicker">Microsoft Word add-in</p><h1>A Word auto typer inside your document.</h1>
+    <p className="kicker">Microsoft Word add-in</p><h1>A Microsoft Word auto typer inside your document.</h1>
     <p className="seo-summary">TypeWit’s Word add-in enters text you approve into the document beside it. Choose a rhythm and duration, follow progress, and pause or stop whenever you need to review the result.</p>
     <div className="row"><Link href="/signup/" className="btn btn-primary">Create a free account</Link><Link href="/app/connections/#word" className="btn btn-secondary">Word setup instructions</Link></div>
     <p className="hint">For authorized testing. Keep Word and the TypeWit panel open during entry.</p>

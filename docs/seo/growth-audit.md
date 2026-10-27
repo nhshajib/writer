@@ -2,6 +2,37 @@
 
 Research date: 26 October 2026 (America/New_York). Primary site: https://typewit.com/ on Netlify. Vercel is a test copy and must remain noindex.
 
+## Approved keyword targets — 27 October 2026
+
+The owner confirmed these five primary targets. They supersede the previous secondary priority for Word. The original research date and unavailable metrics below remain unchanged; approval is not new search-volume evidence.
+
+| Primary keyword | Owning canonical page | Placement and role |
+|---|---|---|
+| Google Docs auto typer | `/google-docs-auto-typer/` | Page title, H1 and relevant introductory copy |
+| Auto typer for Google Docs | `/google-docs-auto-typer/` | Natural wording in setup and explanatory copy |
+| Google Docs auto typer without extension | `/google-docs-auto-typer/` | No-extension title variant and visible explanation of cloud execution |
+| Background auto typing | `/google-docs-auto-typer/` | Dedicated heading and explanation that Google Docs continues after closing the dashboard |
+| Microsoft Word auto typer | `/word-auto-typer/` | Page title and H1; clearly state the open add-in requirement |
+
+The first four describe one Google Docs product intent, so they share a page. Do not create four competing near-duplicate landing pages. The Word page remains separate because its setup and execution requirements differ. Keep the compact homepage design and use its existing category overview/provider links to support these pages.
+
+### Execution checklist
+
+- [x] Make all five approved terms P1 in the keyword map, with the exact agreed wording.
+- [x] Keep titles, H1s, descriptions and visible text readable; add an explicit background-entry heading and the full Word phrase in its H1.
+- [x] Keep provider URLs, internal discovery, canonical tags and existing structured data stable.
+- [x] Prepare keyword-aware listing descriptions and relevant resource destinations without forcing keyword-rich anchors.
+- [ ] Obtain Search Console query/page data and Keyword Planner estimates for the agreed market; no metrics are fabricated.
+- [ ] Verify the deployed Netlify pages, indexability and sitemap processing in Search Console.
+- [ ] Complete available directory submission flows and record actual public listing URLs; drafts are not backlinks.
+
+### Order of growth work
+
+1. **Now:** release the focused page-copy changes and completed planning documents; preserve all product behavior.
+2. **After live verification:** inspect the two provider URLs in Search Console and confirm they are in the submitted sitemap.
+3. **With submission access:** submit one accurate listing each to the best-fit platforms in the backlink pack, then record moderation and live URLs.
+4. **With query data:** compare relevant nonbranded impressions, clicks, CTR and conversions by the owning page. Improve the existing page before adding another article for the same intent.
+
 ## Outcome and limits
 
 The priority category is **Google Docs auto typer**, with **auto typer for Google Docs**, **background auto typing** and **without extension** variants on the same commercial page. Microsoft Word is a separate provider intent. Use these existing canonical pages rather than creating near-duplicate keyword landing pages. No position, first-page placement, keyword volume or organic difficulty is guaranteed or measured in this audit.
@@ -86,3 +117,5 @@ Core business measure: relevant organic visits that reach a successful authorize
 Passed: production static build; TypeScript (`npm run typecheck`); SEO export checks (16 indexing-policy cases, 20 canonical public pages, 597 internal links, sitemap, JSON-LD and private-route exclusions); all 127 existing browser tests (5.8 minutes). The new guide additionally passed mobile overflow and axe WCAG checks at 320, 390 and 430 pixels in Chromium. No existing test was changed, weakened or removed. The static checks validate metadata uniqueness, public/private indexing, sitemap registry coverage, breadcrumbs, Article markup and internal link destinations; browser checks exercise responsive public pages and existing app flows.
 
 Release source is pushed to `main` after these checks. Netlify live publication and Google indexing have not been independently verified from this environment. No database or edge-function deployment is needed for these content-only changes.
+
+27 October follow-up validation: production static build and TypeScript passed; all three focused SEO browser tests passed (including mobile accessibility and metadata without JavaScript); export checks passed for 16 indexing-policy cases, 20 canonical public pages, 597 internal links, sitemap and JSON-LD. No existing tests changed. Earlier full-suite results above belong to the previous release.

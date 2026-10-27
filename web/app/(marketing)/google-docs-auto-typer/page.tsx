@@ -26,7 +26,7 @@ export default function GoogleDocsAutoTyper() {
     <h2>What happens in Google Docs version history?</h2>
     <p>Google records document changes and controls their grouping and retention. TypeWit cannot guarantee one visible version per insertion or permanent history milestones. Its activity log records application events separately. Read our <Link href="/guides/google-docs-version-history/">guide to version history and automated edits</Link>.</p>
     <p>Do not use automated typing to cheat in academic work, fabricate a writing process or misrepresent authorship. Review the <Link href="/responsible-use/">Responsible Use Agreement</Link> before testing.</p>
-    <h2>Extension or cloud?</h2>
+    <h2>Background auto typing without a Chrome extension</h2>
     <p>Most auto typers for Google Docs are Chrome extensions that type into the open tab, so the browser and computer must stay awake. TypeWit runs in the cloud instead. Our <Link href="/guides/auto-typer-extension-vs-cloud/">comparison of extension and cloud auto typers</Link> covers the trade-offs, including permissions.</p>
     <h2>Working in Microsoft Word?</h2><p>The <Link href="/word-auto-typer/">Word auto typer</Link> uses an add-in and requires the document and its TypeWit panel to remain open. Its setup is different from Google Docs cloud sessions.</p>
     <h2>Writing blocks with longer rests</h2>
