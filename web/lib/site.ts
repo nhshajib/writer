@@ -1,6 +1,6 @@
 /** Business details shown across the site. */
 export const SUPPORT_EMAIL = "support@typewit.com";
-export const LEGAL_UPDATED = "21 October 2026";
+export const LEGAL_UPDATED = "27 October 2026";
 
 /** Pro prices as shown on the site; they must match the Stripe prices (see README, Launch checklist). */
 export const PRO_PRICE = {

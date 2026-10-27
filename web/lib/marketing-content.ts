@@ -67,6 +67,7 @@ export const FEATURES = [
 ];
 
 export const FAQ = [
+  { q: "Can I sign in with Discord?", a: "Yes. Choose Continue with Discord on Sign in or Join. New accounts still confirm their age and accept the agreement, and must use an eligible personal email address. Sign-in is separate from document access: connect Google Docs in Connected accounts, or set a password in Settings to sign in inside the Word add-in." },
   {
     q: "Is using TypeWit cheating?",
     a: "TypeWit is for authorized testing of automated text entry. Optional rhythms simulate timing, temporary typos and corrections; they are not evidence of human authorship. Academic cheating, fabricated writing histories and deceptive authorship claims are prohibited.",

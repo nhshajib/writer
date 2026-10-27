@@ -36,7 +36,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Which email can I sign up with?",
-    a: "Use Continue with Google, or a personal email from a common provider such as Gmail, Outlook, Yahoo or iCloud. Work, school and temporary addresses aren't accepted for sign-up.",
+    a: "Use Continue with Google or Discord, or a personal email from a common provider such as Gmail, Outlook, Yahoo or iCloud. Work, school and temporary addresses aren't accepted for sign-up.",
   },
   {
     q: "Is Free really free?",
@@ -144,7 +144,7 @@ function PricingContent() {
         <div className="container">
           <div className="section-head"><h2 id="steps-title">Getting Pro takes a minute.</h2></div>
           <ol className="steps">
-            <li><h3>Create your account</h3><p>Continue with Google or a personal email, and accept the Responsible Use Agreement.</p></li>
+            <li><h3>Create your account</h3><p>Continue with Google, Discord or a personal email, and accept the Responsible Use Agreement.</p></li>
             <li><h3>Start your free week</h3><p>Pick yearly or monthly above and add a card on Stripe&apos;s secure page.</p></li>
             <li><h3>Test with more control</h3><p>Pro starts right away. Cancel any time in Plan &amp; usage.</p></li>
           </ol>

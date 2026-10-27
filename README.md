@@ -22,6 +22,9 @@ This repo holds the backend (Supabase, `supabase/`) and the frontend (Next.js, `
 
 ## Frontend (`web/`)
 
+Account sign-in supports Google, Discord and eligible personal email/password accounts. Google Docs authorization is a separate connection in the dashboard. Hosted Discord OAuth must be enabled in Supabase Auth with the provider callback configured; the website uses the same safe redirect and age/agreement onboarding as Google. Word sign-in uses email/password: social-only accounts can set a password in Settings → Security.
+
+
 A Next.js 15 app (React 19, TypeScript) in `web/`, designed for keyboard and screen-reader use: skip link,
 visible focus, 44px+ targets, dark mode, reduced motion. The built pages pass axe (WCAG 2.1 AA) in light and dark mode.
 

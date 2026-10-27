@@ -26,6 +26,7 @@ export function PrivacyBody() {
       <ul>
         <li>Your email address, and your password if you sign up with email (stored only as a secure hash).</li>
         <li>If you use Continue with Google: your name, email address and Google account ID, which Google shares when you sign in.</li>
+        <li>If you use Continue with Discord: your Discord account ID, email address and basic profile details, such as your username and avatar, shared for authentication. Discord sign-in does not connect Google Docs or grant access to your Discord messages, servers or contacts.</li>
         <li>Your name, if you choose to give it, so the app can greet you.</li>
         <li>
           Your country and the month and year you were born, to check that you are old enough to use TypeWit where you
@@ -84,8 +85,9 @@ export function PrivacyBody() {
       <p>We share information only with service providers that help us run TypeWit, and only as much as they need:</p>
       <ul>
         <li><strong>Supabase</strong>: database, sign-in and server functions.</li>
-        <li><strong>Vercel</strong>: website hosting.</li>
+        <li><strong>Netlify</strong>: production website hosting. <strong>Vercel</strong>: preview and test website hosting.</li>
         <li><strong>Google</strong>: sign-in, document picking and Google Docs, at your request.</li>
+        <li><strong>Discord</strong>: optional sign-in, at your request. Discord processes its consent and authentication flow; we do not send your session text to Discord.</li>
         <li><strong>Microsoft</strong>: the Word host document and add-in APIs when you use Word. We do not store a Microsoft password or OAuth token.</li>
         <li><strong>Stripe</strong>: payments and subscription management.</li>
         <li><strong>Resend</strong>: notification emails, if email notifications are turned on.</li>

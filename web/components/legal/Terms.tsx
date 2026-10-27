@@ -28,7 +28,7 @@ export function TermsBody() {
           and year you were born to check this.
         </li>
         <li>If you are under 18, a parent or guardian must agree to and pay for a Pro subscription on your behalf.</li>
-        <li>Sign up with Continue with Google or a personal email address. Keep your sign-in details secure; you're responsible for activity on your account.</li>
+        <li>Sign up with Google, Discord or a personal email address. Social sign-up also requires an eligible personal email address. Keep your sign-in details secure; you're responsible for activity on your account.</li>
         <li>Give accurate information and keep it up to date.</li>
       </ul>
 
