@@ -291,3 +291,19 @@ test("Word restores paid writing-block defaults and shows pass expiry", async ({
   await expect(page.getByLabel("Break between blocks",{exact:true})).toHaveValue("480");
   await expect(page.getByText(/Every restart and the finish must be before then/)).toBeVisible();
 });
+
+for(const rhythm of ['natural','steady','drafting'] as const) {
+  test(`Word ${rhythm} defaults to sentences and splits long sentences without changing text`,async({page})=>{
+    await useFakeWord(page,{host:'Word',url:DOC_URL});
+    await page.goto('/word/');
+    await expect(page.getByLabel('Insert one',{exact:true})).toHaveValue('sentence');
+    await page.getByLabel('Writing rhythm',{exact:true}).selectOption(rhythm);
+    const text=Array.from({length:31},()=> 'approved').join(' ')+'.';
+    const response=page.waitForResponse(r=>r.url().endsWith('/drips/plan')&&r.request().postDataJSON()?.text===text&&r.request().postDataJSON()?.rhythm===rhythm);
+    await page.getByLabel('Text to enter',{exact:true}).fill(text);
+    const {plan}=await(await response).json();
+    expect(plan.ok).toBe(true);expect(plan.unit).toBe('sentence');expect(plan.source_unit_count).toBe(2);
+    expect(plan.source_unit_lengths.reduce((a:number,b:number)=>a+b,0)).toBe(text.length);
+    await expect(page.locator('.sentence-step-hint')).toContainText('over 20 words');
+  });
+}

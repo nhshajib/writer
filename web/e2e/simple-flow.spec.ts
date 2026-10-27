@@ -21,7 +21,7 @@ test("Free can start a complete Natural session without configuring advanced set
   const { requests } = await (await request.get("/__test/requests")).json();
   const created = requests.find((r: { method: string; path: string }) => r.method === "POST" && /\/drips$/.test(r.path));
   expect(created.body.rhythm).toBe("natural");
-  expect(created.body.insertion_unit).toBe("word");
+  expect(created.body.insertion_unit).toBe("sentence");
   expect(created.body.pacing.drafting).toEqual({ typo_rate_pct: 0, false_start_rate_pct: 0, sentence_pause_seconds: 2, sentence_pause_variation_pct: 25 });
 });
 test("Pro Drafting is one choice and approval explains temporary corrections", async ({ page }) => {

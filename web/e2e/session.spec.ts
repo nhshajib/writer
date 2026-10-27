@@ -72,7 +72,7 @@ test("a session starts with the keyboard using the recommended rhythm and an aut
   const { requests } = await (await request.get("/__test/requests")).json();
   const create = requests.find((r: { method: string; path: string }) => r.method === "POST" && /\/drips$/.test(r.path));
   expect(create.body.rhythm).toBe("natural");
-  expect(create.body.insertion_unit).toBe("word");
+  expect(create.body.insertion_unit).toBe("sentence");
   expect(create.body.new_document_title).toBe(ESSAY.split(/(?<=[.!?])\s/)[0]);
   expect(create.body.text).toBe(ESSAY);
 });

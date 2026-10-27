@@ -11,7 +11,7 @@ export function RhythmPreview({ pace, unit, allAtOnce, revisionSweep }: {
     <section className="rhythm-preview" aria-label="Your rhythm at a glance" aria-live="polite">
       <strong>Your rhythm at a glance</strong>
       <dl>
-        <div><dt>Text per step</dt><dd>{allAtOnce ? "All your text" : unit === "word" ? pace.wordGrouping === "single" ? "One word" : "1–5 words, varied" : UNIT_LABEL[unit].title}</dd></div>
+        <div><dt>Text per step</dt><dd>{allAtOnce ? "All your text" : unit === "word" ? pace.wordGrouping === "single" ? "One word" : "1–5 words, varied" : unit === "sentence" ? "Sentences; long ones in two parts" : UNIT_LABEL[unit].title}</dd></div>
         <div><dt>Timing</dt><dd>{allAtOnce ? "No pacing" : pace.variation ? `Varies by up to ${pace.variation}%` : "Evenly spaced"}</dd></div>
         <div><dt>Pauses</dt><dd>{allAtOnce ? "None" : `${pace.sentencePauseSeconds ? `About ${pace.sentencePauseSeconds}s after sentences` : "No extra sentence pauses"}${pace.blocksOn ? ", plus scheduled block rests" : pace.breaksOn ? ", plus longer breaks when they fit" : ""}`}</dd></div>
         <div><dt>Temporary edits</dt><dd>{allAtOnce ? "Off" : corrections ? `Typos ${pace.typoRate}%, false starts ${pace.falseStartRate}%${revisionSweep ? ", plus final review" : ""}` : revisionSweep ? "Final review, then exact restoration" : "Off — clean entry"}</dd></div>

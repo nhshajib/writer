@@ -224,7 +224,7 @@ export const STATUS_LABEL: Record<DripStatus, string> = {
 };
 
 export const UNIT_LABEL: Record<InsertionUnit, { one: string; many: string; title: string }> = {
-  sentence: { one: "sentence", many: "sentences", title: "Sentences" },
+  sentence: { one: "sentence step", many: "sentence steps", title: "Sentences" },
   paragraph: { one: "paragraph", many: "paragraphs", title: "Paragraphs" },
   word: { one: "word group", many: "word groups", title: "Word groups" },
   character: { one: "character", many: "characters", title: "Characters" },

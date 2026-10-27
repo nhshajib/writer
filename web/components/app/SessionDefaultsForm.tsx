@@ -1,4 +1,6 @@
 "use client";
+import { SentenceStepHint } from "./SentenceStepHint";
+import { DEFAULT_INSERTION_UNIT } from "../../../supabase/functions/_shared/chunker.ts";
 import { WritingBlockControls } from "./WritingBlockControls";
 import type { WritingBlocks } from "../../../supabase/functions/_shared/writingBlocks";
 
@@ -11,7 +13,7 @@ import { canUse, PLAN_NAME, planForMinutes } from "@/lib/plans";
 import { supabase } from "@/lib/supabase";
 import { type InsertionUnit, UNIT_LABEL } from "@/lib/types";
 
-const UNITS: InsertionUnit[] = ["word", "sentence", "paragraph", "character", "chunk"];
+const UNITS: InsertionUnit[] = ["sentence", "word", "paragraph", "character", "chunk"];
 
 /** Saves `defaults` on the account. Returns an error message, or null. */
 export async function saveSessionDefaults(defaults: SessionDefaults): Promise<string | null> {
@@ -27,7 +29,7 @@ export function SessionDefaultsForm() {
   const [rhythm, setRhythm] = useState(saved.rhythm ?? "natural");
   const [minutes, setMinutes] = useState(String(saved.minutes ?? ""));
   const [grouping, setGrouping] = useState(saved.word_grouping ?? "random");
-  const [unit, setUnit] = useState<InsertionUnit>(saved.unit ?? "word");
+  const [unit, setUnit] = useState<InsertionUnit>(saved.unit ?? DEFAULT_INSERTION_UNIT);
   const [blocks, setBlocks] = useState<WritingBlocks | null>(canUse(profile.plan, "writingBlocks") ? saved.writing_blocks ?? null : null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,11 +90,12 @@ export function SessionDefaultsForm() {
           {UNITS.map((u) => <option key={u} value={u}>{UNIT_LABEL[u].title}</option>)}
         </select>
       </div>
-      <fieldset className="field">
+      {unit === "sentence" && <SentenceStepHint />}
+      {unit === "word" && <fieldset className="field">
         <legend className="label">How words arrive</legend>
         <label className="check"><input type="radio" name="default-grouping" checked={grouping === "random"} onChange={() => setGrouping("random")} />Random groups of 1–5 words</label>
         <label className="check"><input type="radio" name="default-grouping" checked={grouping === "single"} onChange={() => setGrouping("single")} />One word at a time</label>
-      </fieldset>
+      </fieldset>}
       <WritingBlockControls value={blocks} onChange={setBlocks} plan={profile.plan} expiresAt={profile.day_pass_expires_at} />
       {error && <p className="alert alert-error" role="alert">{error}</p>}
       <div><button type="submit" className="btn btn-secondary" disabled={busy}>{busy ? "Saving…" : "Save defaults"}</button></div>

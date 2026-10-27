@@ -3,6 +3,8 @@ import { WritingBlockControls, blocksFromPace, blockPace } from "@/components/ap
 import { WritingBlockSummary } from "@/components/app/WritingBlockSummary";
 import { planProblemText } from "@/lib/planMessages";
 import { WordGroupingControls } from "@/components/app/WordGroupingControls";
+import { SentenceStepHint } from "@/components/app/SentenceStepHint";
+import { DEFAULT_INSERTION_UNIT } from "../../../supabase/functions/_shared/chunker.ts";
 import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { effectivePlan, type PlanTier } from "../../../supabase/functions/_shared/limits";
 import type { WorkWindow } from "../../../supabase/functions/_shared/workWindow";
@@ -222,7 +224,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
   const [textFormat, setTextFormat] = useState<TextFormat>("plain");
   const formatted = parseFormatted(text, textFormat);
   const plainText = formatted?.plain ?? text;
-  const [unit, setUnit] = useState<InsertionUnit>(defaults.unit ?? "sentence");
+  const [unit, setUnit] = useState<InsertionUnit>(defaults.unit ?? DEFAULT_INSERTION_UNIT);
   const [timing, setTiming] = useState<Timing>("duration");
   useEffect(() => { if (timing === "asap") setRevisionSweep(false); }, [timing]);
   const [minutes, setMinutes] = useState(defaults.minutes ?? (tier === "pro" ? 60 : 30));
@@ -382,6 +384,7 @@ function WordStart({ connectionId, documentUrl, title, provider, onStarted, tier
           </span>
         </div>
       )}
+      {unit === "sentence" && timing !== "asap" && <SentenceStepHint />}
       {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
       <RhythmPreview pace={effectivePace} unit={unit} allAtOnce={timing === "asap"} revisionSweep={revisionSweep} />
       {timing !== "asap" && <WritingBlockControls value={blocksFromPace(effectivePace)} plan={tier} expiresAt={expiresAt} onChange={value => { updatePace(blockPace(value)); setApproved(false); }} />}

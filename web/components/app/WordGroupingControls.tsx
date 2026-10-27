@@ -11,7 +11,7 @@ export function WordGroupingControls({ value, onChange }: {
       <div className="word-grouping-options">
         <label className="choice">
           <input type="radio" name="word-grouping" value="random" checked={value === "random"} onChange={() => onChange("random")} />
-          <span><strong>Random word groups</strong><small>1–5 words per step. Recommended for a varied rhythm.</small></span>
+          <span><strong>Random word groups</strong><small>1–5 words per step. An optional alternative to sentence steps.</small></span>
         </label>
         <label className="choice">
           <input type="radio" name="word-grouping" value="single" checked={value === "single"} onChange={() => onChange("single")} />

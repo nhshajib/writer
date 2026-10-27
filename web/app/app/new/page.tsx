@@ -3,6 +3,8 @@ import { WritingBlockControls, blocksFromPace, blockPace } from "@/components/ap
 import { WritingBlockSummary } from "@/components/app/WritingBlockSummary";
 import { planProblemText } from "@/lib/planMessages";
 import { WordGroupingControls } from "@/components/app/WordGroupingControls";
+import { SentenceStepHint } from "@/components/app/SentenceStepHint";
+import { DEFAULT_INSERTION_UNIT } from "../../../../supabase/functions/_shared/chunker.ts";
 import { RhythmPreview } from "@/components/app/RhythmPreview";
 import { WorkWindowControls } from "@/components/app/WorkWindowControls";
 import type { WorkWindow } from "../../../../supabase/functions/_shared/workWindow";
@@ -80,14 +82,14 @@ function localInputValue(date: Date): string {
 
 const UNITS: { value: InsertionUnit; hint: string }[] = [
   { value: "word", hint: "Single words or random 1–5-word groups. Recommended." },
-  { value: "sentence", hint: "One sentence at a time." },
+  { value: "sentence", hint: "One sentence per step; long sentences are split in two." },
   { value: "paragraph", hint: "One paragraph at a time." },
   { value: "character", hint: "One character at a time." },
   { value: "chunk", hint: "Equal groups of words, about once a minute." },
 ];
 
 const RHYTHMS = [
-  ["natural", "Natural", "Varied timing and short pauses between sentences."],
+  ["natural", "Natural", "Varied timing, with short pauses at sentence ends."],
   ["steady", "Steady", "Fewer pauses for a simpler, consistent pace."],
   ["drafting", "Drafting", "Adds occasional temporary typos and false starts, then corrects them."],
 ] as const;
@@ -136,7 +138,7 @@ export default function NewSessionPage() {
   // Start from the account's saved defaults; "Run again" replaces them with that session's settings.
   const defaults = dashboard.profile.session_defaults;
   const defaultMinutes = defaults?.minutes;
-  const [unit, setUnit] = useState<InsertionUnit>(defaults?.unit ?? "word");
+  const [unit, setUnit] = useState<InsertionUnit>(defaults?.unit ?? DEFAULT_INSERTION_UNIT);
   const [timing, setTiming] = useState<Timing>("duration");
   const [preset, setPreset] = useState<string>(() =>
     defaultMinutes ? DURATIONS.some((d) => d.minutes === defaultMinutes) ? String(defaultMinutes) : "custom" : "15");
@@ -873,6 +875,7 @@ export default function NewSessionPage() {
             </div>
           )}
           {timing === "speed" && <p className="hint" style={{ marginTop: "1rem" }}>Typing at {effectivePace.wpm} WPM, set in More options. The finish time is an estimate.</p>}
+          {unit === "sentence" && timing !== "asap" && <SentenceStepHint />}
           {unit === "word" && timing !== "asap" && <WordGroupingControls value={pace.wordGrouping} onChange={wordGrouping => { updatePace({ wordGrouping }); setApproved(false); }} />}
           {timing !== "asap" && <WritingBlockControls value={blocksFromPace(effectivePace)} plan={plan} expiresAt={dashboard.profile.day_pass_expires_at} onChange={value => { updatePace(blockPace(value)); setApproved(false); }} />}
           <WritingBlockSummary plan={current ? preview : null} />
@@ -1036,7 +1039,7 @@ export default function NewSessionPage() {
             <ReviewRow label="Document" value={docLabel} onEdit={() => edit(target === "new" ? "title" : "doc", "destination")} />
             {place === "heading" && <ReviewRow label="Insertion location" value={placeLabel} onEdit={() => edit("heading", "more")} />}
             {effectivePace.blocksOn && <ReviewRow label="Writing blocks" value={`About ${span(effectivePace.blockMinutes * 60000)} writing, then ${span(effectivePace.blockBreakMinutes * 60000)} rest. Automatic continuation.`} onEdit={() => edit("rhythm-title")} />}
-            <ReviewRow label="Word entry" value={entryLabel} onEdit={() => edit(unit === "word" && timing !== "asap" ? "rhythm-title" : "entry-settings", unit === "word" && timing !== "asap" ? undefined : "more")} />
+            <ReviewRow label="Text per step" value={entryLabel} onEdit={() => edit(unit === "word" && timing !== "asap" ? "rhythm-title" : "entry-settings", unit === "word" && timing !== "asap" ? undefined : "more")} />
             <ReviewRow label="Rhythm" value={rhythmLabel} onEdit={() => edit("rhythm-title")} />
             <ReviewRow label="Timing" value={timingLabel} onEdit={() => edit(timing === "duration" ? "duration" : "timing-settings", timing === "duration" ? undefined : "more")} />
             {format !== "plain" && <ReviewRow label="Formatting" value="Headings, emphasis, lists, alignment and highlights kept" />}

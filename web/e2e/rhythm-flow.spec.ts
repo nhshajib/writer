@@ -17,6 +17,8 @@ for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/app/new/");
     await page.getByLabel("Text to enter").fill(text);
+    await toStep(page, 3);
+    await page.getByRole("radio", { name: /^Word groups/ }).check();
     const response = page.waitForResponse(r => r.url().endsWith("/drips/plan") && r.request().postDataJSON()?.pacing?.word_grouping === "single");
     await page.getByRole("radio", { name: /^One word at a time/ }).check();
     const { plan } = await (await response).json();
@@ -45,6 +47,8 @@ for (const width of [390, 1280]) {
 test("recommended Pro settings preserve word grouping and require correction approval", async ({ page, request }) => {
   await page.goto("/app/new/");
   await page.getByLabel("Text to enter").fill(text);
+  await toStep(page, 3);
+  await page.getByRole("radio", { name: /^Word groups/ }).check();
   await page.getByRole("radio", { name: /^One word at a time/ }).check();
   await toStep(page, 4);
   await page.getByRole("spinbutton", { name: "Neighbor-key typos", exact: true }).fill("12");

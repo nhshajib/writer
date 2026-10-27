@@ -83,7 +83,7 @@ const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Words per day", free: "250", pro: "Unlimited" },
   { feature: "Longest session", free: "60 minutes", pro: "1 week" },
   { feature: "Documents in progress at once", free: "1", pro: "3" },
-  { feature: "Sentence, word, paragraph or even-part steps", free: "Yes", pro: "Yes" },
+  { feature: "Sentence steps (long sentences split in two), plus other modes", free: "Yes", pro: "Yes" },
   { feature: "Natural and Steady ready-made rhythms", free: "Both included", pro: "Both included" },
   { feature: "Adjustable cadence (typing speed)", free: "No", pro: "20–150 WPM + timing variation" },
   { feature: "Neighbor-key typos", free: "No", pro: "Adjustable rate; automatically corrected" },
