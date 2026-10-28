@@ -43,6 +43,6 @@ The shared REST client now accepts an optional per-request API version. Only Che
 
 The regression fake now reproduces the live 400 when Checkout creation lacks the required version and asserts that all other billing calls retain the default. Before the fix, two existing checkout tests failed against this stronger fake; after the fix, all 242 backend tests and formatting/lint/function type checks pass. No existing assertion was weakened.
 
-Deployed billing v27 (JWT true), drips v50 (JWT true), stripe-webhook v25 (JWT false). Every retrieved source/import file matches the repository. Browser verification and main push are pending.
+Deployed billing v27 (JWT true), drips v50 (JWT true), stripe-webhook v25 (JWT false). Every retrieved source/import file matches the repository. All 133 browser tests passed (6.5 minutes), as did web TypeScript and SEO checks. The bounded post-deployment function-error query returned no new errors. No live checkout/charge was created by the agent; customer confirmation that Checkout opens is still pending. The changes are ready for the fast-forward main push.
 
 Reference: [Stripe's UI-mode enum breaking change](https://docs.stripe.com/changelog/dahlia/2026-03-25/updates-available-checkout-session-ui-modes).
