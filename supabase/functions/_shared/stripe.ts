@@ -6,7 +6,12 @@
 const encoder = new TextEncoder();
 
 export class StripeError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly code?: string,
+    readonly param?: string,
+  ) {
     super(message);
     this.name = "StripeError";
   }
@@ -31,7 +36,12 @@ export async function stripeRequest<T>(
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new StripeError(res.status, body?.error?.message ?? `Stripe request failed (${res.status}).`);
+    throw new StripeError(
+      res.status,
+      body?.error?.message ?? `Stripe request failed (${res.status}).`,
+      typeof body?.error?.code === "string" ? body.error.code : undefined,
+      typeof body?.error?.param === "string" ? body.error.param : undefined,
+    );
   }
   return body as T;
 }
@@ -50,7 +60,12 @@ export async function stripeGet<T>(
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new StripeError(res.status, body?.error?.message ?? `Stripe request failed (${res.status}).`);
+    throw new StripeError(
+      res.status,
+      body?.error?.message ?? `Stripe request failed (${res.status}).`,
+      typeof body?.error?.code === "string" ? body.error.code : undefined,
+      typeof body?.error?.param === "string" ? body.error.param : undefined,
+    );
   }
   return body as T;
 }
@@ -139,4 +154,10 @@ export async function customerSubscriptions<T extends CustomerSubscription>(
   }
   // Never infer Free from a partial list.
   throw new StripeError(502, "Subscription list could not be completed.");
+}
+
+/** Only a missing customer reference is recoverable; missing prices and API failures are not. */
+export function isMissingStripeCustomer(error: unknown): boolean {
+  return error instanceof StripeError && (error.status === 400 || error.status === 404) &&
+    error.code === "resource_missing" && error.param === "customer";
 }

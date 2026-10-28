@@ -15,6 +15,7 @@ import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import {
   customerSubscriptions,
+  isMissingStripeCustomer,
   preferredSubscription,
   StripeError,
   stripeGet,
@@ -49,7 +50,19 @@ serve(async (req) => {
     if (action === "reprice") return await reprice(user.id, secretKey);
   } catch (error) {
     if (error instanceof StripeError) {
-      console.error("Stripe error", error.status, error.message);
+      console.error("Stripe error", error.status, error.code, error.param, error.message);
+      if (isMissingStripeCustomer(error)) {
+        throw new HttpError(
+          502,
+          "Your billing account is unavailable with the current payment settings. Start a new checkout, or contact support if you already have a subscription.",
+        );
+      }
+      if (error.status === 401) {
+        throw new HttpError(502, "Payments need a configuration update. Please contact support.");
+      }
+      if (error.code === "resource_missing" && error.param?.includes("price")) {
+        throw new HttpError(502, "This plan is unavailable with the current payment settings. Please contact support.");
+      }
       throw new HttpError(502, "The payment provider returned an error. Please try again.");
     }
     throw error;
@@ -109,7 +122,8 @@ async function checkout(
   try {
     // Reload after acquiring: another request may have created the customer
     // between the first profile read and this lock.
-    const customer = await customerFor(user.id);
+    let customer = await customerFor(user.id);
+    let missingCustomer: string | undefined;
     if (dayPass) {
       const { data: current, error: currentError } = await db.from("profiles").select("day_pass_expires_at").eq(
         "user_id",
@@ -123,7 +137,24 @@ async function checkout(
         );
       }
     }
-    const liveSubscriptions = customer ? await customerSubscriptions(secretKey, customer, false, checkoutFetch) : [];
+    let liveSubscriptions: Awaited<ReturnType<typeof customerSubscriptions>> = [];
+    if (customer) {
+      try {
+        liveSubscriptions = await customerSubscriptions(secretKey, customer, false, checkoutFetch);
+      } catch (error) {
+        if (!isMissingStripeCustomer(error)) throw error;
+        // A live key cannot read a sandbox customer. Never infer that an
+        // ongoing subscription ended simply because its customer is missing.
+        if (subscriptionHasNotEnded(profile?.subscription_status)) {
+          throw new HttpError(
+            409,
+            "Your existing subscription needs a billing configuration review. Please contact support before starting another checkout.",
+          );
+        }
+        missingCustomer = customer;
+        customer = null;
+      }
+    }
     if (
       liveSubscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
       (!profile?.stripe_customer_id && subscriptionHasNotEnded(profile?.subscription_status))
@@ -153,7 +184,29 @@ async function checkout(
       }
       await ensureDayPassEvents(secretKey, checkoutFetch);
     }
-    const customerId = customer ?? await createCustomer(user, secretKey, checkoutFetch);
+    if (missingCustomer && !dayPass) {
+      // Verify the price in the new Stripe environment before replacing the
+      // saved customer. A sandbox price must not leave a half-migrated account.
+      const configured = await stripeGet<{
+        active: boolean;
+        currency: string;
+        unit_amount: number | null;
+        type: string;
+        recurring: { interval: string; interval_count: number } | null;
+        product: { active: boolean };
+      }>(secretKey, `prices/${encodeURIComponent(price)}`, { "expand[]": "product" }, checkoutFetch);
+      if (
+        !configured.active || !configured.product?.active || configured.currency !== "usd" ||
+        configured.unit_amount !== (interval === "year" ? 6000 : 699) || configured.type !== "recurring" ||
+        configured.recurring?.interval !== interval || configured.recurring?.interval_count !== 1
+      ) {
+        throw new HttpError(
+          503,
+          "This plan needs an active USD price matching its amount and billing interval. Please contact support.",
+        );
+      }
+    }
+    const customerId = customer ?? await createCustomer(user, secretKey, checkoutFetch, missingCustomer);
 
     const open = await stripeGet<
       {
@@ -203,6 +256,16 @@ async function checkout(
     if (same?.url) return json({ url: same.url, trial: dayPass ? false : Boolean(trialAvailable) });
 
     const params: Record<string, string> = {
+      ui_mode: "hosted_page",
+      billing_address_collection: "required",
+      "phone_number_collection[enabled]": "false",
+      "automatic_tax[enabled]": "false",
+      allow_promotion_codes: "true",
+      submit_type: "auto",
+      "name_collection[individual][enabled]": "true",
+      "saved_payment_method_options[payment_method_save]": "enabled",
+      integration_identifier: "hosted_mobile_app_0001",
+      origin_context: "mobile_app",
       mode: dayPass ? "payment" : "subscription",
       customer: customerId,
       client_reference_id: user.id,
@@ -311,7 +374,9 @@ async function createCustomer(
   user: { id: string; email: string | null },
   secretKey: string,
   fetchFn: typeof fetch = fetch,
+  replacedCustomer?: string,
 ): Promise<string> {
+  const replacementKey = replacedCustomer ? `-replace-${(await sha256Hex(replacedCustomer)).slice(0, 24)}` : "";
   const customer = await stripeRequest<{ id: string }>(
     secretKey,
     "customers",
@@ -320,7 +385,7 @@ async function createCustomer(
       "metadata[user_id]": user.id,
     },
     fetchFn,
-    `typewit-customer-${user.id}-${(await sha256Hex(user.email ?? "")).slice(0, 24)}`,
+    `typewit-customer-${user.id}-${(await sha256Hex(user.email ?? "")).slice(0, 24)}${replacementKey}`,
   );
   const { error } = await adminClient()
     .from("profiles")
