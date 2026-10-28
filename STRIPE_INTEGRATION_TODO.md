@@ -10,7 +10,7 @@ The existing server integration is retained. Checkout now recovers **only** Stri
 
 ## Values to replace or verify
 
-There are **no new production placeholder IDs, modes or return URLs** in the source. Existing server-side secrets supply the Stripe IDs. Their current contents were not read or exposed. The connected TypeWit live Stripe account was checked: all three published prices exist and are active. Matching the Supabase secret values and webhook signing secret still requires the secure dashboard checks below.
+There are **no new production placeholder IDs, modes or return URLs** in the source. Existing server-side secrets supply the Stripe IDs. Their current contents were not read or exposed. The connected TypeWit live Stripe account was checked: all three published prices exist and are active. The owner confirmed saving the webhook signing secret; matching the remaining Supabase values still requires the secure dashboard checks below.
 
 **Files using these settings:**
 - [Existing billing endpoint](supabase/functions/billing/index.ts)
@@ -48,7 +48,7 @@ Test and live objects are separate. Do not edit an ID's text to make it â€œliveâ
 | `integration_identifier` | `hosted_mobile_app_0001` |
 | `origin_context` | `mobile_app`, retained from the supplied Checkout Studio configuration |
 
-This is a REST integration, with no Stripe SDK initialization/version to change. The current official Stripe OpenAPI schema supports these fields and `hosted_page`. No guessed `Stripe-Version` header was introduced. If your merchant account uses an older default API version, verify compatibility in Stripe Workbench before upgrading it; do not change versions blindly. The configured origin classification does not turn TypeWit into a native mobile app.
+This is a REST integration, with no Stripe SDK initialization to change. Production logs confirmed that the account default API version rejects `hosted_page`, which replaced `hosted` in `2026-03-25.dahlia`. Checkout creation now explicitly sends `Stripe-Version: 2026-09-30.endive`, supporting the supplied Checkout Studio fields independently of the account default. All other Stripe calls retain their existing API version, and no account-wide version upgrade was performed. The configured origin classification does not turn TypeWit into a native mobile app.
 
 ## Existing values intentionally preserved
 

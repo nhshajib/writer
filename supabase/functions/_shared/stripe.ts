@@ -23,12 +23,14 @@ export async function stripeRequest<T>(
   params: Record<string, string> = {},
   fetchFn: typeof fetch = fetch,
   idempotencyKey?: string,
+  apiVersion?: string,
 ): Promise<T> {
   const res = await fetchFn(`https://api.stripe.com/v1/${path}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
+      ...(apiVersion ? { "Stripe-Version": apiVersion } : {}),
       ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: new URLSearchParams(params),

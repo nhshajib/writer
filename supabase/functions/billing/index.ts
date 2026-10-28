@@ -295,6 +295,9 @@ async function checkout(
       params,
       checkoutFetch,
       `typewit-checkout-${lease}`,
+      // Checkout Studio uses hosted_page, renamed in Dahlia. Pin only this
+      // request so older account defaults cannot reject the configured fields.
+      "2026-09-30.endive",
     );
     return json({ url: session.url, trial: dayPass ? false : Boolean(trialAvailable) });
   } finally {

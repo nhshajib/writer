@@ -37,6 +37,7 @@ async function fixture() {
     trial: false,
     trialCalls: 0,
     customerKey: "",
+    checkoutVersion: "",
     params: new URLSearchParams(),
     open: null as Record<string, unknown> | null,
   };
@@ -84,6 +85,10 @@ async function fixture() {
       return Response.json(state.trial);
     }
     if (url.hostname === "api.stripe.com") {
+      const version = new Headers(init?.headers).get("Stripe-Version");
+      if (!(url.pathname === "/v1/checkout/sessions" && init?.method === "POST")) {
+        assertEquals(version, null, "Existing non-Checkout calls must retain their API version");
+      }
       if (url.pathname === "/v1/subscriptions") {
         if (state.customer === oldCustomer && state.failure) {
           const code = state.failure === "missing_customer" || state.failure === "missing_price"
@@ -136,6 +141,12 @@ async function fixture() {
       }
       if (url.pathname === "/v1/checkout/sessions") {
         if (init?.method === "POST") {
+          state.checkoutVersion = version ?? "";
+          if (version !== "2026-09-30.endive") {
+            return Response.json({
+              error: { message: "Invalid ui_mode: hosted_page on the account default API version", param: "ui_mode" },
+            }, { status: 400 });
+          }
           state.sessions++;
           state.params = new URLSearchParams(String(init.body));
           state.open = {
@@ -274,6 +285,7 @@ Deno.test("Checkout Studio options retain plan prices, owner metadata, subscript
       f.state.failure = "";
       f.state.trial = true;
       assertEquals((await f.send(interval)).status, 200);
+      assertEquals(f.state.checkoutVersion, "2026-09-30.endive");
       const p = f.state.params;
       for (
         const [key, value] of Object.entries({

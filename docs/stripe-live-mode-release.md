@@ -34,3 +34,15 @@ Stripe live account inspection verified all three active USD prices and found no
 ## Operator setup
 
 [STRIPE_INTEGRATION_TODO.md](../STRIPE_INTEGRATION_TODO.md) is the single source of truth for live key/price/webhook/portal setup and remaining verification. Stripe account access is connected and live prices/webhook/portal were inspected. Supabase runtime secret values have not been read; signing-secret setup is owner-confirmed and end-to-end signed delivery remains untested. No guessed credentials or replacement prices were written.
+
+## Follow-up: Checkout API version compatibility
+
+Subsequent live Day Pass requests at 19:58 UTC failed before creating a Checkout Session. Stripe returned `Invalid ui_mode: hosted_page` and explicitly required API version `2026-03-25.dahlia` or later. The original release checked the latest schema but failed to pin the request version; an older merchant default rejected its new enum.
+
+The shared REST client now accepts an optional per-request API version. Only Checkout Session creation passes `2026-09-30.endive`. Other Stripe calls, account-wide settings, webhook signature validation, prices, ownership metadata and fulfillment are unchanged. No customer, subscription or charge was created to verify this follow-up.
+
+The regression fake now reproduces the live 400 when Checkout creation lacks the required version and asserts that all other billing calls retain the default. Before the fix, two existing checkout tests failed against this stronger fake; after the fix, all 242 backend tests and formatting/lint/function type checks pass. No existing assertion was weakened.
+
+Deployed billing v27 (JWT true), drips v50 (JWT true), stripe-webhook v25 (JWT false). Every retrieved source/import file matches the repository. Browser verification and main push are pending.
+
+Reference: [Stripe's UI-mode enum breaking change](https://docs.stripe.com/changelog/dahlia/2026-03-25/updates-available-checkout-session-ui-modes).
