@@ -26,7 +26,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
   ] },
   { heading: "History and control", points: [
     "Google Docs records edits from your connected account and controls their grouping and visibility in version history. TypeWit cannot guarantee separate visible versions, a particular history pattern, an exact finish time, or uninterrupted execution.",
-    "A Day Pass is a one-time $4.99 purchase for 24 hours from payment confirmation; it does not renew. At expiry, unfinished pass sessions pause without deleting document text. Writing hours may extend elapsed completion; choose a schedule that fits the remaining access window. Pro playback is a read-only replay of TypeWit actions, not Google snapshots. A final revision pass briefly edits the session-owned suffix and restores approved text.",
+    "A Day Pass is a one-time $3.99 purchase for 24 hours from payment confirmation; it does not renew. At expiry, unfinished pass sessions pause without deleting document text. Writing hours may extend elapsed completion; choose a schedule that fits the remaining access window. Pro playback is a read-only replay of TypeWit actions, not Google snapshots. A final revision pass briefly edits the session-owned suffix and restores approved text.",
     "Google Docs sessions run on our servers until paused, stopped or completed. Word sessions require the add-in and document to remain open. Disconnecting an account stops its active sessions; it does not remove edits already made.",
   ] },
   { heading: "Your responsibility", points: [

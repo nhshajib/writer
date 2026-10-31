@@ -175,7 +175,7 @@ test("the compact homepage on a phone links to its details without a long landin
   await expect(page.getByRole("heading", { name: "A clear record",exact:true })).toBeVisible();
   await expectNoAxeViolations(page);
   await page.goto("/pricing/");
-  await expect(page.getByText("$4.99",{exact:true}).first()).toBeVisible();
+  await expect(page.getByText("$3.99",{exact:true}).first()).toBeVisible();
 });
 
 test("passwords can be shown before signing in", async ({ page }) => {

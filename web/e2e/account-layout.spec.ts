@@ -45,13 +45,13 @@ for (const width of [320,390,1280]) {
       await expect(page.locator('.billing-overview')).toContainText(plan==='free'?'Free':plan==='pro'?'Pro':'Day Pass');
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       if (plan==='free') {
-        await expect(page.getByRole('button',{name:'Get Day Pass · $4.99',exact:true})).toBeVisible();
+        await expect(page.getByRole('button',{name:'Get Day Pass · $3.99',exact:true})).toBeVisible();
         await page.getByRole('button',{name:'Monthly',exact:true}).click();
         await expect(page.locator('.billing-offer-pro .price')).toContainText('$6.99');
         await page.getByRole('button',{name:/Yearly ·/}).click();
         await expect(page.locator('.billing-offer-pro .price')).toContainText('$5');
       } else {
-        await expect(page.getByRole('button',{name:'Get Day Pass · $4.99',exact:true})).toHaveCount(0);
+        await expect(page.getByRole('button',{name:'Get Day Pass · $3.99',exact:true})).toHaveCount(0);
         await expect(page.getByRole('link',{name:plan==='pro'?'Manage billing':'Billing history',exact:true})).toBeVisible();
       }
       await page.getByText(plan==='pro'?'Included in your Pro plan':'See all Pro features',{exact:true}).click();

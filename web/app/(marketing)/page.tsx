@@ -49,7 +49,7 @@ const STRUCTURED_DATA = {
         {
           "@type": "Offer",
           name: "Day Pass — 24 hours, no renewal",
-          price: "4.99",
+          price: "3.99",
           priceCurrency: "USD",
           url: `${SITE_URL}/pricing/`,
         },

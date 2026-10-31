@@ -56,7 +56,7 @@ Long description (no embedded links, suitable for AlternativeTo):
 >
 > Sentence steps are the default, with sentences over 20 words split into two balanced parts. Supported formatted paste, Natural and Steady rhythms, pause/resume controls and activity logs are included on Free. Pro adds Drafting simulations, advanced pacing and paused-session text editing. Writing blocks and long rests are available with Day Pass and Pro. Google controls version-history grouping; TypeWit does not guarantee separate versions or certify human authorship.
 >
-> Free includes 250 words a day. Day Pass costs $4.99 once for 24 hours with no renewal. Pro is $6.99 monthly or $60 billed yearly, with the same Pro features on either billing period. Plan limits and remaining access apply. Academic cheating and deceptive authorship claims are prohibited.
+> Free includes 250 words a day. Day Pass costs $3.99 once for 24 hours with no renewal. Pro is $6.99 monthly or $60 billed yearly, with the same Pro features on either billing period. Plan limits and remaining access apply. Academic cheating and deceptive authorship claims are prohibited.
 
 Proposed Product Hunt first comment (draft; maker must personalize):
 

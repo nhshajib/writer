@@ -146,14 +146,14 @@ export default function BillingPage() {
         <div className={`billing-offers${profile.plan === "day_pass" ? " single" : ""}`}>
           {profile.plan === "free" && <section className="billing-offer" aria-labelledby="buy-pass-title">
             <div><h3 id="buy-pass-title">Day Pass</h3><p className="muted small">For one focused day.</p></div>
-            <div><p className="price"><strong>$4.99</strong><span> once</span></p><p className="hint">24 hours of access · no renewal</p></div>
+            <div><p className="price"><strong>$3.99</strong><span> once</span></p><p className="hint">24 hours of access · no renewal</p></div>
             <ul className="ticks">
               {tick("Unlimited words · one active session", "words")}
               {tick("Sessions up to 24 hours", "duration")}
               {tick("Writing hours, longer breaks & priority dispatch", "timing")}
             </ul>
             <div className="billing-offer-action">
-              <button type="button" className="btn btn-secondary btn-block" disabled={busy || minor} onClick={() => startTrial("day")}>{busy ? "Opening checkout…" : "Get Day Pass · $4.99"}</button>
+              <button type="button" className="btn btn-secondary btn-block" disabled={busy || minor} onClick={() => startTrial("day")}>{busy ? "Opening checkout…" : "Get Day Pass · $3.99"}</button>
               <p className="hint">Sessions must fit your remaining access. Unfinished sessions pause when your pass expires.</p>
             </div>
           </section>}

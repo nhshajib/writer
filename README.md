@@ -445,7 +445,7 @@ version history, which Google groups on its own.
 
 | | Free | Day Pass | Pro |
 |---|---|---|---|
-| Price | $0 | $4.99 once, no renewal | Monthly or yearly subscription |
+| Price | $0 | $3.99 once, no renewal | Monthly or yearly subscription |
 | Words per day | 250 | unlimited | unlimited |
 | Longest drip | 60 minutes | 24 hours within remaining access | 1 week |
 | Active drips | 1 | 1 | 3 |
@@ -465,7 +465,7 @@ Pro upgrade clears the session expiry. Old sessions have no new expiry imposed.
 
 Day Pass checkout uses Stripe payment mode with `STRIPE_PRICE_DAY` (legacy lowercase
 `stripe_price_day` is also accepted). Set it to an active Stripe **Price ID** (`price_…`)
-for a fixed, one-time USD $4.99 payment, not a Product ID. The server verifies the
+for a fixed, one-time USD $3.99 payment, not a Product ID. The server verifies the
 price amount, currency, nonrecurring type and product before preparing checkout.
 Keep the monthly and yearly Pro Price IDs in their existing secrets; the Day Pass
 Price ID does not replace either recurring subscription price.

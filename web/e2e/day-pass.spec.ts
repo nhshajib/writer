@@ -48,7 +48,7 @@ test("Pro approves final revisions and replays only confirmed actions without do
   const { requests }=await (await request.get("/__test/requests")).json();
   expect(requests.filter((r:{method:string;path:string})=>r.method==="POST"&&/\/engine$/.test(r.path))).toHaveLength(0);
 });
-test("Free mobile keeps work hours gated and pricing exposes the nonrenewing $4.99 offer", async ({page,request})=>{
+test("Free mobile keeps work hours gated and pricing exposes the nonrenewing $3.99 offer", async ({page,request})=>{
   await request.post("/__test/profile",{data:{plan:"free",subscription_status:null}});
   await page.setViewportSize({width:390,height:844});
   await page.goto("/app/new/");
@@ -56,7 +56,7 @@ test("Free mobile keeps work hours gated and pricing exposes the nonrenewing $4.
   await expect(page.getByLabel("Write only during chosen hours")).toBeDisabled();
   await expect(page.getByLabel("Final revision pass")).toBeDisabled();
   await page.goto("/pricing/");
-  await expect(page.getByText("$4.99",{exact:true}).first()).toBeVisible();
+  await expect(page.getByText("$3.99",{exact:true}).first()).toBeVisible();
   await expect(page.getByText(/no renewal/i).first()).toBeVisible();
   await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
   expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21a","wcag21aa"]).analyze()).violations).toEqual([]);

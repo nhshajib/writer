@@ -6,7 +6,7 @@ Implemented 22 October 2026 on `claude/blissful-goodall-sdsf09`. The ordered pla
 
 | Feature | Free | Day Pass | Pro monthly / yearly |
 |---|---|---|---|
-| Price | Free | $4.99 once, no renewal | Existing subscription prices retained |
+| Price | Free | $3.99 once, no renewal | Existing subscription prices retained |
 | Words per day | 250 | Unlimited | Unlimited |
 | Maximum session | 60 minutes | 24 hours within remaining access | 1 week |
 | Active sessions | 1 | 1 | 3 |
@@ -25,14 +25,14 @@ Word sessions still require the document and add-in to remain open. Google contr
 | Area | Implementation | Regression evidence |
 |---|---|---|
 | Entitlements | `_shared/limits.ts`, `drips/index.ts`, profile normalization in `web/lib/dashboard.tsx` | `day_pass_test.ts`: exact expiry, Pro precedence, Free 250/60 and Day Pass 24h/one-active boundaries |
-| One-time payment | `billing/index.ts`, `_shared/dayPass.ts`, `stripe-webhook/index.ts` | `day_pass_routes_test.ts`: payment mode, USD 499 cents, no subscription-only parameters or trial; payment/customer ownership; unpaid/refunded refusal |
+| One-time payment | `billing/index.ts`, `_shared/dayPass.ts`, `stripe-webhook/index.ts` | `day_pass_routes_test.ts`: payment mode, USD 399 cents, no subscription-only parameters or trial; payment/customer ownership; unpaid/refunded refusal |
 | Reliable fulfillment | Checkout verifies the existing TypeWit webhook endpoint and preserves existing events while enabling completion/refund delivery; verified return path also fulfills idempotently | Route fixtures verify endpoint scope and event preservation; isolated SQL verifies duplicate delivery, refund-before-payment, refund replay, later purchases and account cleanup |
 | Expiry / renewal | Saved `access_expires_at`, worker and Word engine guards, profile upgrade trigger | Expiry before provider access, expiry during I/O, pending recovery preservation and renewal; isolated SQL tests service-only grants and Pro upgrade |
 | Writing hours | `_shared/workWindow.ts`, planner projection and engine gating | Validation, overnight ownership, selected days, skipped/repeated DST minutes, plan duration limits, bounded minute evaluation for narrow windows, and no reads outside hours |
 | Fair dispatch | `claim_due_worker_drips` bounded 20-second paid preference | Isolated SQL proves older Free work is claimed first and paid work then proceeds |
 | Final revisions | `_shared/drafting.ts`, opt-in approval in Google and Word flows | Unicode, independently recoverable units, rich correction spans, exact text restoration and real worker recovery after an applied response is lost |
 | Playback | Owner-scoped `GET /drips/:id/playback`, Pro gate, lazy playback tab | Route tests reject other owners and Free access, return only confirmed actions; browser replay reaches exact approved text without engine writes or eager downloads |
-| Billing receipts | Shared invoice panel for subscription and one-time payments | Browser test displays an active Day Pass and its $4.99 receipt with no subscription |
+| Billing receipts | Shared invoice panel for subscription and one-time payments | Browser test displays an active Day Pass and a historical receipt with no subscription |
 | Frontend / disclosure | Dashboard, Word, account, billing, four pricing choices, comparison, help, structured offers, Terms, Privacy and Responsible Use descriptions | Existing browser suite retained; new Day Pass, approval, playback, receipt and mobile accessibility scenarios |
 
 Only existing assertions encoding the explicitly changed Free word/duration limits or the newly added fourth pricing choice were updated. Existing guide fragment identifiers are preserved. No tests were skipped, removed or weakened.

@@ -77,7 +77,7 @@ export const PRO_FEATURES = [
 ];
 
 /** The comparison table on the pricing page. */
-export const DAY_PASS_FEATURES = ["$4.99 once · no renewal", "24 hours from payment confirmation", "Unlimited words · one active session", "Sessions up to 24 hours, within remaining access", "Writing hours, custom writing blocks and priority dispatch", "Existing Google Docs and background entry", "Natural and Steady rhythms, formatted paste and activity log"];
+export const DAY_PASS_FEATURES = ["$3.99 once · no renewal", "24 hours from payment confirmation", "Unlimited words · one active session", "Sessions up to 24 hours, within remaining access", "Writing hours, custom writing blocks and priority dispatch", "Existing Google Docs and background entry", "Natural and Steady rhythms, formatted paste and activity log"];
 
 const BASE_COMPARISON: { feature: string; free: string; pro: string }[] = [
   { feature: "Words per day", free: "250", pro: "Unlimited" },

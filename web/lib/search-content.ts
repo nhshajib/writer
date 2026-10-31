@@ -39,7 +39,7 @@ export const GUIDES: Guide[] = [
       ] },
       { heading: "Compare free limits and the actual billing period", paragraphs: [
         "Free can mean a daily allowance, a one-time trial, or an unlimited tool with fewer controls. Compare word limits, session length, concurrent sessions, existing-document access and whether a payment automatically renews. Check each product’s current pricing page instead of relying on an old comparison article.",
-        "TypeWit Free includes 250 words daily, sessions up to 60 minutes, one active session, formatted paste, and Natural and Steady rhythms. The $4.99 Day Pass lasts 24 hours without renewal, with unlimited words, writing blocks and sessions that fit the remaining access window. Pro is $6.99 monthly or $60 billed yearly; it adds Drafting, advanced pacing, paused text editing and up to three active sessions. Yearly and monthly Pro have the same features.",
+        "TypeWit Free includes 250 words daily, sessions up to 60 minutes, one active session, formatted paste, and Natural and Steady rhythms. The $3.99 Day Pass lasts 24 hours without renewal, with unlimited words, writing blocks and sessions that fit the remaining access window. Pro is $6.99 monthly or $60 billed yearly; it adds Drafting, advanced pacing, paused text editing and up to three active sessions. Yearly and monthly Pro have the same features.",
         "A long rest is part of elapsed time. A Day Pass schedule must still have access when entry resumes and finishes. Review the schedule preview rather than assuming a 24-hour pass can start a new 24-hour session near expiry.",
       ] },
       { heading: "Treat version-history promises carefully", paragraphs: [
@@ -86,7 +86,7 @@ export const GUIDES: Guide[] = [
         "Google Docs resumes on the server after a scheduled rest; keep Word and its add-in open for Word sessions. Manual pause, expired access, lost permissions or outages can prevent or delay continuation. TypeWit checks every Day Pass restart and finish against expiry. Shorten an incompatible schedule or upgrade to Pro. Google decides version-history grouping; longer rests do not guarantee separate versions.",
       ] },
       { heading: "Writing hours and short-term access", paragraphs: [
-        "Day Pass costs $4.99 once for 24 hours from payment confirmation and activation, with unlimited words and one active session. It never renews. Sessions must fit the remaining access window; unfinished pass sessions pause at expiry until access is renewed or upgraded.",
+        "Day Pass costs $3.99 once for 24 hours from payment confirmation and activation, with unlimited words and one active session. It never renews. Sessions must fit the remaining access window; unfinished pass sessions pause at expiry until access is renewed or upgraded.",
         "Day Pass and Pro can limit entry to chosen daily writing hours in an IANA time zone. Overnight hours and daylight-saving changes are supported. Waiting outside those hours can extend the elapsed session time, which must still fit the plan limit.",
       ] },
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
@@ -250,7 +250,7 @@ export const GUIDES: Guide[] = [
         "TypeWit’s dashboard works with the keyboard alone and with screen readers, with large targets and light and dark modes. Progress can be announced to screen readers every 10%, and status changes such as paused or finished are always announced. You can turn the progress announcements off.",
       ] },
       { heading: "Plans and limits", paragraphs: [
-        "Free includes 250 words a day and sessions up to 60 minutes, with no card needed. A $4.99 Day Pass removes the word limit for 24 hours, and Pro allows sessions up to a week with custom pacing and scheduled starts.",
+        "Free includes 250 words a day and sessions up to 60 minutes, with no card needed. A $3.99 Day Pass removes the word limit for 24 hours, and Pro allows sessions up to a week with custom pacing and scheduled starts.",
       ] },
     ], sources: [{ label: "Google Docs: type with your voice", url: "https://support.google.com/docs/answer/4492226" }],
   },

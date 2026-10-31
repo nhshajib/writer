@@ -51,7 +51,7 @@ export default function Page() {
         <h2>Choose the plan that fits the work</h2>
         <p>
           Free gives you 250 words daily and sessions up to 60 minutes. Day Pass
-          provides unlimited words for 24 hours for $4.99 with no renewal. Pro
+          provides unlimited words for 24 hours for $3.99 with no renewal. Pro
           supports week-long sessions and up to three active sessions, with the
           same features on monthly and yearly billing.
         </p>

@@ -1,6 +1,6 @@
 # Stripe live-mode integration: setup and remaining checks
 
-Updated: 28 October 2026 (America/New_York). This is the single source of truth for remaining Stripe setup steps.
+Updated: 31 October 2026 (America/New_York). This is the single source of truth for remaining Stripe setup steps.
 
 ## Confirmed issue and correction
 
@@ -24,7 +24,7 @@ Set/check these in **Supabase → Edge Functions → Secrets**, rather than putt
 | `STRIPE_SECRET_KEY` | A valid live server key for the intended Stripe merchant account. Never use a publishable `pk_` key here. |
 | `STRIPE_PRICE_MONTHLY` | `price_1UVYdhPb7jJgTZg4dBVX44ub`: verified active live USD $6.99/month. Confirm the Supabase value matches. |
 | `STRIPE_PRICE_YEARLY` | `price_1UVYdgPb7jJgTZg4E01UIshD`: verified active live USD $60/year. Confirm the Supabase value matches. |
-| `STRIPE_PRICE_DAY` | `price_1UVYdgPb7jJgTZg4wr1GRcMj`: verified active live USD $4.99 one-time. The lowercase `stripe_price_day` fallback still works; prefer uppercase. |
+| `STRIPE_PRICE_DAY` | `price_1UWfvaPb7jJgTZg49QwQpl4p`: verified active live USD $3.99 one-time. The lowercase `stripe_price_day` fallback still works; prefer uppercase. |
 | `STRIPE_WEBHOOK_SECRET` | The signing secret of the **live** webhook endpoint listed below. Sandbox/CLI webhook secrets are different. |
 | `APP_URL` | `https://typewit.com` for production. |
 
@@ -80,7 +80,7 @@ Created the previously missing live endpoint on 28 October 2026: `we_1UVcjAPb7jJ
 
 Created the missing **live Customer Portal** default configuration (`bpc_1UVcixPb7jJgTZg4uM7c2FfU`): invoice history, payment-method updates, name/address updates, cancellation at period end and monthly/yearly switching with prorations and trial continuation. Day Pass is excluded from subscription switching. No existing subscription was modified. Sandbox portal configuration remains separate.
 
-Promotion codes are enabled as requested. Existing paid Day Pass fulfillment supports verified paid sessions for the $4.99 source price. It requires a payment intent; a 100%-off/no-payment-required Day Pass is **not** supported by the existing grant model. Restrict such coupons to subscriptions rather than offering a free Day Pass that cannot activate. No new free-pass entitlement path was added.
+Promotion codes are enabled as requested. Existing paid Day Pass fulfillment supports verified paid sessions for the $3.99 source price. It requires a payment intent; a 100%-off/no-payment-required Day Pass is **not** supported by the existing grant model. Restrict such coupons to subscriptions rather than offering a free Day Pass that cannot activate. No new free-pass entitlement path was added.
 
 ## Tax and product presentation
 
@@ -118,3 +118,7 @@ Validation/deployment details: [Stripe live-mode release report](docs/stripe-liv
 - [Official Stripe OpenAPI schema](https://github.com/stripe/openapi/blob/master/openapi/spec3.json)
 - [Stripe support](https://support.stripe.com)
 - [Stripe MCP documentation](https://docs.stripe.com/mcp)
+
+Price update, 31 October 2026: new Day Pass checkouts require $3.99 USD. Historical $4.99 payments retain verification against their original offer marker and amount; they are not repriced. Supabase STRIPE_PRICE_DAY was updated by the owner.
+
+Verification for this price update: 244 backend tests and 137 browser tests passed, with function formatting/lint/type checks, web TypeScript and SEO validation. Deployed billing v29 (JWT true) and stripe-webhook v27 (JWT false), with retrieved sources matching the repository. The post-deployment error query returned no new billing errors. No live customer, checkout, charge or subscription was created for testing. No schema migration was needed.

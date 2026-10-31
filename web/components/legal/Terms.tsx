@@ -61,7 +61,7 @@ export function TermsBody() {
           automatically at the end of each period until you cancel.
         </li>
         <li>
-          <strong>Day Pass:</strong> US$4.99 as a one-time purchase for 24 hours from payment confirmation and activation. It does not renew and does not include a Pro trial. It provides unlimited words, one active session, sessions up to one day within the remaining access window, writing hours, customizable writing blocks and priority dispatch. It does not include Pro-only advanced controls, final revision pass or playback. At expiry, unfinished pass sessions pause; text already entered remains. A new pass after expiry or Pro access can allow resumption. Refunds that reverse the purchase end the corresponding pass entitlement. Mandatory consumer remedies remain available.
+          <strong>Day Pass:</strong> US$3.99 as a one-time purchase for 24 hours from payment confirmation and activation. It does not renew and does not include a Pro trial. It provides unlimited words, one active session, sessions up to one day within the remaining access window, writing hours, customizable writing blocks and priority dispatch. It does not include Pro-only advanced controls, final revision pass or playback. At expiry, unfinished pass sessions pause; text already entered remains. A new pass after expiry or Pro access can allow resumption. Refunds that reverse the purchase end the corresponding pass entitlement. Mandatory consumer remedies remain available.
         </li>
         <li>
           <strong>Free trial:</strong> new Pro subscribers may get one 7-day free trial per person. A payment card is

@@ -4,7 +4,7 @@ Sources reviewed 21 October 2026: https://www.dripwriter.com/features and https:
 
 ## Ordered delivery
 
-1. Centralize effective entitlements: Free 250 words/day, 60 minutes, one active session; Day Pass $4.99 once, 24 hours, unlimited words, one active session, writing hours; Pro unlimited words, seven days, three active sessions and all advanced tools.
+1. Centralize effective entitlements: Free 250 words/day, 60 minutes, one active session; Day Pass $3.99 once, 24 hours, unlimited words, one active session, writing hours; Pro unlimited words, seven days, three active sessions and all advanced tools.
 2. Add idempotent Day Pass payment confirmation, expiry and refunds, retaining subscription reconciliation and checkout locking. Do not purchase anything to test.
 3. Add timezone-aware writing windows, bounded paid queue preference and expiry checks to both server and Word engines. Preserve recovery and existing sessions.
 4. Add opt-in Pro final revision pass that restores the exact approved text and only edits the session-owned suffix. Add read-only Pro session replay, explicitly distinct from Google's own revision history.
