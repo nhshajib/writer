@@ -392,7 +392,7 @@ test("the session page shows state, activity, breaks and test connection; finish
 test("settings explain where data is kept and can clear finished sessions", async ({ page, request }) => {
   const id = await startSession(page);
   await request.post("/__test/advance", { data: { id, written: 10 } });
-  await page.goto("/app/settings/");
+  await page.goto("/app/settings/#data");
   await expect(page.getByText(/activity log stores times, counts and outcomes, not your text/)).toBeVisible();
   await expectNoAxeViolations(page);
   await page.getByRole("button", { name: "Delete finished sessions (1)" }).click();

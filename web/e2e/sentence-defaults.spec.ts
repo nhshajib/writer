@@ -29,7 +29,7 @@ for(const rhythm of ['natural','steady','drafting'] as const) {
 }
 
 test('Settings recommends sentences while an explicitly saved Word preference remains usable',async({page,request})=>{
-  await page.goto('/app/settings/');
+  await page.goto('/app/settings/#defaults');
   const form=page.getByRole('form',{name:'Session defaults',exact:true});
   await expect(form.getByLabel('Steps',{exact:true})).toHaveValue('sentence');
   await expect(form.getByRole('group',{name:'How words arrive',exact:true})).toHaveCount(0);

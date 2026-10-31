@@ -97,7 +97,7 @@ test("unsent text is kept in this browser and can be restored or discarded", asy
 });
 
 test("settings: email choices save with a confirmation, and deleting the account needs the email typed", async ({ page, request }) => {
-  await page.goto("/app/settings/");
+  await page.goto("/app/settings/#notifications");
   await expect(page.getByLabel("Email me when a session finishes.")).toBeChecked();
   await expect(page.getByLabel("Email me when a session finishes.")).toBeEnabled();
   await page.getByLabel("Email me when a session finishes.").click();
@@ -107,11 +107,14 @@ test("settings: email choices save with a confirmation, and deleting the account
   const patch = requests.find((r: { method: string; path: string }) => r.method === "PATCH" && r.path === "/rest/v1/profiles");
   expect(patch.body).toEqual({ email_on_completed: false, email_on_attention: true, email_notifications: true });
 
+  // Each setting now has its own panel; keep the same security assertions.
+  await page.getByRole("link", { name: "Security", exact: true }).click();
   // Changing the password asks for the current one.
   await page.getByLabel("New password", { exact: true }).fill("a new password");
   await page.getByRole("button", { name: "Change password" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Enter your current password." })).toBeVisible();
 
+  await page.getByRole("link", { name: "Delete account", exact: true }).click();
   await page.getByRole("button", { name: "Delete my account…" }).click();
   const confirm = page.getByRole("button", { name: "Delete account" });
   await expect(confirm).toBeDisabled();

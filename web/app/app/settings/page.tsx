@@ -32,12 +32,27 @@ export default function SettingsPage() {
   const toast = useToast();
   const router = useRouter();
   const [name, setName] = useState(displayName);
-  const [activeSection, setActiveSection] = useState("");
+  const [activeSection, setActiveSection] = useState("profile");
   useEffect(() => {
-    const read = () => { const id=window.location.hash.slice(1); setActiveSection(SECTIONS.some(([key])=>key===id) ? id : ""); };
-    read(); window.addEventListener("hashchange",read);
-    return () => window.removeEventListener("hashchange",read);
+    const read = () => {
+      const hash = window.location.hash.slice(1);
+      const id = hash === "agreement" ? "data" : hash;
+      setActiveSection(SECTIONS.some(([key]) => key === id) ? id : "profile");
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    window.addEventListener("popstate", read);
+    return () => {
+      window.removeEventListener("hashchange", read);
+      window.removeEventListener("popstate", read);
+    };
   }, []);
+
+  function selectSection(id: string) {
+    setError(null);
+    setActiveSection(id);
+    window.history.pushState(null, "", `#${id}`);
+  }
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -210,28 +225,28 @@ export default function SettingsPage() {
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <p>Your profile, session defaults, notifications, security and data.</p>
+          <p>Choose a section to manage your preferences.</p>
         </div>
       </div>
 
       {error && <p className="alert alert-error mb-5" role="alert">{error}</p>}
 
-      <label className="settings-jump">Go to section
-        <select aria-label="Settings section" value={activeSection} onChange={e => { if(e.target.value) { setActiveSection(e.target.value); window.location.hash=e.target.value; document.getElementById(e.target.value)?.scrollIntoView({block:"start",behavior:"auto"}); } }}>
-          <option value="" disabled>Choose a setting</option>
-          {SECTIONS.map(([id,label]) => <option key={id} value={id}>{label}</option>)}
+      <label className="settings-jump">Settings section
+        <select aria-label="Settings section" value={activeSection} onChange={e => selectSection(e.target.value)}>
+          {SECTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       </label>
       <div className="settings-layout">
       <nav className="settings-nav" aria-label="Settings sections">
         <ul>
           {SECTIONS.map(([id, label, SectionIcon]) => (
-            <li key={id}><a href={`#${id}`}><SectionIcon />{label}</a></li>
+            <li key={id}><a href={`#${id}`} aria-current={activeSection === id ? "page" : undefined}
+              onClick={e => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); selectSection(id); } }}><SectionIcon />{label}</a></li>
           ))}
         </ul>
       </nav>
       <div className="settings">
-        <section className="setting" id="profile" aria-labelledby="profile-title">
+        <section className="setting" id="profile" hidden={activeSection !== "profile"} aria-labelledby="profile-title">
           <div><h2 id="profile-title">Profile</h2><p>How TypeWit greets you.</p></div>
           <div className="stack">
             <div className="row">
@@ -255,12 +270,12 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="setting" id="defaults" aria-labelledby="defaults-title">
+        <section className="setting" id="defaults" hidden={activeSection !== "defaults"} aria-labelledby="defaults-title">
           <div><h2 id="defaults-title">Session defaults</h2><p>What New session starts from, on any device. You can still change anything per session.</p></div>
           <SessionDefaultsForm />
         </section>
 
-        <section className="setting" id="notifications" aria-labelledby="notify-title">
+        <section className="setting" id="notifications" hidden={activeSection !== "notifications"} aria-labelledby="notify-title">
           <div><h2 id="notify-title">Notifications</h2><p>Updates always appear under the bell at the top of every page.</p></div>
           <div className="stack" style={{ gap: 0 }}>
             <label className="check" htmlFor="email-completed">
@@ -276,7 +291,7 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="setting" id="accessibility" aria-labelledby="a11y-title">
+        <section className="setting" id="accessibility" hidden={activeSection !== "accessibility"} aria-labelledby="a11y-title">
           <div><h2 id="a11y-title">Accessibility</h2><p>Kept in this browser.</p></div>
           <label className="check" htmlFor="announce-progress">
             <input id="announce-progress" type="checkbox" role="switch" checked={announce} onChange={(e) => { setAnnounce(e.target.checked); writeAnnounceProgress(e.target.checked); }} />
@@ -284,7 +299,7 @@ export default function SettingsPage() {
           </label>
         </section>
 
-        <section className="setting" id="security" aria-labelledby="security-title">
+        <section className="setting" id="security" hidden={activeSection !== "security"} aria-labelledby="security-title">
           <div><h2 id="security-title">Security</h2><p>Keep your account safe.</p></div>
           {hasPassword
             ? (
@@ -331,15 +346,7 @@ export default function SettingsPage() {
             )}
         </section>
 
-        <section className="setting" id="agreement" aria-labelledby="agreement-title">
-          <div><h2 id="agreement-title">Responsible use</h2><p>The agreement everyone accepts.</p></div>
-          <p className="small" style={{ color: "var(--text-2)" }}>
-            {profile.agreed_terms_version === CURRENT_TERMS_VERSION ? <>You accepted version {CURRENT_TERMS_VERSION}. </> : <>You haven&apos;t accepted the current version. </>}
-            <Link href="/responsible-use">Read the agreement</Link>
-          </p>
-        </section>
-
-        <section className="setting" id="data" aria-labelledby="data-title">
+        <section className="setting" id="data" hidden={activeSection !== "data"} aria-labelledby="data-title">
           <div><h2 id="data-title">Your data</h2><p>What TypeWit keeps, and clearing it.</p></div>
           <div className="stack" style={{ gap: "0.75rem", justifyItems: "start" }}>
             <ul className="small muted" style={{ paddingLeft: "1.1rem" }}>
@@ -349,6 +356,11 @@ export default function SettingsPage() {
               <li>Word sessions run in the TypeWit add-in inside Word, which edits only the document it is open in. TypeWit stores no Microsoft password or token.</li>
               <li>Session defaults and saved presets are stored on your account. This browser also remembers your custom pace, last-used rhythm, any unsent draft, your theme and your announcement preference.</li>
             </ul>
+            <p className="small" style={{ color: "var(--text-2)" }}>
+              <strong>Responsible use. </strong>
+            {profile.agreed_terms_version === CURRENT_TERMS_VERSION ? <>You accepted version {CURRENT_TERMS_VERSION}. </> : <>You haven&apos;t accepted the current version. </>}
+              <Link href="/responsible-use">Read the agreement</Link>
+            </p>
             <button type="button" className="btn btn-secondary btn-sm" onClick={downloadData}>Download my data</button>
             {!confirmClear
               ? (
@@ -369,7 +381,7 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="setting danger-zone" id="danger" aria-labelledby="danger-title">
+        <section className="setting danger-zone" id="danger" hidden={activeSection !== "danger"} aria-labelledby="danger-title">
           <div><h2 id="danger-title">Delete account</h2><p>Permanent and can&apos;t be undone.</p></div>
           <div className="stack" style={{ gap: "0.75rem", justifyItems: "start" }}>
             <p className="small muted">

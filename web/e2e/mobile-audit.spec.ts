@@ -58,7 +58,10 @@ test('settings section picker and explicit parent navigation work; billing keeps
   await page.goto('/app/settings/');
   await page.getByLabel('Settings section',{exact:true}).selectOption('security');
   await expect(page).toHaveURL(/#security$/);
-  const bounds=await page.locator('#security').boundingBox();expect(bounds!.y).toBeGreaterThanOrEqual(56);expect(bounds!.y).toBeLessThan(150);
+  // Selection switches panels in place instead of jumping past the mobile picker.
+  await expect(page.locator('#security')).toBeVisible();
+  await expect(page.locator('#profile')).toBeHidden();
+  await expect(page.getByLabel('Settings section',{exact:true})).toBeInViewport();
   await page.locator('.mobile-parent-link').click();await expect(page).toHaveURL(/\/app\/account\//);
   await page.goto('/app/billing/manage/');
   await expect(page.getByRole('navigation',{name:'Main',exact:true}).getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','page');

@@ -201,6 +201,7 @@ test("session defaults saved in Settings are where New session starts, and every
   for (const id of ["profile", "defaults", "notifications", "accessibility", "security", "data", "danger"]) {
     await expect(page.locator(`section#${id}`)).toHaveCount(1);
   }
+  await page.getByRole("link", { name: "Session defaults", exact: true }).click();
   const form = page.getByRole("form", { name: "Session defaults" });
   await form.getByLabel("Rhythm").selectOption("steady");
   await form.getByLabel("Finish within").selectOption("120");

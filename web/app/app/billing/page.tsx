@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ProgressRing } from "@/components/app/Charts";
 import { Icon } from "@/components/Icons";
 import { api } from "@/lib/api";
 import { ACTIVE_STATUSES, PLAN_LIMITS, useDashboard } from "@/lib/dashboard";
@@ -76,10 +75,11 @@ export default function BillingPage() {
 
   return (
     <>
+      <div className="billing-page">
       <div className="page-head">
         <div>
           <h1>Plan &amp; usage</h1>
-          <p>Your plan, what you&apos;ve used today, and payments.</p>
+          <p>Your usage at a glance. Choose more access when you need it.</p>
         </div>
         {(isPro || profile.day_pass_expires_at || profile.subscription_status === "canceled") && (
           <Link href="/app/billing/manage/" className="btn btn-secondary btn-sm">
@@ -102,92 +102,90 @@ export default function BillingPage() {
         {error && <p className="alert alert-error" role="alert">{error}</p>}
       </div>
 
-      <div className="kpis three mb-6">
-        <section className="kpi" aria-labelledby="plan-title">
-          <div className="kpi-text">
-            <h2 id="plan-title" className="kpi-label">Current plan</h2>
-            <p className="kpi-value">{isPro ? "Pro" : profile.plan === "day_pass" ? "Day Pass" : "Free"}</p>
-            {profile.plan === "day_pass" && profile.day_pass_expires_at && <p className="hint">Expires {when(profile.day_pass_expires_at)} · no renewal. Unfinished pass sessions pause at expiry; your document text stays.</p>}
-            <p className="kpi-note">
-              {profile.subscription_status ? `${STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status} · ` : ""}{describeLimits(limits)}
-            </p>
+      <section className="billing-overview" aria-labelledby="plan-title">
+        <div className="billing-plan-heading">
+          <div>
+            <p className="eyebrow">Current plan</p>
+            <h2 id="plan-title">{isPro ? "Pro" : profile.plan === "day_pass" ? "Day Pass" : "Free"}</h2>
+            <p className="muted small">{describeLimits(limits)}</p>
           </div>
-          <span className="kpi-icon" aria-hidden="true"><Icon.card /></span>
-        </section>
-        <section className="kpi" aria-labelledby="usage-title">
-          <div className="kpi-text">
-            <h2 id="usage-title" className="kpi-label">Words today</h2>
-            <p className="kpi-value">{wordsToday.toLocaleString()}<small>{limits.dailyWords ? ` / ${limits.dailyWords}` : ""}</small></p>
-            <p className="kpi-note">{limits.dailyWords ? `Resets at ${dailyResetTime()} (midnight UTC)` : "No daily limit"}</p>
-          </div>
-          {limits.dailyWords && (
-            <span role="meter" aria-label="Words used today" aria-valuemin={0} aria-valuemax={limits.dailyWords} aria-valuenow={Math.min(wordsToday, limits.dailyWords)}>
-              <ProgressRing value={usagePercent} tone={usagePercent >= 90 ? "warn" : "accent"} />
-            </span>
-          )}
-        </section>
-        <section className="kpi" aria-labelledby="active-title">
-          <div className="kpi-text">
-            <h2 id="active-title" className="kpi-label">Active sessions</h2>
-            <p className="kpi-value">{active}<small> / {limits.activeSessions}</small></p>
-            <p className="kpi-note">Each can run up to {span(limits.maxMinutes * 60_000)}</p>
-          </div>
-          <span className="kpi-icon" aria-hidden="true"><Icon.activity /></span>
-        </section>
-      </div>
-
-      {isPro && (
-        <section className="card mb-6 pro-perks" aria-labelledby="perks-title">
-          <h2 id="perks-title" className="card-title">Included in your Pro plan</h2>
-          <ul className="ticks">{PRO_FEATURES.map((f) => tick(f, f))}</ul>
-          <p className="small muted mt-4">
-            Need help? <Link href="/support/?priority=1">Priority support</Link>: Pro emails are answered first.
-          </p>
-        </section>
-      )}
-
-      {profile.plan === "free" && <section className="card mb-6" aria-labelledby="buy-pass-title"><h2 id="buy-pass-title">Need one focused day?</h2><p>$4.99 once for 24 hours: unlimited words, one active session, writing hours and priority dispatch. No subscription or renewal. A session must fit the remaining access time; unfinished pass sessions pause at expiry.</p><button type="button" className="btn btn-secondary" disabled={busy || minor} onClick={() => startTrial("day")}>{busy ? "Opening checkout…" : "Get Day Pass · $4.99"}</button><p className="hint">Adults only. By purchasing, you accept the <Link href="/terms/">Terms</Link> and <Link href="/responsible-use/">Responsible Use Agreement</Link>. You can upgrade to Pro whenever you need its advanced tools.</p></section>}
-      {!isPro && (
-        <section className="plan featured upgrade-card mb-6" aria-labelledby="upgrade-title">
-          <div className="row upgrade-head">
-            <div>
-              <div className="plan-top upgrade-title">
-                <h2 id="upgrade-title">Upgrade to Pro</h2><span className="badge badge-blue">7 days free</span>
+          {profile.subscription_status && <span className="badge">{STATUS_TEXT[profile.subscription_status] ?? profile.subscription_status}</span>}
+        </div>
+        {profile.plan === "day_pass" && profile.day_pass_expires_at && (
+          <p className="billing-expiry"><Icon.clock /><span>Expires {when(profile.day_pass_expires_at)} · no renewal. Unfinished pass sessions pause at expiry; your document text stays.</span></p>
+        )}
+        <div className="billing-usage">
+          <section aria-labelledby="usage-title">
+            <h3 id="usage-title">Words today</h3>
+            <p className="billing-stat">{wordsToday.toLocaleString()}<span>{limits.dailyWords ? ` / ${limits.dailyWords}` : " · unlimited"}</span></p>
+            {limits.dailyWords ? <>
+              <div className="billing-meter" role="meter" aria-label="Words used today" aria-valuemin={0} aria-valuemax={limits.dailyWords} aria-valuenow={Math.min(wordsToday, limits.dailyWords)}>
+                <span style={{ width: `${usagePercent}%`, background: usagePercent >= 90 ? "var(--amber)" : undefined }} />
               </div>
-              <p className="desc">For essays, reports and anything long.</p>
-            </div>
-            <div className="seg" role="group" aria-label="Billing period" style={{ "--n": 2, "--i": interval === "year" ? 0 : 1 } as React.CSSProperties}>
-              <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · {YEARLY_SAVING}</button>
-              <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
-            </div>
-          </div>
-          <div className="grid-2 upgrade-body">
-            <ul className="ticks">
-              {PRO_FEATURES.map((f) => tick(f, f))}
-            </ul>
-            <div>
-              <div className="price"><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></div>
-              <p className="price-note">{PRO_PRICE[interval].saving ? <span className="save">{PRO_PRICE[interval].saving}</span> : "Billed monthly"}</p>
-              {minor
-                ? (
-                  <p className="alert alert-info">
-                    <span>Pro has to be bought by an adult. A parent or guardian can contact us from the <Link href="/support/">help page</Link> to set it up for you.</span>
-                  </p>
-                )
-                : (
-                  <>
-                    <button type="button" className="btn btn-primary btn-block" onClick={() => startTrial(interval)} disabled={busy}>
-                      {busy ? "Opening secure checkout…" : "Start 7-day free trial"}
-                    </button>
-                    <p className="price-note center mt-2">Nothing to pay today.</p>
-                  </>
-                )}
-            </div>
-          </div>
-        </section>
-      )}
+              <p className="hint">Resets at {dailyResetTime()} (midnight UTC)</p>
+            </> : <p className="hint">No daily word limit</p>}
+          </section>
+          <section aria-labelledby="active-title">
+            <h3 id="active-title">Active sessions</h3>
+            <p className="billing-stat">{active}<span> / {limits.activeSessions}</span></p>
+            <p className="hint">Each can run up to {span(limits.maxMinutes * 60_000)}</p>
+          </section>
+        </div>
+        {isPro && <details className="billing-inclusions">
+          <summary>Included in your Pro plan</summary>
+          <ul className="ticks">{PRO_FEATURES.map(f => tick(f, f))}</ul>
+          <p className="small muted mt-4">Need help? <Link href="/support/?priority=1">Priority support</Link>: Pro emails are answered first.</p>
+        </details>}
+      </section>
 
-      <section aria-labelledby="billing-faq-title">
+      {!isPro && <section className="billing-options" aria-labelledby="options-title">
+        <div className="billing-section-heading">
+          <div><h2 id="options-title">{profile.plan === "day_pass" ? "Want ongoing access?" : "Need more room?"}</h2><p className="muted small">{profile.plan === "day_pass" ? "Keep writing with Pro after your pass ends." : "One focused day or ongoing access. You choose."}</p></div>
+          <Link href="/pricing/" className="small">Compare every feature <span aria-hidden="true">↗</span></Link>
+        </div>
+        <div className={`billing-offers${profile.plan === "day_pass" ? " single" : ""}`}>
+          {profile.plan === "free" && <section className="billing-offer" aria-labelledby="buy-pass-title">
+            <div><h3 id="buy-pass-title">Day Pass</h3><p className="muted small">For one focused day.</p></div>
+            <div><p className="price"><strong>$4.99</strong><span> once</span></p><p className="hint">24 hours of access · no renewal</p></div>
+            <ul className="ticks">
+              {tick("Unlimited words · one active session", "words")}
+              {tick("Sessions up to 24 hours", "duration")}
+              {tick("Writing hours, longer breaks & priority dispatch", "timing")}
+            </ul>
+            <div className="billing-offer-action">
+              <button type="button" className="btn btn-secondary btn-block" disabled={busy || minor} onClick={() => startTrial("day")}>{busy ? "Opening checkout…" : "Get Day Pass · $4.99"}</button>
+              <p className="hint">Sessions must fit your remaining access. Unfinished sessions pause when your pass expires.</p>
+            </div>
+          </section>}
+          <section className="billing-offer billing-offer-pro" aria-labelledby="upgrade-title">
+            <div className="billing-offer-title"><div><h3 id="upgrade-title">Upgrade to Pro</h3><p className="muted small">More control, every day.</p></div><span className="badge badge-blue">7 days free</span></div>
+            <div>
+              <div className="seg" role="group" aria-label="Billing period" style={{ "--n": 2, "--i": interval === "year" ? 0 : 1 } as React.CSSProperties}>
+                <button type="button" aria-pressed={interval === "year"} onClick={() => setInterval("year")}>Yearly · {YEARLY_SAVING}</button>
+                <button type="button" aria-pressed={interval === "month"} onClick={() => setInterval("month")}>Monthly</button>
+              </div>
+              <p className="price"><strong>{PRO_PRICE[interval].amount}</strong><span>/ month</span></p>
+              <p className="hint">{PRO_PRICE[interval].saving || "Billed monthly"}</p>
+            </div>
+            <ul className="ticks">
+              {tick("Unlimited words · 3 active sessions", "words")}
+              {tick("Sessions up to a week", "duration")}
+              {tick("Drafting controls, paused edits & saved presets", "controls")}
+            </ul>
+            <div className="billing-offer-action">
+              {!minor && <><button type="button" className="btn btn-primary btn-block" onClick={() => startTrial(interval)} disabled={busy}>{busy ? "Opening secure checkout…" : "Start 7-day free trial"}</button><p className="hint">Nothing to pay today.</p></>}
+            </div>
+          </section>
+        </div>
+        {minor && <p className="alert alert-info"><span>Paid plans have to be bought by an adult. A parent or guardian can contact us from the <Link href="/support/">help page</Link> to set it up for you.</span></p>}
+        <p className="billing-purchase-note hint">Adults only. By purchasing, you accept the <Link href="/terms/">Terms</Link> and <Link href="/responsible-use/">Responsible Use Agreement</Link>.</p>
+        <details className="billing-inclusions">
+          <summary>See all Pro features</summary>
+          <ul className="ticks">{PRO_FEATURES.map(f => tick(f, f))}</ul>
+        </details>
+      </section>}
+
+      <section className="billing-page-help" aria-labelledby="billing-faq-title">
         <h2 id="billing-faq-title" className="card-title billing-faq-title">Questions</h2>
         <div className="faq">
           <details><summary>How do I cancel?</summary><p>Choose Manage billing, then Cancel plan. You keep Pro until the end of the period you&apos;ve paid for.</p></details>
@@ -195,6 +193,7 @@ export default function BillingPage() {
           <details><summary>Something looks wrong with a charge</summary><p>Email us from the <Link href="/support">support page</Link> and we&apos;ll look into it.</p></details>
         </div>
       </section>
+      </div>
     </>
   );
 }
