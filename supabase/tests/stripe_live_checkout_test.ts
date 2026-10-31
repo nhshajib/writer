@@ -159,7 +159,12 @@ async function fixture() {
             id: "cs_fixture",
             mode: state.params.get("mode"),
             url: "https://checkout.example.invalid/session",
-            metadata: { typewit_price: state.params.get("metadata[typewit_price]"), user_id: owner },
+            cancel_url: state.params.get("cancel_url"),
+            metadata: {
+              typewit_price: state.params.get("metadata[typewit_price]"),
+              user_id: owner,
+              typewit_checkout_flow: state.params.get("metadata[typewit_checkout_flow]"),
+            },
             line_items: { data: [{ price: { id: state.params.get("line_items[0][price]") } }] },
           };
           return Response.json(state.open);
@@ -304,13 +309,18 @@ Deno.test("Checkout Studio options retain plan prices, owner metadata, subscript
           "name_collection[individual][enabled]": "true",
           "saved_payment_method_options[payment_method_save]": "enabled",
           integration_identifier: "hosted_mobile_app_0001",
-          origin_context: "mobile_app",
+          origin_context: "web",
         })
       ) assertEquals(p.get(key), value);
       assertEquals(p.get("line_items[0][price]"), `price_fixture_${interval}`);
       assertEquals(p.get("client_reference_id"), f.owner);
       assertEquals(p.get("metadata[user_id]"), f.owner);
       assertEquals(p.get("cancel_url"), "https://app.example.invalid/pricing?checkout=canceled");
+      assertEquals(
+        p.get("custom_text[submit][message]"),
+        "[Back to TypeWit without purchasing](https://app.example.invalid/pricing?checkout=canceled)",
+      );
+      assertEquals(p.get("metadata[typewit_checkout_flow]"), "web-return-v1");
       if (interval === "day") {
         assertEquals(p.get("mode"), "payment");
         assertEquals(p.get("payment_method_collection"), null);
@@ -353,5 +363,32 @@ Deno.test("new Day Pass checkout retires an old-price link instead of charging t
     assertEquals(f.state.creates, 0);
   } finally {
     f.restore();
+  }
+});
+
+Deno.test("checkout replaces cached links without web return navigation for every paid offer", async () => {
+  for (const interval of ["day", "month", "year"]) {
+    const f = await fixture();
+    try {
+      f.state.failure = "";
+      f.state.open = {
+        id: "cs_fixture_old",
+        mode: interval === "day" ? "payment" : "subscription",
+        url: "https://checkout.example.invalid/no-return",
+        cancel_url: "https://app.example.invalid/pricing?checkout=canceled",
+        metadata: { typewit_price: interval === "day" ? "typewit-day-pass-399-usd" : `price_fixture_${interval}` },
+        line_items: { data: [{ price: { id: `price_fixture_${interval}` } }] },
+      };
+      assertEquals((await f.send(interval)).status, 200);
+      assertEquals(f.state.expired, ["cs_fixture_old"]);
+      assertEquals(f.state.sessions, 1);
+      assertEquals(f.state.params.get("origin_context"), "web");
+      assert(f.state.params.get("custom_text[submit][message]")?.includes("[Back to TypeWit without purchasing]"));
+      // The corrected link remains reusable on a second click.
+      assertEquals((await f.send(interval)).status, 200);
+      assertEquals(f.state.sessions, 1);
+    } finally {
+      f.restore();
+    }
   }
 });

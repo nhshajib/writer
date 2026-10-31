@@ -46,9 +46,10 @@ Test and live objects are separate. Do not edit an ID's text to make it â€œliveâ
 | `name_collection.individual.enabled` | `true` |
 | `saved_payment_method_options.payment_method_save` | `enabled` |
 | `integration_identifier` | `hosted_mobile_app_0001` |
-| `origin_context` | `mobile_app`, retained from the supplied Checkout Studio configuration |
+| `origin_context` | `web`, matching the browser-based purchase flow |
+| `custom_text.submit.message` | A Markdown link: Back to TypeWit without purchasing, targeting the existing cancel URL |
 
-This is a REST integration, with no Stripe SDK initialization to change. Production logs confirmed that the account default API version rejects `hosted_page`, which replaced `hosted` in `2026-03-25.dahlia`. Checkout creation now explicitly sends `Stripe-Version: 2026-09-30.endive`, supporting the supplied Checkout Studio fields independently of the account default. All other Stripe calls retain their existing API version, and no account-wide version upgrade was performed. The configured origin classification does not turn TypeWit into a native mobile app.
+This is a REST integration, with no Stripe SDK initialization to change. Production logs confirmed that the account default API version rejects `hosted_page`, which replaced `hosted` in `2026-03-25.dahlia`. Checkout creation now explicitly sends `Stripe-Version: 2026-09-30.endive`, supporting the supplied Checkout Studio fields independently of the account default. All other Stripe calls retain their existing API version, and no account-wide version upgrade was performed. Checkout uses the web origin context so Stripe shows browser-appropriate return navigation. The native back action and the explicit return link both use the existing cancel URL.
 
 ## Existing values intentionally preserved
 
@@ -59,7 +60,7 @@ This is a REST integration, with no Stripe SDK initialization to change. Product
 - Existing Price IDs are read from the secrets above; quantity stays one.
 - The seven-day subscription trial remains conditional on the existing email-based eligibility check; Day Pass has no trial or renewal.
 - Customer/user metadata, `client_reference_id`, subscription metadata, Day Pass payment-intent metadata and invoice creation remain in place for ownership checks and fulfillment.
-- Existing idempotency, checkout serialization, reusable pending links and interval-switch handling remain intact.
+- Existing idempotency, checkout serialization, reusable pending links and interval-switch handling remain intact. A pending link is reused only if it has the current web-return flow marker and cancel URL. Older links are retired on the next checkout request so users receive the corrected return controls.
 
 The generated prompt's instruction to remove all unlisted parameters was not applied: deleting these fields would break existing fulfillment and account ownership checks. No new Checkout endpoint, payment SDK, webhook route or database schema was added.
 
@@ -122,3 +123,5 @@ Validation/deployment details: [Stripe live-mode release report](docs/stripe-liv
 Price update, 31 October 2026: new Day Pass checkouts require $3.99 USD. Historical $4.99 payments retain verification against their original offer marker and amount; they are not repriced. Supabase STRIPE_PRICE_DAY was updated by the owner.
 
 Verification for this price update: 244 backend tests and 137 browser tests passed, with function formatting/lint/type checks, web TypeScript and SEO validation. Deployed billing v29 (JWT true) and stripe-webhook v27 (JWT false), with retrieved sources matching the repository. The post-deployment error query returned no new billing errors. No live customer, checkout, charge or subscription was created for testing. No schema migration was needed.
+
+Checkout navigation update: billing v30 (JWT true) adds web-origin checkout and an explicit Back to TypeWit without purchasing link. Returning opens `/pricing?checkout=canceled`; it does not start or complete a payment. Reopen checkout from TypeWit to replace an already-open older Stripe page. Backend regression coverage includes Day Pass, monthly/yearly subscriptions, stale-link replacement and corrected-link reuse.

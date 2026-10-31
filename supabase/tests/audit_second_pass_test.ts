@@ -182,7 +182,13 @@ Deno.test("second audit: checkout serializes double clicks, reuses open payment 
   const customerGate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  let pending: { id: string; mode: string; url: string; metadata: { typewit_price: string } }[] = [];
+  let pending: {
+    id: string;
+    mode: string;
+    url: string;
+    cancel_url: string;
+    metadata: { typewit_price: string; typewit_checkout_flow: string };
+  }[] = [];
   try {
     [
       "http://database.invalid",
@@ -254,7 +260,11 @@ Deno.test("second audit: checkout serializes double clicks, reuses open payment 
               id: `fixture-checkout-${created}`,
               mode: "subscription",
               url: `https://checkout.example.invalid/${created}`,
-              metadata: { typewit_price: params.get("metadata[typewit_price]")! },
+              cancel_url: params.get("cancel_url")!,
+              metadata: {
+                typewit_price: params.get("metadata[typewit_price]")!,
+                typewit_checkout_flow: params.get("metadata[typewit_checkout_flow]")!,
+              },
             };
             pending.push(session);
             return Response.json(session);

@@ -214,7 +214,8 @@ async function checkout(
           id: string;
           url: string | null;
           mode: string;
-          metadata?: { typewit_price?: string };
+          cancel_url?: string;
+          metadata?: { typewit_price?: string; typewit_checkout_flow?: string };
           line_items?: { data: { price: { id: string } | null }[] };
         }[];
         has_more: boolean;
@@ -235,11 +236,15 @@ async function checkout(
     const pending = open.data.filter((session) =>
       session.mode === "subscription" || dayPassAmount(session.metadata?.typewit_price) !== undefined
     );
+    const cancelUrl = `${appUrl}/pricing?checkout=canceled`;
+    const checkoutFlow = "web-return-v1";
     const same = pending.find((session) =>
+      session.cancel_url === cancelUrl && session.metadata?.typewit_checkout_flow === checkoutFlow &&
       (dayPass
         ? session.metadata?.typewit_price === DAY_PASS_PRICE &&
           session.line_items?.data[0]?.price?.id === price
-        : (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price) && session.url
+        : (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price) &&
+      session.url
     );
     // Retire older links when switching the selected billing interval, so only
     // one TypeWit checkout can be completed. Reuse an identical open checkout.
@@ -265,14 +270,16 @@ async function checkout(
       "name_collection[individual][enabled]": "true",
       "saved_payment_method_options[payment_method_save]": "enabled",
       integration_identifier: "hosted_mobile_app_0001",
-      origin_context: "mobile_app",
+      origin_context: "web",
       mode: dayPass ? "payment" : "subscription",
       customer: customerId,
       client_reference_id: user.id,
       "line_items[0][price]": price,
       "line_items[0][quantity]": "1",
       success_url: `${appUrl}/account?checkout=success`,
-      cancel_url: `${appUrl}/pricing?checkout=canceled`,
+      cancel_url: cancelUrl,
+      "custom_text[submit][message]": `[Back to TypeWit without purchasing](${cancelUrl})`,
+      "metadata[typewit_checkout_flow]": checkoutFlow,
       // Always collect a card, including for the trial.
       payment_method_collection: "always",
       "metadata[typewit_price]": dayPass ? DAY_PASS_PRICE : price,

@@ -71,3 +71,15 @@ test("Day Pass receipts remain available without a recurring subscription", asyn
   await expect(page.getByRole("cell",{name:"$4.99",exact:true})).toBeVisible();
   await expect(page.getByRole("link",{name:/Download invoice/})).toHaveAttribute("href","https://payments.example.invalid/receipt.pdf");
 });
+
+test("canceling Stripe checkout returns to pricing without starting another purchase", async ({page,request}) => {
+  for (const width of [390,1280]) {
+    await page.setViewportSize({width,height:844});
+    await page.goto('/pricing/?checkout=canceled');
+    await expect(page.getByRole('status')).toContainText("Checkout was canceled. You haven't been charged.");
+    await page.getByRole('link',{name:'Plan & usage',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Plan & usage',exact:true})).toBeVisible();
+  }
+  const {requests}=await(await request.get('/__test/requests')).json();
+  expect(requests.filter((r:{method:string;path:string})=>r.method==='POST'&&r.path==='/functions/v1/billing/checkout')).toEqual([]);
+});
