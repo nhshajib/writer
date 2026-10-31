@@ -32,6 +32,7 @@ async function fixture() {
     creates: 0,
     patches: 0,
     sessions: 0,
+    expired: [] as string[],
     releases: 0,
     locked: false,
     trial: false,
@@ -113,7 +114,7 @@ async function fixture() {
         return Response.json({
           active: state.priceFailure !== "inactive",
           currency: state.priceFailure === "currency" ? "eur" : "usd",
-          unit_amount: state.priceFailure === "amount" ? 1 : day ? 499 : interval === "month" ? 699 : 6000,
+          unit_amount: state.priceFailure === "amount" ? 1 : day ? 399 : interval === "month" ? 699 : 6000,
           type: day ? "one_time" : "recurring",
           recurring: day
             ? null
@@ -138,6 +139,11 @@ async function fixture() {
         const params = new URLSearchParams(String(init?.body));
         assertEquals(params.get("metadata[user_id]"), owner);
         return Response.json({ id: "cus_fixture_live" });
+      }
+      if (url.pathname === "/v1/checkout/sessions/cs_fixture_old/expire") {
+        state.expired.push("cs_fixture_old");
+        state.open = null;
+        return Response.json({ id: "cs_fixture_old", status: "expired" });
       }
       if (url.pathname === "/v1/checkout/sessions") {
         if (init?.method === "POST") {
@@ -310,7 +316,7 @@ Deno.test("Checkout Studio options retain plan prices, owner metadata, subscript
         assertEquals(p.get("payment_method_collection"), null);
         assertEquals(p.get("invoice_creation[enabled]"), "true");
         assertEquals(p.get("payment_intent_data[metadata][user_id]"), f.owner);
-        assertEquals(p.get("metadata[typewit_price]"), "typewit-day-pass-499-usd");
+        assertEquals(p.get("metadata[typewit_price]"), "typewit-day-pass-399-usd");
         assert(p.get("success_url")?.includes("{CHECKOUT_SESSION_ID}"));
         assertEquals(f.state.trialCalls, 0);
       } else {
@@ -325,5 +331,27 @@ Deno.test("Checkout Studio options retain plan prices, owner metadata, subscript
     } finally {
       f.restore();
     }
+  }
+});
+
+Deno.test("new Day Pass checkout retires an old-price link instead of charging the previous amount", async () => {
+  const f = await fixture();
+  try {
+    f.state.failure = "";
+    f.state.open = {
+      id: "cs_fixture_old",
+      mode: "payment",
+      url: "https://checkout.example.invalid/old-price",
+      metadata: { typewit_price: "typewit-day-pass-499-usd", user_id: f.owner },
+      line_items: { data: [{ price: { id: "price_fixture_old" } }] },
+    };
+    assertEquals((await f.send("day")).status, 200);
+    assertEquals(f.state.expired, ["cs_fixture_old"]);
+    assertEquals(f.state.sessions, 1);
+    assertEquals(f.state.params.get("metadata[typewit_price]"), "typewit-day-pass-399-usd");
+    assertEquals(f.state.params.get("line_items[0][price]"), "price_fixture_day");
+    assertEquals(f.state.creates, 0);
+  } finally {
+    f.restore();
   }
 });

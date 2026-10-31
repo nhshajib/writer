@@ -1,7 +1,7 @@
-import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
 import { grantDayPass } from "../functions/_shared/dayPass.ts";
 type Handler = (req: Request) => Promise<Response>;
-Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and verifies the returning owner", async () => {
+Deno.test("Day Pass checkout verifies fulfillment events, charges $3.99 once and verifies the returning owner", async () => {
   const names = [
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
@@ -18,16 +18,16 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
   let grants = 0, refunds = 0, configured = 0;
   let paid = true, wrongOwner = false, refunded = false, failEndpoint = false;
   let saved: URLSearchParams | null = null;
-  let amount = 499, currency = "usd", recurring = false, active = true;
+  let amount = 399, currency = "usd", recurring = false, active = true;
   const session = () => ({
     id: "cs_fixture_pass",
     mode: "payment",
     customer: "fixture-customer",
     payment_intent: "pi_fixture_pass",
     currency: "usd",
-    amount_subtotal: 499,
+    amount_subtotal: 399,
     payment_status: paid ? "paid" : "unpaid",
-    metadata: { typewit_price: "typewit-day-pass-499-usd", user_id: wrongOwner ? crypto.randomUUID() : owner },
+    metadata: { typewit_price: "typewit-day-pass-399-usd", user_id: wrongOwner ? crypto.randomUUID() : owner },
   });
   try {
     ["http://database.invalid", "fixture-service", "fixture-stripe", "https://app.example.invalid", "price_fixture_day"]
@@ -132,7 +132,7 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
     assert(params.get("success_url")?.includes("{CHECKOUT_SESSION_ID}"));
     assertEquals(configured, 1);
     for (const invalid of ["amount", "currency", "recurring", "inactive", "product_id", "missing"]) {
-      amount = invalid === "amount" ? 599 : 499;
+      amount = invalid === "amount" ? 499 : 399;
       currency = invalid === "currency" ? "eur" : "usd";
       recurring = invalid === "recurring";
       active = invalid !== "inactive";
@@ -143,7 +143,7 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
       assertEquals(saved, null);
       Deno.env.set("STRIPE_PRICE_DAY", "price_fixture_day");
     }
-    amount = 499;
+    amount = 399;
     currency = "usd";
     recurring = false;
     active = true;
@@ -172,7 +172,7 @@ Deno.test("Day Pass checkout verifies fulfillment events, charges $4.99 once and
     assertEquals((await send("activate-pass", { session_id: "cs_fixture_pass" })).status, 409);
     assertEquals(refunds, 1);
     assertEquals(grants, 1);
-    assertEquals(await grantDayPass({ ...session(), amount_subtotal: 499, mode: "subscription" }), false);
+    assertEquals(await grantDayPass({ ...session(), amount_subtotal: 399, mode: "subscription" }), false);
   } finally {
     globalThis.fetch = originalFetch;
     Object.defineProperty(Deno, "serve", { value: serve, configurable: true, writable: true });
@@ -238,6 +238,53 @@ Deno.test("playback is owner-scoped, Pro-only and never exposes unconfirmed sour
   } finally {
     globalThis.fetch = fetchBefore;
     Object.defineProperty(Deno, "serve", { value: serve, writable: true, configurable: true });
+    names.forEach((n, i) => before[i] === undefined ? Deno.env.delete(n) : Deno.env.set(n, before[i]!));
+  }
+});
+
+Deno.test("Day Pass fulfillment verifies new and historical prices without mixing their amounts", async () => {
+  const names = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+  const before = names.map((n) => Deno.env.get(n));
+  const originalFetch = globalThis.fetch;
+  const owner = crypto.randomUUID();
+  let grants = 0;
+  try {
+    Deno.env.set(names[0], "http://database.invalid");
+    Deno.env.set(names[1], "fixture-service");
+    globalThis.fetch = (async (input, init) => {
+      await Promise.resolve();
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/profiles")) {
+        return Response.json({ user_id: owner, stripe_customer_id: "cus_fixture" });
+      }
+      if (url.pathname.endsWith("/rpc/grant_day_pass")) {
+        assertEquals(JSON.parse(String(init?.body)).owner, owner);
+        grants++;
+        return Response.json(new Date(Date.now() + 86400000).toISOString());
+      }
+      throw new Error("Unexpected fixture path");
+    }) as typeof fetch;
+    const session = (amount: number, offer = amount) => ({
+      id: `cs_fixture_${amount}`,
+      customer: "cus_fixture",
+      payment_intent: `pi_fixture_${amount}`,
+      mode: "payment",
+      payment_status: "paid",
+      currency: "usd",
+      amount_subtotal: amount,
+      metadata: { typewit_price: `typewit-day-pass-${offer}-usd`, user_id: owner },
+    });
+    assertEquals(await grantDayPass(session(399), owner), true);
+    assertEquals(await grantDayPass(session(499), owner), true);
+    assertEquals(grants, 2);
+    await assertRejects(() => grantDayPass(session(399, 499), owner));
+    await assertRejects(() => grantDayPass(session(499, 399), owner));
+    await assertRejects(() => grantDayPass({ ...session(399), currency: "eur" }, owner));
+    assertEquals(await grantDayPass({ ...session(399), payment_status: "unpaid" }, owner), false);
+    assertEquals(await grantDayPass(session(299), owner), false);
+    assertEquals(grants, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
     names.forEach((n, i) => before[i] === undefined ? Deno.env.delete(n) : Deno.env.set(n, before[i]!));
   }
 });

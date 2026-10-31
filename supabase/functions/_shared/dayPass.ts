@@ -1,15 +1,23 @@
 /** Verified Stripe payment fulfillment shared by webhook and checkout return. */
 import { adminClient } from "./env.ts";
-export const DAY_PASS_PRICE = "typewit-day-pass-499-usd";
+export const DAY_PASS_PRICE = "typewit-day-pass-399-usd";
+export const DAY_PASS_AMOUNT = 399;
+/** Old paid/pending checkouts must still activate at their original verified price. */
+export function dayPassAmount(offer: unknown): number | undefined {
+  if (offer === DAY_PASS_PRICE) return DAY_PASS_AMOUNT;
+  if (offer === "typewit-day-pass-499-usd") return 499;
+  return undefined;
+}
 export async function grantDayPass(session: Record<string, unknown>, expectedOwner?: string): Promise<boolean> {
   const metadata = session.metadata as Record<string, string> | undefined;
-  if (session.mode !== "payment" || metadata?.typewit_price !== DAY_PASS_PRICE || session.payment_status !== "paid") {
+  const amount = dayPassAmount(metadata?.typewit_price);
+  if (session.mode !== "payment" || amount === undefined || session.payment_status !== "paid") {
     return false;
   }
   if (
-    session.currency !== "usd" || (session.amount_subtotal ?? session.amount_total) !== 499 ||
+    session.currency !== "usd" || (session.amount_subtotal ?? session.amount_total) !== amount ||
     typeof session.id !== "string" || typeof session.customer !== "string" ||
-    typeof session.payment_intent !== "string" || !metadata.user_id ||
+    typeof session.payment_intent !== "string" || !metadata?.user_id ||
     (expectedOwner && expectedOwner !== metadata.user_id)
   ) {
     throw new Error("The Day Pass payment could not be verified.");

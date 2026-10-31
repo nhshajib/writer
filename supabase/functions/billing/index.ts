@@ -8,7 +8,7 @@
 // Checkout starts a Pro subscription. The 7-day trial (card required) is only
 // offered if this person's normalized email has never claimed one.
 
-import { grantDayPass } from "../_shared/dayPass.ts";
+import { DAY_PASS_AMOUNT, DAY_PASS_PRICE, dayPassAmount, grantDayPass } from "../_shared/dayPass.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { sha256Hex } from "../_shared/crypto.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
@@ -177,10 +177,10 @@ async function checkout(
         }
       >(secretKey, `prices/${encodeURIComponent(price)}`, { "expand[]": "product" }, checkoutFetch);
       if (
-        !configured.active || configured.currency !== "usd" || configured.unit_amount !== 499 ||
+        !configured.active || configured.currency !== "usd" || configured.unit_amount !== DAY_PASS_AMOUNT ||
         configured.type !== "one_time" || configured.recurring || !configured.product?.active
       ) {
-        throw new HttpError(503, "Day Pass requires an active $4.99 USD one-time price. Please contact support.");
+        throw new HttpError(503, "Day Pass requires an active $3.99 USD one-time price. Please contact support.");
       }
       await ensureDayPassEvents(secretKey, checkoutFetch);
     }
@@ -233,11 +233,11 @@ async function checkout(
       );
     }
     const pending = open.data.filter((session) =>
-      session.mode === "subscription" || session.metadata?.typewit_price === "typewit-day-pass-499-usd"
+      session.mode === "subscription" || dayPassAmount(session.metadata?.typewit_price) !== undefined
     );
     const same = pending.find((session) =>
       (dayPass
-        ? session.metadata?.typewit_price === "typewit-day-pass-499-usd" &&
+        ? session.metadata?.typewit_price === DAY_PASS_PRICE &&
           session.line_items?.data[0]?.price?.id === price
         : (session.metadata?.typewit_price ?? session.line_items?.data[0]?.price?.id) === price) && session.url
     );
@@ -275,7 +275,7 @@ async function checkout(
       cancel_url: `${appUrl}/pricing?checkout=canceled`,
       // Always collect a card, including for the trial.
       payment_method_collection: "always",
-      "metadata[typewit_price]": dayPass ? "typewit-day-pass-499-usd" : price,
+      "metadata[typewit_price]": dayPass ? DAY_PASS_PRICE : price,
       "metadata[user_id]": user.id,
     };
     if (dayPass) {
