@@ -39,8 +39,9 @@ test('both social options remain accessible on narrow phones in light and dark t
 });
 test('a Discord account is labeled correctly and can set a password for Word',async({page})=>{
  await page.addInitScript(s=>localStorage.setItem('sb-localhost-auth-token',JSON.stringify(s)),session);
- await page.goto('/app/settings/#security');
+ await page.goto('/app/settings/#profile');
  await expect(page.locator('dd').filter({hasText:/^Discord$/})).toBeVisible();
+ await page.getByRole('link',{name:'Security',exact:true}).click();
  await expect(page.getByRole('form',{name:'Set a password'})).toBeVisible();
  await expect(page.getByText(/Your Google or Discord sign-in keeps working/)).toBeVisible();
 });
