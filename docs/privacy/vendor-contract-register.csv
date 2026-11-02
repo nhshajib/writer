@@ -1,0 +1,9 @@
+provider,purpose,role_to_confirm,locations_and_remote_access,dpa_status,transfer_mechanism_and_assessment,next_action
+Supabase,Database auth functions,Processor,Primary project Ohio US us-east-2; backup and remote access unverified,UNVERIFIED,UNVERIFIED,Record entity region backups accepted DPA and onward transfers
+Netlify,Production hosting,Processor and own administration,UNVERIFIED,UNVERIFIED,UNVERIFIED,Verify live settings logs and agreement
+Vercel,Preview hosting,Processor and own administration,UNVERIFIED,UNVERIFIED,UNVERIFIED,Verify preview backend isolation regions and agreement
+Resend,Service notifications,Processor and own administration,UNVERIFIED,UNVERIFIED,UNVERIFIED,Verify delivery scope retention and agreement
+Stripe,Payments,Controller and processor by service,UNVERIFIED,UNVERIFIED,UNVERIFIED,Map enabled products roles terms and retention
+Google,Identity picker Docs,Provider role by service,UNVERIFIED,UNVERIFIED,UNVERIFIED,Review Limited Use and document/identity arrangements
+Discord,Optional sign-in,Independent identity provider,UNVERIFIED,Not assumed required for every relationship,UNVERIFIED,Verify identity flow and role
+Microsoft,Word host APIs,Provider role by arrangement,UNVERIFIED,UNVERIFIED,UNVERIFIED,Verify Office arrangements and data flow
