@@ -1,143 +1,105 @@
 import Link from "next/link";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
-/** The Privacy Policy text, shared by its page and the pop-up on the sign-in pages. */
+/** Shared by the public policy and the signup/sign-in policy dialog. */
 export function PrivacyBody() {
-  const email = <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>;
-  return (
-    <>
-      <div className="summary">
-        <strong>The short version</strong>
-        <ul>
-          <li>We collect only what TypeWit needs to work: your account, the text you approve, and the documents you choose.</li>
-          <li>We don't sell your data, show ads, or use your text to train AI models.</li>
-          <li>TypeWit can only open Google Docs it creates or that you choose, nothing else in your Drive.</li>
-          <li>You can ask us to delete your data at any time.</li>
-        </ul>
-      </div>
+  const email = <a href={`mailto:${SUPPORT_EMAIL}?subject=Privacy%20request`}>{SUPPORT_EMAIL}</a>;
+  return <>
+    <div className="summary"><strong>The short version</strong><ul>
+      <li>TypeWit processes your account and the text, formatting and documents needed for the workflow you request.</li>
+      <li>We do not sell personal data or use your text for advertising or AI training.</li>
+      <li>Optional tracking or marketing requires its own consent where required; accepting terms is not that consent.</li>
+      <li>You can manage your settings, delete finished sessions, and contact us to exercise your privacy rights.</li>
+    </ul></div>
+    <h2>Who is responsible and how to contact us</h2>
+    <p>Typewit Organization, based in Bangladesh, operates typewit.com (TypeWit). We are the controller for account administration, billing, service security and our own customer support. Send privacy requests to {email}, with the subject “Privacy request”. This is our privacy contact; we do not describe this mailbox as an appointed Data Protection Officer or an EU/UK representative.</p>
+    <p>This notice explains our processing. It does not ask you to waive rights or consent to every use of data. Where the EU GDPR or other mandatory privacy law applies, that law determines your rights and our obligations.</p>
 
-      <p>
-        This policy explains what information Typewit Organization, based in Bangladesh and operating TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;), collects when you use
-        typewit.com, how we use it, and the choices you have. Typewit Organization is responsible for this processing (the data controller where that term applies). Questions: {email}.
-      </p>
+    <h2>What we collect and where it comes from</h2>
+    <h3>Account and eligibility</h3>
+    <ul>
+      <li>Your email, optional name, authentication identifiers and account timestamps. Email/password authentication stores a password hash, not a readable password.</li>
+      <li>Google sign-in supplies an account ID and permitted profile information such as name, email and avatar. Discord sign-in supplies an account ID, email and basic profile such as username/avatar. Discord sign-in does not give us your messages, servers or contacts.</li>
+      <li>Your country and birth month/year, age-check result and timestamps, and any recorded guardian confirmation. We do not request your day of birth. These checks control eligibility; a guardian checkbox is not identity verification of a parent.</li>
+      <li>The version and timestamp of your Responsible Use Agreement acceptance, account preferences and service notification choices. Agreement acceptance is not marketing or cookie consent.</li>
+    </ul>
+    <h3>Documents, submitted text and session activity</h3>
+    <ul>
+      <li>Text and supported formatting you provide, the document title/ID/link, chosen provider, rhythm, schedule, writing hours/time zone, writing blocks, pauses and optional simulated corrections. Text and settings may be sent to our server to calculate a preview before you approve starting; approval is required before a writing session begins.</li>
+      <li>Session source and execution steps, progress, approvals/content fingerprints and activity records. Paused Pro edits replace remaining content/settings; completed actions can remain in the session record. Playback is a replay of TypeWit actions, not visitor session-replay tracking or proof of human authorship.</li>
+      <li>For connected Google Docs, encrypted access credentials and selected document content or revision information needed to locate insertion points, preserve formatting, check conflicts, recover safely or show a requested comparison. The <code>drive.file</code> permission covers files TypeWit creates or you select through Google’s picker, not unrestricted access to Drive.</li>
+      <li>Word sessions use the open document through the add-in. We do not store a Microsoft password or Microsoft OAuth token for this integration. Google and Microsoft retain document content and history under their own services.</li>
+    </ul>
+    <h3>Payments, support and technical records</h3>
+    <ul>
+      <li>Stripe processes payment information. TypeWit uses customer, checkout, subscription and payment identifiers, plan/status, pass activation/expiry and refund information. Billing screens can retrieve limited card details (such as brand/last four/expiry), billing email and invoices from Stripe. We do not receive or store full card numbers or card security codes.</li>
+      <li>A normalized email/trial-use record helps apply the one-trial-per-person rule. It can remain after account deletion for that limited purpose.</li>
+      <li>Messages and attachments you choose to send to support, and records needed to respond to your requests.</li>
+      <li>Hosting and service logs can contain IP addresses, browser/device information, request times, identifiers and errors for operation, security and troubleshooting. Providers may also produce payment or authentication security signals.</li>
+    </ul>
+    <p>We obtain data from you and your device, your chosen sign-in/document provider, Stripe, and the operational providers listed below. Do not submit information you are not authorized to process. We do not request health, biometric, political, religious or other special-category data; avoid including it in test text or support messages.</p>
 
-      <h2>What we collect</h2>
-      <h3>Account information</h3>
-      <ul>
-        <li>Your email address, and your password if you sign up with email (stored only as a secure hash).</li>
-        <li>If you use Continue with Google: your name, email address and Google account ID, which Google shares when you sign in.</li>
-        <li>If you use Continue with Discord: your Discord account ID, email address and basic profile details, such as your username and avatar, shared for authentication. Discord sign-in does not connect Google Docs or grant access to your Discord messages, servers or contacts.</li>
-        <li>Your name, if you choose to give it, so the app can greet you.</li>
-        <li>
-          Your country and the month and year you were born, to check that you are old enough to use TypeWit where you
-          live, and whether a parent or guardian needs to buy Pro for you. We never ask for the day.
-        </li>
-        <li>Which version of the Responsible Use Agreement you accepted, and when.</li>
-      </ul>
-      <h3>Your Google Docs connection</h3>
-      <ul>
-        <li>
-          When you connect Google Docs, Google gives us access tokens for the <code>drive.file</code> permission. This
-          only covers documents TypeWit creates or that you choose. We store these tokens encrypted.
-        </li>
-        <li>The title, ID and link of each document you write into.</li>
-      </ul>
-      <h3>Text and activity</h3>
-      <ul>
-        <li>The text and supported formatting you submit for each session, its steps, selected rhythm, timing, simulated corrections and pauses, and your approval (including a fingerprint of the exact submitted content). Paused Pro edits replace the remaining approved content and update settings; already entered text and activity remain part of the session record.</li>
-        <li>An activity log of execution, approvals, settings changes, pauses, resumes and stops. Temporary typo, false-start and final-review actions can be written into your chosen document and remain in Google or Microsoft history even after correction. Pro playback reads the same stored execution actions; it does not obtain extra Google history or publish a recording. Writing-hours settings include your selected IANA time zone, hours and optional weekdays.</li>
-      </ul>
-      <h3>Billing</h3>
-      <ul>
-        <li>
-          If you subscribe to Pro or buy a Day Pass, Stripe processes your payment. For passes we keep the checkout/payment identifiers, activation and expiry, and any refund status to provide and reconcile access. We receive your Stripe customer ID, your plan and
-          subscription status. <strong>We never see or store your card number.</strong>
-        </li>
-        <li>To make sure each person gets one free trial, we keep a record of trial use linked to a normalised form of your email address.</li>
-      </ul>
-      <h3>Technical information</h3>
-      <ul>
-        <li>Our hosting providers keep standard server logs (such as IP address, browser type and time of request) for security and troubleshooting.</li>
-        <li>We store your sign-in session, unsent drafts (including supported formatting), and optional pace preferences in your browser’s local storage. Drafts and .docx conversion are processed locally until you submit a session. Clear browser storage on shared devices. We don't use advertising or analytics cookies.</li>
-      </ul>
+    <h2>Lawful basis for processing — GDPR Article 6</h2>
+    <ul>
+      <li><strong>Contract, Article 6(1)(b):</strong> creating and managing your requested account, preparing previews, connecting selected documents, entering approved text, displaying session history, providing purchased access and service communications necessary to deliver TypeWit.</li>
+      <li><strong>Legitimate interests, Article 6(1)(f):</strong> service/network security, preventing fraud and duplicate trials, investigating faults, providing non-marketing service updates where appropriate, handling support and establishing or defending legal claims. These interests must be balanced against your rights; you can object as explained below.</li>
+      <li><strong>Legal obligation, Article 6(1)(c):</strong> records or disclosures required by applicable EU or Member State law where that basis applies. Other legal requirements must be assessed under an appropriate lawful basis; a requirement in another country does not automatically satisfy Article 6(1)(c).</li>
+      <li><strong>Consent, Article 6(1)(a):</strong> optional marketing or non-essential tracking where offered and requiring consent. We must ask separately before that processing starts. You can withdraw independently, without affecting earlier lawful processing or losing necessary account functionality.</li>
+    </ul>
+    <p>Information needed for authentication, eligibility, payment or execution is required for the corresponding feature; without it we may be unable to provide that feature. An optional profile name is not required. Automated age, plan, payment and abuse checks can restrict access. Contact us to challenge a result, correct information or request human review; any applicable Article 22 safeguards remain available.</p>
 
-      <h2>How we use it</h2>
-      <ul>
-        <li>To provide TypeWit: create your account, connect Google, and enter your approved text into your documents.</li>
-        <li>To show your progress and activity log, and to notify you when a session finishes or stops.</li>
-        <li>To run billing, apply plan limits and prevent free-trial abuse.</li>
-        <li>To keep TypeWit secure, fix problems and answer support requests.</li>
-      </ul>
-      <p>We don't sell or rent your personal information, and we don't use your text for advertising or to train AI models.</p>
+    <h2>Cookies, local storage and consent choices</h2>
+    <p>See the <Link href="/cookies/">Cookie and Storage Policy</Link> for authentication storage, temporary OAuth state, locally saved drafts and preferences, and how to clear them. Our application does not include advertising, behavioral-analytics or visitor session-replay trackers. Operational session activity is different from recording your browsing behavior.</p>
+    <p>Where optional storage or tracking requires consent, it must remain off until you opt in. Any such banner must offer an equally prominent, equally easy “Reject all” and “Accept all” on its first layer, with no preselected optional categories. Marketing cannot be bundled with terms or essential service emails. Consent choices must be recorded with their purpose, notice/version, time and withdrawal, and withdrawal must be as easy as giving consent. No optional-tracking consent banner is needed solely to authorize storage genuinely necessary for a service you request.</p>
+    <p>Completion and attention emails are service notifications, controlled in <Link href="/app/settings/#notifications">Settings → Notifications</Link>. Turning them off does not prevent necessary authentication, billing, security or legal notices. These switches are not permission for advertising emails.</p>
 
-      <h2>Google user data</h2>
-      <p>
-        TypeWit's use and transfer of information received from Google APIs adheres to the{" "}
-        <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener noreferrer">
-          Google API Services User Data Policy
-        </a>
-        , including the Limited Use requirements. We use Google access only to create documents and insert the text you
-        approve. We don't read other files in your Drive, and no person at TypeWit reads your documents unless you ask
-        us to for support, it's needed for security, or the law requires it.
-      </p>
+    <h2>Recipients and service providers</h2>
+    <p>We disclose data needed to operate your requested workflow to Supabase, Netlify (production hosting), Vercel (preview/test hosting), Google, Discord, Microsoft, Stripe and Resend. See the <Link href="/subprocessors/">service-provider and subprocessor list</Link> for their purposes, data categories and privacy information. They do not all act solely as processors: payment, identity and document providers can also be independent controllers for their own services.</p>
+    <p>Processors acting on our instructions require appropriate Article 28 terms, confidentiality, security and assistance obligations. A provider’s inclusion in our list is not proof of an executed DPA or a particular hosting region. Contact our privacy contact for the applicable arrangements. We may also disclose information when lawfully required, to professional advisers, or to establish or defend rights. We do not sell or rent personal data, or use submitted text for advertising or AI training.</p>
+    <h3>Google user data</h3>
+    <p>Our use and transfer of Google API data follows the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener noreferrer">Google API Services User Data Policy</a>, including Limited Use. Access is used for the document features you request. Staff access is restricted to authorized purposes such as support you request, security investigation or legal requirements.</p>
 
-      <h2>Who we share it with</h2>
-      <p>We share information only with service providers that help us run TypeWit, and only as much as they need:</p>
-      <ul>
-        <li><strong>Supabase</strong>: database, sign-in and server functions.</li>
-        <li><strong>Netlify</strong>: production website hosting. <strong>Vercel</strong>: preview and test website hosting.</li>
-        <li><strong>Google</strong>: sign-in, document picking and Google Docs, at your request.</li>
-        <li><strong>Discord</strong>: optional sign-in, at your request. Discord processes its consent and authentication flow; we do not send your session text to Discord.</li>
-        <li><strong>Microsoft</strong>: the Word host document and add-in APIs when you use Word. We do not store a Microsoft password or OAuth token.</li>
-        <li><strong>Stripe</strong>: payments and subscription management.</li>
-        <li><strong>Resend</strong>: notification emails, if email notifications are turned on.</li>
-      </ul>
-      <p>We may also disclose information if the law requires it, or to protect the rights and safety of our users or TypeWit.</p>
+    <h2>International processing and transfers</h2>
+    <p>TypeWit is operated from Bangladesh. Our primary Supabase project is configured in Ohio, United States (us-east-2). Other service-provider processing, backups or authorized support access may occur outside your country, including outside the EEA/UK. Hosting a database in Europe does not by itself eliminate international transfers. Bangladesh does not have an EU adequacy decision.</p>
+    <p>Where GDPR Chapter V applies, a transfer needs a valid mechanism before it takes place: for example, an applicable adequacy decision for the recipient, or appropriate safeguards such as the European Commission’s Standard Contractual Clauses with the required transfer assessment and any supplementary measures. UK transfers need the applicable UK mechanism. An adequacy decision for one recipient does not cover every provider or onward transfer.</p>
+    <p>This notice does not establish that particular contracts have been signed. Ask {email} for the relevant recipients, processing locations and applicable safeguards, and a copy of safeguards subject to necessary redactions. Accepting our terms is not blanket consent to international transfers.</p>
 
-      <h2>How long we keep it</h2>
-      <p>
-        We keep your account, sessions and activity log while your account is open, so you can see your history. You
-        can delete finished sessions at any time, or delete your whole account in Settings: that removes your sessions,
-        their text and logs, your notifications and your Google connection straight away. If you ask us by email
-        instead, we do it within 30 days. We keep records we must keep by law (such as billing records), and, if you used
-        the free trial, your email address (lower-cased) and the date of the trial, so a trial can only be used once.
-        Short-lived records are deleted automatically: read notifications after 90 days, and security and duplicate-
-        request records after 2 to 90 days.
-      </p>
+    <h2>Retention and deletion</h2>
+    <ul>
+      <li><strong>Accounts, sessions, submitted text, execution/activity history and unread notifications:</strong> retained to provide your account and requested history until you delete applicable records or your account, subject to lawful preservation needs. Inactivity alone currently does not trigger automatic account/session deletion. This is not a promise of an inactivity purge.</li>
+      <li><strong>Read notifications:</strong> automatic cleanup after 90 days from being read. <strong>Duplicate-start records:</strong> after 7 days. <strong>Rate-limit/write-window records:</strong> after 2 days. <strong>Webhook processing receipts:</strong> after 90 days. Cleanup normally runs daily; outages can delay a run. Expired Google connection nonces are also cleaned up.</li>
+      <li><strong>Trial eligibility:</strong> normalized email and trial-use evidence remain as needed to enforce the one-trial rule and investigate abuse. Their necessity must be reviewed; deleting your account does not automatically erase this record.</li>
+      <li><strong>Billing, claims and support:</strong> kept only as needed for payment reconciliation, applicable statutory recordkeeping, responding to requests or establishing/defending claims. The relevant legal obligation, unresolved issue and limitation period determine retention; ask us for the period applicable to a particular record.</li>
+      <li><strong>Provider logs/backups:</strong> subject to separate provider retention cycles and lawful preservation requirements. Deleting live application records is not instantaneous removal from every backup. Retained copies must remain protected and not be reused for unrelated purposes.</li>
+    </ul>
+    <p>Clear finished sessions in <Link href="/app/settings/#data">Settings → Data &amp; privacy</Link>. Account deletion is under <Link href="/app/settings/#danger">Delete account</Link> and requires confirming your email to prevent accidental deletion. Self-service deletion can require resolving an ongoing Stripe subscription first. You can still request erasure by email at any time, including if self-service is blocked; a billing issue does not remove your statutory rights. We assess necessary exceptions rather than promising deletion of every record regardless of law.</p>
+    <p>Deletion stops sessions and removes account-linked live records through the account deletion workflow. It does not erase Google/Microsoft documents or their version history, your browser’s saved drafts/preferences, or records independently controlled by providers. Clear local storage and manage provider documents separately.</p>
 
-      <p>Session settings include any writing-block lengths, scheduled rests and writing hours you choose. We store these with the session to schedule entry and resume it after rests. This does not add access to your other documents or change the retention periods above.</p>
+    <h2>Your rights and how to use them</h2>
+    <p>Where GDPR applies, you can request:</p>
+    <ul>
+      <li><strong>Access:</strong> confirmation, a copy of your personal data and information about processing.</li>
+      <li><strong>Rectification:</strong> correction of inaccurate data or completion of incomplete information.</li>
+      <li><strong>Erasure:</strong> deletion where its conditions apply; some records may be retained for a legal obligation or legal claims.</li>
+      <li><strong>Restriction:</strong> limits on use in the circumstances set out in Article 18.</li>
+      <li><strong>Portability:</strong> data you provided, processed by automated means on consent or contract, in a structured, commonly used, machine-readable format, and transmission to another controller where technically feasible.</li>
+      <li><strong>Objection:</strong> object on grounds relating to your situation to processing based on legitimate interests. We must stop unless the applicable legal grounds for continuing apply. Objection to direct marketing is unconditional.</li>
+      <li><strong>Consent withdrawal and review:</strong> withdraw consent independently and exercise applicable safeguards for solely automated decisions.</li>
+    </ul>
+    <p>The Settings JSON download is an account/session summary, not a complete Article 15 access response or a complete portability export. For a full request, including eligible submitted text and records not present in that summary, email {email}. You can correct your display name in Profile and request other corrections through the same address.</p>
+    <p>We respond without undue delay and normally within one month of receiving a request. Where legally permitted for complex or numerous requests, this can be extended by up to two further months; we will explain the extension within the first month. Requests are normally free. We may ask for proportionate information to verify identity, protect other people’s rights, and explain any lawful refusal or fee. You do not need a paid plan to exercise your rights.</p>
+    <p>You may complain to a competent supervisory authority, particularly where you habitually live, work or believe an infringement occurred, and seek a judicial remedy. You need not contact TypeWit first. The <a href="https://www.edpb.europa.eu/about-edpb/about-edpb/members_en" rel="noopener noreferrer">EDPB authority directory</a> can help locate an EEA authority. UK users can contact the ICO.</p>
 
-      <h2>Your choices and rights</h2>
-      <ul>
-        <li>Turn email notifications on or off from <Link href="/app/settings/">Settings</Link>.</li>
-        <li>Manage or disconnect Google accounts from Connected accounts in your dashboard, or revoke access in your Google Account under Security, Third-party access. Disconnecting stops active sessions and removes stored access credentials; it does not erase your documents, their history or existing session records.</li>
-        <li>Ask for a copy of your data, a correction, or deletion by emailing {email}.</li>
-      </ul>
-      <p>Depending on where you live, you may have additional rights under local privacy laws. Contact us and we'll help.</p>
+    <h2>Security and personal data breaches</h2>
+    <p>We use encrypted transport for service connections, encrypted Google credentials at rest, account-level access controls and restricted privileged access. Exact protocol/cipher support, storage encryption and backup controls depend on the service and provider configuration. We do not promise that every connection uses TLS 1.3 or every stored record uses AES-256 without verifying that configuration. No system is risk-free.</p>
+    <p>For a personal data breach, we must assess and document what happened, contain the incident and its risks, and cooperate with affected processors. Where GDPR Article 33 requires notification, we must notify the competent supervisory authority without undue delay and, where feasible, within 72 hours after becoming aware, unless the breach is unlikely to result in a risk to people’s rights and freedoms. If notification is late, we must explain why; information can be supplied in phases where permitted.</p>
+    <p>Where a breach is likely to create a high risk, we must inform affected people without undue delay in clear language, unless a lawful Article 34 exception applies. A report to TypeWit is not the same as notification to an authority. Send suspected security incidents to {email}, with “Security incident” in the subject.</p>
 
-      <h2>Processing grounds and international services</h2>
-      <p>Where data-protection law requires a legal basis, we process information to perform our contract with you, meet legal obligations, and pursue legitimate interests in service security, fraud prevention and support, subject to your rights. We seek consent where required. Providers may process data outside your country under applicable contractual and legal safeguards. Contact us for details or to exercise access, correction, erasure, restriction, portability or objection rights where available, or to withdraw consent without affecting earlier lawful processing. You may complain to your local data-protection authority.</p>
-      <p>Account deletion removes live application records; provider backups, legally required billing records and limited fraud-prevention records may remain for their applicable retention periods. Deleting TypeWit records does not delete Google or Microsoft documents or their version history; manage those with the provider. Do not submit sensitive data you lack authority to process.</p>
-      <h2>Security</h2>
-      <p>
-        We use encryption in transit, encrypt Google tokens at rest, and restrict each account to its own data. No
-        system is perfectly secure, but we work to protect your information and will notify you if a breach affects
-        you.
-      </p>
+    <h2>Children and young people</h2>
+    <p>TypeWit is not available below age 13 or below our country-specific minimum eligibility age, which can be higher. Below that minimum, a guardian checkbox does not override the restriction. Accounts are created before the age question; the dashboard is gated pending the check. A below-minimum result blocks use and cancels active sessions; it does not by itself guarantee immediate deletion. Contact us to request removal through the account-deletion process.</p>
+    <p>GDPR Article 8’s national threshold (13–16) applies when consent is relied on for an information-society service offered directly to a child; it is not a universal rule that all processing of every EU user under 16 requires consent. Where parental authorization is legally required, reasonable verification is necessary. A recorded guardian declaration is not proof that such verification has occurred. Eligible users under 18 must obtain guardian agreement under our service rules, and paid plans must be purchased by an adult.</p>
 
-      <h2>Children</h2>
-      <p>
-        TypeWit isn&apos;t for children under 13, or for anyone below the age of digital consent in their country (up to 16
-        in parts of the EU and EEA). After you create an account, we check your country and month and year of birth before you can use the dashboard. We don&apos;t
-        knowingly keep information about anyone below that age. If we learn that we have, we delete the account. A parent
-        or guardian who thinks this has happened can email {email}.
-      </p>
-
-      <h2>Changes</h2>
-      <p>If we change this policy, we'll update the date above and, for significant changes, let you know by email or in the app.</p>
-
-      <h2>Contact</h2>
-      <p>Email {email} with any questions about privacy.</p>
-    </>
-  );
+    <h2>Changes to this notice</h2>
+    <p>We update the date when this notice changes and provide appropriate notice of material changes. If new processing needs consent, an updated notice or continued use cannot substitute for that consent. Contact {email} about this notice or any privacy request.</p>
+  </>;
 }

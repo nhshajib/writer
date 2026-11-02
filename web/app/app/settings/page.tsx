@@ -361,7 +361,8 @@ export default function SettingsPage() {
             {profile.agreed_terms_version === CURRENT_TERMS_VERSION ? <>You accepted version {CURRENT_TERMS_VERSION}. </> : <>You haven&apos;t accepted the current version. </>}
               <Link href="/responsible-use">Read the agreement</Link>
             </p>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={downloadData}>Download my data</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={downloadData}>Download account summary</button>
+            <p className="hint">This JSON includes account details and session summaries, not your complete personal-data record. For a full access or portability request, <a href={`mailto:${SUPPORT_EMAIL}?subject=Privacy%20request`}>contact TypeWit about privacy</a>. You do not need a paid plan.</p>
             {!confirmClear
               ? (
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmClear(true)} disabled={finishedCount === 0}>

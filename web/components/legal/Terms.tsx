@@ -8,8 +8,7 @@ export function TermsBody() {
     <>
       <p>
         These terms are an agreement between you and Typewit Organization, based in Bangladesh, operating TypeWit (&ldquo;we&rdquo;, &ldquo;us&rdquo;) for your use of
-        typewit.com and the TypeWit service. By creating an account or using TypeWit, you agree to these terms, our{" "}
-        <Link href="/privacy/">Privacy Policy</Link> and the <Link href="/responsible-use/">Responsible Use Agreement</Link>.
+        typewit.com and the TypeWit service. By creating an account or using TypeWit, you agree to these terms and the <Link href="/responsible-use/">Responsible Use Agreement</Link>. Our <Link href="/privacy/">Privacy Policy</Link> explains personal-data processing; acknowledging that notice is not blanket consent to tracking, marketing or other processing that requires separate consent.
       </p>
 
       <h2>1. What TypeWit does</h2>
@@ -24,10 +23,9 @@ export function TermsBody() {
         <li>
           You must be at least 13 years old, and at least the age at which you can agree to online services yourself where
           you live. In most of the world that is 13; in the EU and EEA it is between 13 and 16 depending on the country
-          (for example 16 in Germany, Ireland and the Netherlands). When you sign up we ask for your country and the month
-          and year you were born to check this.
+          (for example 16 in Germany, Ireland and the Netherlands). After account creation and before enabling the dashboard, we ask for your country and birth month/year to check eligibility. A guardian declaration does not override the minimum age or establish verified parental authorization under data-protection law.
         </li>
-        <li>If you are under 18, a parent or guardian must agree to and pay for a Pro subscription on your behalf.</li>
+        <li>If you are under 18, a parent or guardian must agree to your use. Paid plans, including Day Pass, must be purchased by an adult.</li>
         <li>Sign up with Google, Discord or a personal email address. Social sign-up also requires an eligible personal email address. Keep your sign-in details secure; you're responsible for activity on your account.</li>
         <li>Give accurate information and keep it up to date.</li>
       </ul>
@@ -123,10 +121,16 @@ export function TermsBody() {
       <h2>13. Changes to these terms</h2>
       <p>
         We may update these terms. We'll change the date above and, for significant changes, tell you by email or in
-        the app before they apply. If you keep using TypeWit after that, the new terms apply.
+        the app before they apply. If you keep using TypeWit after that, the new terms apply to the extent permitted by applicable law. Continued use is not consent to new tracking, marketing or other processing that requires separate consent.
       </p>
 
-      <h2>14. Contact and operator</h2>
+      <h2>14. Personal data and privacy rights</h2>
+      <p>The <Link href="/privacy/">Privacy Policy</Link>, <Link href="/cookies/">Cookie and Storage Policy</Link> and <Link href="/subprocessors/">service-provider list</Link> describe processing, lawful bases, retention, recipients and privacy choices. You do not give up access, correction, erasure, restriction, portability, objection, consent withdrawal, supervisory complaints or other rights that apply to you. Exercising these rights does not require a paid plan.</p>
+      <p>Self-service account deletion includes an email confirmation and may require resolving an ongoing subscription. You can make a privacy or erasure request by emailing {email} even if that workflow is blocked. Necessary identity checks and lawful retention exceptions can apply; a billing issue does not remove statutory rights. Deleting TypeWit data does not delete provider-controlled documents/history, local browser storage or every provider backup immediately.</p>
+      <p>You must have authority and an appropriate lawful basis for personal data you submit about others. Where TypeWit would process data on an organization’s instructions and a data processing agreement is required, that agreement must be arranged before that use; contact us first. The consumer terms alone are not a signed Article 28 DPA. Do not submit regulated or special-category personal data without the necessary authorization and safeguards.</p>
+      <p>No liability cap, disclaimer, governing-law clause or use restriction in these terms overrides non-waivable data-protection rights, supervisory-authority powers or compensation rights under applicable law. Optional marketing and tracking must not be made a condition of accepting these terms.</p>
+
+      <h2>15. Contact and operator</h2>
       <p>TypeWit and typewit.com are operated by Typewit Organization, based in Bangladesh. Questions or legal notices? Email {email}.</p>
     </>
   );
