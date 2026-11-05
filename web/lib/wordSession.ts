@@ -98,7 +98,7 @@ export class WordRunner {
   private async loop() {
     const store = engineStore(this.dripId);
     while (!this.stopped) {
-      let wait = 5_000;
+      let wait: number;
       try {
         const claim = await engine<Claim>(this.dripId, { op: "claim", document_id: this.documentId });
         if (claim.row) {

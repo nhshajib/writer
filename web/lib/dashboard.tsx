@@ -7,6 +7,7 @@ import { rememberAgeBlock } from "./age";
 import { recordPendingAge, recordPendingAgreement } from "./googleAuth";
 import { supabase } from "./supabase";
 import { CURRENT_TERMS_VERSION } from "./terms";
+import { ProfileRefreshGuard } from "./profileRefresh";
 import type { Connection, Drip, InsertionUnit } from "./types";
 import { effectivePlan, type PlanTier, PLAN_LIMITS as SERVER_PLAN_LIMITS } from "../../supabase/functions/_shared/limits";
 import { useRequireSession } from "./useRequireSession";
@@ -109,8 +110,18 @@ type LoadState =
 export function useDashboardLoader() {
   const session = useRequireSession();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [profileGuard] = useState(() => new ProfileRefreshGuard<Profile>([
+    "email_notifications", "email_on_completed", "email_on_attention", "session_defaults", "pace_presets",
+    "agreed_terms_version", "age_confirmed_at", "birth_year", "birth_month",
+  ]));
+
+  useEffect(() => {
+    profileGuard.reset();
+    setState({ status: "loading" });
+  }, [session?.user.id, profileGuard]);
 
   const refresh = useCallback(async () => {
+    const snapshot = profileGuard.begin();
     try {
       await finishGoogleConnectReturn();
       const client = supabase();
@@ -146,17 +157,20 @@ export function useDashboardLoader() {
         }
         if (age === "ok") current = { ...current, age_confirmed_at: new Date().toISOString() };
       }
+      const reconciled = profileGuard.accept(current, snapshot);
+      if (!reconciled) return;
       setState({
         status: "ready",
-        profile: current,
+        profile: reconciled,
         connections: conns.connections,
         drips: list.drips,
         notifications: (notes ?? []) as AppNotification[],
       });
     } catch (e) {
+      if (!profileGuard.isCurrent(snapshot)) return;
       setState({ status: "error", message: e instanceof Error ? e.message : "Couldn't load your dashboard." });
     }
-  }, []);
+  }, [profileGuard]);
 
   useEffect(() => {
     if (!session) return;
@@ -218,8 +232,10 @@ export function useDashboardLoader() {
       wordsToday: state.profile.usage_date === today ? state.profile.words_used_today : 0,
       displayName,
       refresh,
-      setProfile: (update) =>
-        setState((s) => (s.status === "ready" ? { ...s, profile: { ...s.profile, ...update } } : s)),
+      setProfile: (update) => {
+        profileGuard.record(update);
+        setState((s) => (s.status === "ready" ? { ...s, profile: { ...s.profile, ...update } } : s));
+      },
       markRead: (id) => {
         const now = new Date().toISOString();
         supabase().from("notifications").update({ read_at: now }).eq("id", id).then(() => undefined);
@@ -241,7 +257,7 @@ export function useDashboardLoader() {
         );
       },
     };
-  }, [session, state, refresh]);
+  }, [session, state, refresh, profileGuard]);
 
   return { session, state, value };
 }

@@ -48,7 +48,7 @@ export function continueWithGoogle(options: SignInOptions): Promise<string | nul
 
 /** Records an agreement the person gave on the sign-up page before social sign-in. Returns true if recorded. */
 export async function recordPendingAgreement(): Promise<boolean> {
-  let version: string | null = null;
+  let version: string | null;
   try {
     version = sessionStorage.getItem(PENDING_KEY);
   } catch {
@@ -90,7 +90,7 @@ export async function confirmAge(age: AgeAnswers): Promise<AgeResult> {
 
 /** Records age answers given on the Join form before social sign-in, if any. Returns null when there were none. */
 export async function recordPendingAge(): Promise<AgeResult | null> {
-  let age: AgeAnswers | null = null;
+  let age: AgeAnswers | null;
   try {
     age = JSON.parse(sessionStorage.getItem(PENDING_AGE_KEY) ?? "null");
   } catch {

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:word-format": "node --experimental-transform-types --no-warnings scripts/check-editor-word.mjs",
     "test:e2e": "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54399 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=e2e next build && playwright test",
@@ -23,17 +23,22 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
+    "@eslint/js": "10.0.1",
     "@playwright/test": "1.56.1",
     "@types/node": "22.15.30",
     "@types/react": "19.1.13",
     "@types/react-dom": "19.1.9",
-    "typescript": "5.9.2"
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.72.1"
   },
   "overrides": {
     "mammoth": {
       "argparse": "2.0.1"
     },
     "postcss": "8.5.31",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "minimatch": "11.0.1"
   }
 }

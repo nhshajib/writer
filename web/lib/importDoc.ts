@@ -23,7 +23,7 @@ export async function importFile(file: File): Promise<ImportedText> {
 
 /** Normal line breaks, and no characters Google Docs would drop. */
 export function clean(raw: string, markdown: boolean): ImportedText {
-  let text = raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
+  let text = raw.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   let removed = 0;
   for (;;) {
     const found = findUnsupportedCharacters(text, 1)[0];
