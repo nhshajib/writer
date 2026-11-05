@@ -13,7 +13,7 @@ export class ProfileRefreshGuard<T extends object> {
   private epoch = 0;
   private pending = new Map<keyof T, { value: T[keyof T]; revision: number }>();
 
-  constructor(private readonly editable: readonly (keyof T)[]) {}
+  constructor(private readonly editable: readonly (keyof T)[], private readonly presenceOnly: readonly (keyof T)[] = []) {}
 
   begin() {
     return { request: ++this.requests, edits: this.edits, epoch: this.epoch };
@@ -35,7 +35,8 @@ export class ProfileRefreshGuard<T extends object> {
     this.applied = token.request;
     const next = { ...server };
     for (const [key, pending] of this.pending) {
-      if (pending.revision <= token.edits && jsonValue(server[key]) === jsonValue(pending.value)) {
+      const matches = this.presenceOnly.includes(key) && Boolean(server[key]) && Boolean(pending.value) || jsonValue(server[key]) === jsonValue(pending.value);
+      if (pending.revision <= token.edits && matches) {
         this.pending.delete(key);
       } else {
         next[key] = pending.value;

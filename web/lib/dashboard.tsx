@@ -113,7 +113,7 @@ export function useDashboardLoader() {
   const [profileGuard] = useState(() => new ProfileRefreshGuard<Profile>([
     "email_notifications", "email_on_completed", "email_on_attention", "session_defaults", "pace_presets",
     "agreed_terms_version", "age_confirmed_at", "birth_year", "birth_month",
-  ]));
+  ], ["age_confirmed_at"]));
 
   useEffect(() => {
     profileGuard.reset();
@@ -136,6 +136,7 @@ export function useDashboardLoader() {
         client.from("notifications").select("id, drip_id, kind, title, body, read_at, created_at")
           .order("created_at", { ascending: false }).limit(20),
       ]);
+      if (!profileGuard.isCurrent(snapshot)) return;
       if (profileError) throw new Error(profileError.message);
       let current = (profile ?? {
         plan: "free", subscription_status: null, email_notifications: true, agreed_terms_version: null,
@@ -143,19 +144,30 @@ export function useDashboardLoader() {
       }) as Profile;
       current = { ...current, plan: effectivePlan(current), session_defaults: (defaults as { session_defaults?: SessionDefaults } | null)?.session_defaults ?? {} };
       // Someone who ticked the agreement before social sign-in has it recorded now.
-      if (current.agreed_terms_version !== CURRENT_TERMS_VERSION && await recordPendingAgreement()) {
-        current = { ...current, agreed_terms_version: CURRENT_TERMS_VERSION };
+      if (current.agreed_terms_version !== CURRENT_TERMS_VERSION) {
+        const recorded = await recordPendingAgreement();
+        if (!profileGuard.isCurrent(snapshot)) return;
+        if (recorded) {
+          const update = { agreed_terms_version: CURRENT_TERMS_VERSION };
+          profileGuard.record(update);
+          current = { ...current, ...update };
+        }
       }
       // Age answers given on the Join form before social sign-in.
       if (!current.age_confirmed_at) {
         const age = await recordPendingAge();
+        if (!profileGuard.isCurrent(snapshot)) return;
         if (age === "too_young") {
           rememberAgeBlock();
           await client.auth.signOut();
           window.location.assign("/signup/");
           return;
         }
-        if (age === "ok") current = { ...current, age_confirmed_at: new Date().toISOString() };
+        if (age === "ok") {
+          const update = { age_confirmed_at: new Date().toISOString() };
+          profileGuard.record(update);
+          current = { ...current, ...update };
+        }
       }
       const reconciled = profileGuard.accept(current, snapshot);
       if (!reconciled) return;

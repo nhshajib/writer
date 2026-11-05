@@ -8,6 +8,15 @@ interface Profile {
 }
 const initial: Profile = { email: true, age: null, plan: "pro" };
 
+Deno.test("profile refresh: server confirmation timestamps retire client markers despite clock differences", () => {
+  const guard = new ProfileRefreshGuard<Profile>(["age"], ["age"]);
+  const stale = guard.begin();
+  guard.record({ age: "client-confirmed-at" });
+  assertEquals(guard.accept(initial, stale)?.age, "client-confirmed-at");
+  assertEquals(guard.accept({ ...initial, age: "server-confirmed-at" }, guard.begin())?.age, "server-confirmed-at");
+  assertEquals(guard.accept(initial, guard.begin())?.age, null);
+});
+
 Deno.test("profile refresh: JSONB key order retires confirmed defaults and later device changes are accepted", () => {
   interface Settings {
     defaults: { rhythm: string; minutes: number; nested: { enabled: boolean; amount: number } };
