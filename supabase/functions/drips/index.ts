@@ -756,7 +756,12 @@ type ResumeRow = ResumableRow & {
 async function resumeDrip(userId: string, id: string, req: Request): Promise<Response> {
   // The body is optional; a plain resume sends none. The Word add-in sends the document's text,
   // because TypeWit's servers can't open a Word document themselves.
-  const options = (await req.json().catch(() => ({}))) as ResumeOptions & { document?: { text?: unknown } };
+  const options: ResumeOptions & { document?: { text?: unknown } } = await readJson<
+    ResumeOptions & { document?: { text?: unknown } }
+  >(req).catch((error) => {
+    if (error instanceof HttpError && error.status === 400) return {};
+    throw error;
+  });
   const db = adminClient();
   const { data, error } = await db.from("drips").select(RESUME_COLUMNS).eq("id", id).eq("user_id", userId)
     .maybeSingle();

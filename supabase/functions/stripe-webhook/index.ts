@@ -4,7 +4,7 @@
 
 import { grantDayPass } from "../_shared/dayPass.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
-import { HttpError, json, serve } from "../_shared/http.ts";
+import { HttpError, json, readTextBounded, serve } from "../_shared/http.ts";
 import {
   customerSubscriptions,
   planForSubscriptionStatus,
@@ -31,7 +31,7 @@ interface Subscription {
 serve(async (req) => {
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed.");
 
-  const payload = await req.text();
+  const payload = await readTextBounded(req);
   const valid = await verifyStripeSignature(
     payload,
     req.headers.get("stripe-signature"),

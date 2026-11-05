@@ -1,6 +1,53 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
-import { allowedOrigin, HttpError, readJson } from "../functions/_shared/http.ts";
+import { allowedOrigin, HttpError, MAX_BODY_BYTES, readJson, readTextBounded } from "../functions/_shared/http.ts";
 import { testProviderEnabled } from "../functions/_shared/env.ts";
+
+Deno.test("body budget counts streamed bytes despite missing or dishonest length and cancels oversized reads", async () => {
+  for (const length of [undefined, "0", "1"]) {
+    let canceled = false;
+    const req = new Request("https://edge.invalid", {
+      method: "POST",
+      headers: length === undefined ? {} : { "Content-Length": length },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("123456789"));
+        },
+        cancel() {
+          canceled = true;
+        },
+      }),
+    });
+    const error = await assertRejects(() => readTextBounded(req, 8), HttpError);
+    assertEquals(error.status, 413);
+    assertEquals(canceled, true);
+  }
+});
+
+Deno.test("body budget preserves exact signature text and UTF-8 characters split across stream chunks", async () => {
+  const raw = ' { "text": "Approved 😀 text" }\n';
+  const bytes = new TextEncoder().encode(raw);
+  const req = new Request("https://edge.invalid", {
+    method: "POST",
+    body: new ReadableStream({
+      start(controller) {
+        for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
+        controller.close();
+      },
+    }),
+  });
+  assertEquals(await readTextBounded(req, bytes.length), raw);
+  const normal = { text: "x".repeat(200_000), spans: [{ start: 0, end: 200_000, bold: true }] };
+  assertEquals(
+    await readJson(new Request("https://edge.invalid", { method: "POST", body: JSON.stringify(normal) })),
+    normal,
+  );
+  const oversized = new Request("https://edge.invalid", {
+    method: "POST",
+    headers: { "Content-Length": String(MAX_BODY_BYTES + 1) },
+    body: "{}",
+  });
+  assertEquals((await assertRejects(() => readJson(oversized), HttpError)).status, 413);
+});
 
 Deno.test("second audit: request bodies must be JSON objects, not null or primitives", async () => {
   const request = (body: unknown) =>

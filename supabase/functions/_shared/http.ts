@@ -60,10 +60,44 @@ export function errorResponse(error: unknown): Response {
   return json({ error: "TypeWit could not complete this request. Please try again." }, 500);
 }
 
+/** Covers normal rich-text payloads and Word recovery without accepting unbounded JSON. */
+export const MAX_BODY_BYTES = 16 * 1024 * 1024;
+
+/** Count actual streamed UTF-8 bytes: Content-Length is only an early hint. */
+export async function readTextBounded(req: Request, maxBytes = MAX_BODY_BYTES): Promise<string> {
+  const tooLarge = () => new HttpError(413, "This request is too large. Reduce the text or formatting and try again.");
+  if (Number(req.headers.get("content-length")) > maxBytes) {
+    void req.body?.cancel().catch(() => undefined);
+    throw tooLarge();
+  }
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > maxBytes || parts.length >= 65_536) {
+        void reader.cancel().catch(() => undefined);
+        throw tooLarge();
+      }
+      parts.push(decoder.decode(value, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return parts.join("");
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function readJson<T>(req: Request): Promise<T> {
+  const text = await readTextBounded(req);
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(text);
   } catch {
     throw new HttpError(400, "Request body must be JSON.");
   }

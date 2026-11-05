@@ -487,9 +487,12 @@ async function portal(
 ): Promise<Response> {
   const customer = await customerFor(userId);
   if (!customer) throw new HttpError(404, "You don't have a billing account yet.");
-  const body = req.headers.get("content-length") === "0"
-    ? {}
-    : await readJson<{ flow?: string }>(req).catch(() => ({}));
+  const body = await readJson<{ flow?: string }>(req).catch((error) => {
+    // An omitted/malformed optional flow retains the home-portal fallback;
+    // oversized bodies must not bypass the resource guard and reach Stripe.
+    if (error instanceof HttpError && error.status === 400) return {};
+    throw error;
+  });
   const flow = cancellationOnly
     ? "subscription_cancel"
     : PORTAL_FLOWS.find((f) => f === (body as { flow?: string }).flow);
