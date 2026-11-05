@@ -21,6 +21,10 @@
     # this replaces X-Frame-Options, which can't allow Office. Scripts aren't restricted here
     # because Office.js and Google Picker load further code from hosts they choose.
     Content-Security-Policy = "frame-ancestors 'self' https://*.officeapps.live.com https://*.office.com https://*.office365.com https://*.sharepoint.com https://*.microsoft365.com https://*.cloud.microsoft; base-uri 'self'; object-src 'none'; form-action 'self'; upgrade-insecure-requests"
+    # Staged only: inspect securitypolicyviolation events / browser console.
+    # Next inline scripts need reviewed hashes/nonces before enforcement;
+    # Google Picker and real Office hosts must be validated first.
+    Content-Security-Policy-Report-Only = "script-src 'self' https://apis.google.com https://*.google.com https://*.gstatic.com https://appsforoffice.microsoft.com https://*.office.net https://*.officeapps.live.com https://*.microsoft.com https://*.msocdn.com; object-src 'none'; base-uri 'self'"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
