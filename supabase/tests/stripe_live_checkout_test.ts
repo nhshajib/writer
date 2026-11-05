@@ -2,6 +2,35 @@ import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.13";
 import { isMissingStripeCustomer, StripeError, stripeGet } from "../functions/_shared/stripe.ts";
 
 type Handler = (req: Request) => Promise<Response>;
+Deno.test("billing budgets reject abuse and counter outages before any Stripe checkout side effect", async () => {
+  const f = await fixture();
+  try {
+    f.state.rateAllowed = false;
+    for (
+      const [action, bucket, max, window] of [
+        ["checkout", "billingCheckout", 30, 3600],
+        ["portal", "billingPortal", 120, 3600],
+        ["summary", "billingSummary", 120, 60],
+        ["reprice", "billingReprice", 12, 3600],
+      ] as const
+    ) {
+      assertEquals((await f.send("month", action)).status, 429);
+      const hit = f.state.rateHits.at(-1)!;
+      assertEquals([hit.bucket_name, hit.max_hits, hit.window_seconds], [bucket, max, window]);
+    }
+    f.state.rateError = true;
+    assertEquals((await f.send()).status, 503);
+    assertEquals(f.state.creates, 0);
+    assertEquals(f.state.sessions, 0);
+    assertEquals(f.state.locked, false);
+    f.state.rateError = false;
+    f.state.rateAllowed = true;
+    assertEquals((await f.send()).status, 200);
+    assertEquals(f.state.sessions, 1);
+  } finally {
+    f.restore();
+  }
+});
 async function fixture() {
   const names = [
     "SUPABASE_URL",
@@ -41,10 +70,19 @@ async function fixture() {
     checkoutVersion: "",
     params: new URLSearchParams(),
     open: null as Record<string, unknown> | null,
+    rateAllowed: true,
+    rateError: false,
+    rateHits: [] as { bucket_name: string; max_hits: number; window_seconds: number }[],
   };
   globalThis.fetch = (async (input, init) => {
     await Promise.resolve();
     const url = new URL(String(input));
+    if (url.pathname.endsWith("/rpc/hit_rate_limit")) {
+      state.rateHits.push(JSON.parse(String(init?.body)));
+      return state.rateError
+        ? Response.json({ message: "Fixture limiter outage" }, { status: 503 })
+        : Response.json(state.rateAllowed);
+    }
     if (url.pathname === "/auth/v1/user") {
       return Response.json({
         id: owner,
@@ -187,9 +225,9 @@ async function fixture() {
   return {
     state,
     owner,
-    send: (interval = "month") =>
+    send: (interval = "month", action = "checkout") =>
       handler(
-        new Request("http://edge.invalid/functions/v1/billing/checkout", {
+        new Request(`http://edge.invalid/functions/v1/billing/${action}`, {
           method: "POST",
           headers: { Authorization: "Bearer fixture-jwt", "Content-Type": "application/json" },
           body: JSON.stringify({ interval }),

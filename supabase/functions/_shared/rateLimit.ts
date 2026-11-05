@@ -17,14 +17,22 @@ export const RATE_LIMITS = {
   check: [60, 3600],
   picker: [60, 3600],
   googleConnect: [60, 3600],
+  billingCheckout: [30, 3600],
+  billingPortal: [120, 3600],
+  billingSummary: [120, 60],
+  billingReprice: [12, 3600],
 } as const satisfies Record<string, readonly [number, number]>;
 
 /**
  * Counts one request against the user's budget and throws 429 once it is used
- * up. If the counter itself fails, the request goes through: a database hiccup
- * shouldn't lock people out.
+ * up. Session controls retain their fail-open behavior during counter outages.
+ * Billing opts into failClosed, so an unverified budget cannot start a charge.
  */
-export async function rateLimit(userId: string, bucket: keyof typeof RATE_LIMITS): Promise<void> {
+export async function rateLimit(
+  userId: string,
+  bucket: keyof typeof RATE_LIMITS,
+  options: { failClosed?: boolean } = {},
+): Promise<void> {
   const [max, windowSeconds] = RATE_LIMITS[bucket];
   const { data, error } = await adminClient().rpc("hit_rate_limit", {
     owner: userId,
@@ -34,9 +42,13 @@ export async function rateLimit(userId: string, bucket: keyof typeof RATE_LIMITS
   });
   if (error) {
     console.error("rate limit check failed", error.message);
+    if (options.failClosed) throw new HttpError(503, "This request could not be checked. Please try again shortly.");
     return;
   }
   if (data === false) {
     throw new HttpError(429, "Too many requests. Wait a few minutes and try again.");
+  }
+  if (options.failClosed && data !== true) {
+    throw new HttpError(503, "This request could not be checked. Please try again shortly.");
   }
 }

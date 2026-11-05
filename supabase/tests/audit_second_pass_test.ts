@@ -111,6 +111,10 @@ Deno.test("second audit: age-blocked accounts can cancel billing but cannot buy 
     globalThis.fetch = (async (input, init) => {
       await Promise.resolve();
       const url = new URL(String(input));
+      if (url.pathname.endsWith("/rpc/hit_rate_limit")) {
+        assertEquals(JSON.parse(String(init?.body)).owner, owner);
+        return Response.json(true);
+      }
       if (url.pathname === "/auth/v1/user") {
         return Response.json({ id: owner, aud: "authenticated", role: "authenticated" });
       }
@@ -201,6 +205,10 @@ Deno.test("second audit: checkout serializes double clicks, reuses open payment 
     globalThis.fetch = (async (input, init) => {
       await Promise.resolve();
       const url = new URL(String(input));
+      if (url.pathname.endsWith("/rpc/hit_rate_limit")) {
+        assertEquals(JSON.parse(String(init?.body)).owner, owner);
+        return Response.json(true);
+      }
       if (url.pathname === "/auth/v1/user") {
         return Response.json({
           id: owner,

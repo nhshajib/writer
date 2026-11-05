@@ -13,6 +13,7 @@ import { requireUser } from "../_shared/auth.ts";
 import { sha256Hex } from "../_shared/crypto.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 import {
   customerSubscriptions,
   isMissingStripeCustomer,
@@ -37,6 +38,16 @@ serve(async (req) => {
   // Ineligible accounts must still be able to inspect and end existing
   // billing before account deletion. They cannot buy or upgrade a plan.
   const user = await requireUser(req, { allowIneligible: action === "portal" || action === "summary" });
+  const bucket = action === "checkout"
+    ? "billingCheckout"
+    : action === "portal"
+    ? "billingPortal"
+    : action === "summary"
+    ? "billingSummary"
+    : action === "reprice"
+    ? "billingReprice"
+    : null;
+  if (bucket) await rateLimit(user.id, bucket, { failClosed: true });
 
   const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
   if (!secretKey) throw new HttpError(503, "Payments are not configured yet.");
