@@ -12,6 +12,7 @@ import { formatDate, useDashboard } from "@/lib/dashboard";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
+import { clearDeletedAccountBrowserData } from "@/lib/deletedAccountStorage";
 
 const SECTIONS = [
   ["profile", "Profile", Icon.user],
@@ -58,8 +59,10 @@ export default function SettingsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState("");
+  const [endProNow, setEndProNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const showEndPro = profile.plan === "pro" || Boolean(profile.subscription_status && !["canceled", "incomplete_expired"].includes(profile.subscription_status)) || Boolean(error?.includes("End Pro now"));
   const [announce, setAnnounce] = useState(true);
   useEffect(() => setAnnounce(readAnnounceProgress()), []);
 
@@ -174,8 +177,9 @@ export default function SettingsPage() {
     event.preventDefault();
     setBusy("delete");
     try {
-      await api("drips/account/delete", { method: "POST", body: { confirm_email: deleteEmail } });
-      await supabase().auth.signOut();
+      await api("drips/account/delete", { method: "POST", body: { confirm_email: deleteEmail, cancel_subscription: endProNow }, timeoutMs: 120_000 });
+      clearDeletedAccountBrowserData();
+      await supabase().auth.signOut({ scope: "local" }).catch(() => undefined);
       router.push("/?account=deleted");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't delete the account.");
@@ -388,24 +392,27 @@ export default function SettingsPage() {
             <p className="small muted">
               Deletes your account, every session&apos;s saved text, schedule and activity log, your notifications and
               your Google connection, straight away. Unfinished sessions stop. Your documents are not touched.
-              {profile.plan === "pro" && <> Cancel Pro in <Link href="/app/billing">Plan &amp; usage</Link> first.</>}
+              {profile.plan === "pro" && <> You can choose to end Pro now in the confirmation below.</>}
             </p>
             {!deleteOpen
               ? <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteOpen(true)}>Delete my account…</button>
               : (
                 <form className="confirm" role="alertdialog" aria-labelledby="delete-title" onSubmit={deleteAccount}
-                  onKeyDown={(e) => e.key === "Escape" && setDeleteOpen(false)}>
+                  onKeyDown={(e) => e.key === "Escape" && busy !== "delete" && setDeleteOpen(false)}>
                   <p id="delete-title">Delete your TypeWit account permanently?</p>
                   <div className="field">
                     <label className="label" htmlFor="delete-email">Type {user.email} to confirm</label>
-                    <input id="delete-email" type="email" autoComplete="off" value={deleteEmail} onChange={(e) => setDeleteEmail(e.target.value)} autoFocus />
+                    <input id="delete-email" type="email" autoComplete="off" value={deleteEmail} disabled={busy === "delete"} onChange={(e) => setDeleteEmail(e.target.value)} autoFocus />
                   </div>
+                  {showEndPro && <><label className="check"><input type="checkbox" checked={endProNow} aria-describedby="end-pro-hint" disabled={busy === "delete"} onChange={(e) => setEndProNow(e.target.checked)} /><span>End Pro now so I can delete my account.</span></label>
+                  <p className="hint" id="end-pro-hint">Select this to end an ongoing subscription immediately. Remaining paid time ends; this does not automatically issue a refund. Your statutory refund rights are unchanged.</p></>}
+                  <p className="hint">Saved TypeWit drafts and preferences on this device are cleared after deletion.</p>
                   <div className="row">
                     <button type="submit" className="btn btn-danger-solid btn-sm"
                       disabled={busy === "delete" || deleteEmail.trim().toLowerCase() !== (user.email ?? "").toLowerCase()}>
                       {busy === "delete" ? "Deleting…" : "Delete account"}
                     </button>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDeleteOpen(false)}>Keep my account</button>
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "delete"} onClick={() => setDeleteOpen(false)}>Keep my account</button>
                   </div>
                 </form>
               )}

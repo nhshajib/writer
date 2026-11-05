@@ -122,6 +122,8 @@ test("settings: email choices save with a confirmation, and deleting the account
   await expect(confirm).toBeDisabled();
   await expectNoAxeViolations(page);
   await page.getByLabel("Type me@gmail.com to confirm").fill("me@gmail.com");
+  // The fixture has active Pro: explicit cancellation now matches the real backend.
+  await page.getByLabel("End Pro now so I can delete my account.").check();
   await confirm.click();
   await page.waitForURL(/\/\?account=deleted/);
 });

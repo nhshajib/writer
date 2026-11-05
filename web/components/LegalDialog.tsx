@@ -5,14 +5,14 @@ import { Agreement } from "@/components/Agreement";
 import { Icon } from "@/components/Icons";
 import { PrivacyBody } from "@/components/legal/Privacy";
 import { TermsBody } from "@/components/legal/Terms";
-import { LEGAL_UPDATED } from "@/lib/site";
+import { LEGAL_UPDATED, PRIVACY_UPDATED } from "@/lib/site";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 
 export type LegalDoc = "terms" | "privacy" | "agreement";
 
 const DOCS: Record<LegalDoc, { title: string; note: string; body: () => ReactNode }> = {
   terms: { title: "Terms of Service", note: `Last updated ${LEGAL_UPDATED}`, body: () => <TermsBody /> },
-  privacy: { title: "Privacy Policy", note: `Last updated ${LEGAL_UPDATED}`, body: () => <PrivacyBody /> },
+  privacy: { title: "Privacy Policy", note: `Last updated ${PRIVACY_UPDATED}`, body: () => <PrivacyBody /> },
   agreement: {
     title: "Responsible Use Agreement",
     note: `Version ${CURRENT_TERMS_VERSION}. Everyone agrees to this before using TypeWit.`,

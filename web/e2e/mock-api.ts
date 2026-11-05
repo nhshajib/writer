@@ -132,6 +132,7 @@ const MOCK_USER = {
   user_metadata: {},
   app_metadata: {},
 };
+const DEFAULT_MOCK_EMAIL = MOCK_USER.email;
 
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
   res.writeHead(status, {
@@ -263,6 +264,10 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (parts[0] === "account" && parts[1] === "delete") {
     if (String(body.confirm_email ?? "").toLowerCase() !== MOCK_USER.email) {
       return send(res, 400, { error: "Type your account's email address to confirm." });
+    }
+    const status = Object.hasOwn(profileChanges, "subscription_status") ? profileChanges.subscription_status : "active";
+    if (status && !["canceled", "incomplete_expired"].includes(String(status)) && body.cancel_subscription !== true) {
+      return send(res, 409, { error: "To delete now, select End Pro now in the confirmation, or cancel Pro in Plan & billing first." });
     }
     drips.clear();
     return send(res, 200, { deleted: true });
@@ -536,11 +541,17 @@ async function testHook(req: IncomingMessage, res: ServerResponse, path: string)
     events.clear();
     requests.length = 0;
     profileChanges = {};
+    MOCK_USER.email = DEFAULT_MOCK_EMAIL;
     billingRepriced = false;
     notifications.length = 0;
     return send(res, 200, {});
   }
   // Start from a profile that hasn't answered the age questions (e.g. after Google sign-in).
+  if (path === "/__test/user-email") {
+    if (typeof body.email !== "string" || !body.email.endsWith(".invalid")) return send(res, 400, { error: "Use a synthetic .invalid fixture address." });
+    MOCK_USER.email = body.email;
+    return send(res, 200, {});
+  }
   if (path === "/__test/profile") {
     Object.assign(profileChanges, body);
     return send(res, 200, {});

@@ -15,7 +15,7 @@ export class ApiError extends Error {
 const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Calls a TypeWit Edge Function as the signed-in user. */
-export async function api<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T> {
+export async function api<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new ApiError(401, "Please sign in again.");
@@ -30,7 +30,7 @@ export async function api<T>(path: string, init: { method?: "GET" | "POST"; body
         "Content-Type": "application/json",
       },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(init.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch {
     // No response at all: offline, blocked, or too slow. Status 0 tells callers the request may not have arrived.

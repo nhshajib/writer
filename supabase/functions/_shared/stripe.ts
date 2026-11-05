@@ -17,6 +17,31 @@ export class StripeError extends Error {
   }
 }
 
+/** Immediate cancellation only when explicitly requested by the account owner. */
+export async function stripeDelete<T>(
+  secretKey: string,
+  path: string,
+  params: Record<string, string> = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  const query = new URLSearchParams(params).toString();
+  const res = await fetchFn(`https://api.stripe.com/v1/${path}${query ? `?${query}` : ""}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${secretKey}` },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new StripeError(
+      res.status,
+      body?.error?.message ?? "Stripe cancellation failed.",
+      body?.error?.code,
+      body?.error?.param,
+    );
+  }
+  return body as T;
+}
+
 export async function stripeRequest<T>(
   secretKey: string,
   path: string,

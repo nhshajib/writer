@@ -1,4 +1,4 @@
-import { customerSubscriptions, subscriptionHasNotEnded } from "../_shared/stripe.ts";
+import { withAccountDeletionBilling } from "../_shared/accountDeletion.ts";
 import { validateConfirmPatch, validateEngineEvents } from "../_shared/engineProtocol.ts";
 import { parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
 // User-facing API for drips, document connections and documents.
@@ -1080,55 +1080,46 @@ async function disconnectConnection(userId: string, id: string): Promise<Respons
 /**
  * Deletes the account. Stops unfinished sessions, revokes Google access, then
  * deletes the user; the database removes their sessions, logs, notifications
- * and connections with it (trial_claims keeps an anonymous row so a trial
+ * and connections with it (trial_claims keeps a retained trial-use record so a trial
  * can't be claimed twice). Documents themselves are never touched.
  */
 async function deleteAccount(userId: string, email: string | null, req: Request): Promise<Response> {
-  const body = await readJson<{ confirm_email?: string }>(req);
-  if (!email || (body.confirm_email ?? "").trim().toLowerCase() !== email.toLowerCase()) {
+  const body = await readJson<{ confirm_email?: unknown; cancel_subscription?: unknown }>(req);
+  if (
+    !email || typeof body.confirm_email !== "string" || body.confirm_email.trim().toLowerCase() !== email.toLowerCase()
+  ) {
     throw new HttpError(400, "Type your account's email address to confirm.");
   }
   const db = adminClient();
-  const { data: profile, error: profileError } = await db.from("profiles").select(
-    "subscription_status, stripe_customer_id",
-  ).eq(
-    "user_id",
-    userId,
-  ).maybeSingle();
-  if (profileError || !profile) throw new HttpError(503, "Your billing status could not be checked. Please try again.");
-  const subscriptions = profile?.stripe_customer_id
-    ? await customerSubscriptions(requireEnv("STRIPE_SECRET_KEY"), profile.stripe_customer_id)
-    : [];
-  if (
-    subscriptions.some((s) => subscriptionHasNotEnded(s.status)) ||
-    (!profile?.stripe_customer_id && subscriptionHasNotEnded(profile?.subscription_status))
-  ) {
-    throw new HttpError(409, "Cancel Pro in Plan & billing first, so you aren't charged again.");
+  if (body.cancel_subscription !== undefined && typeof body.cancel_subscription !== "boolean") {
+    throw new HttpError(400, "Choose whether to end Pro now.");
   }
+  return await withAccountDeletionBilling(userId, body.cancel_subscription === true, async (confirmExclusive) => {
+    const { error: stopError } = await db.from("drips").update({ status: "canceled", next_run_at: null })
+      .eq("user_id", userId).in("status", ACTIVE_STATUSES);
+    if (stopError) throw new Error(stopError.message);
 
-  const { error: stopError } = await db.from("drips").update({ status: "canceled", next_run_at: null })
-    .eq("user_id", userId).in("status", ACTIVE_STATUSES);
-  if (stopError) throw new Error(stopError.message);
-
-  const { data: connections } = await db.from("provider_connections").select(
-    "id, provider, account_email, refresh_token_enc",
-  )
-    .eq("user_id", userId);
-  for (const connection of connections ?? []) {
-    if (
-      connection.provider !== "google" || !connection.refresh_token_enc ||
-      await hasOtherGoogleGrant(connection.id, connection.account_email, userId)
-    ) continue;
-    try {
-      await revokeGoogleToken(await decrypt(connection.refresh_token_enc, await encryptionKey()));
-    } catch (error) {
-      console.error("Couldn't revoke Google token", error);
+    const { data: connections } = await db.from("provider_connections").select(
+      "id, provider, account_email, refresh_token_enc",
+    )
+      .eq("user_id", userId);
+    for (const connection of connections ?? []) {
+      if (
+        connection.provider !== "google" || !connection.refresh_token_enc ||
+        await hasOtherGoogleGrant(connection.id, connection.account_email, userId)
+      ) continue;
+      try {
+        await revokeGoogleToken(await decrypt(connection.refresh_token_enc, await encryptionKey()));
+      } catch (error) {
+        console.error("Couldn't revoke Google token", error);
+      }
     }
-  }
 
-  const { error } = await db.auth.admin.deleteUser(userId);
-  if (error) throw new Error(error.message);
-  return json({ deleted: true });
+    await confirmExclusive();
+    const { error } = await db.auth.admin.deleteUser(userId);
+    if (error) throw new Error(error.message);
+    return json({ deleted: true });
+  });
 }
 
 async function createTestConnection(userId: string, email: string | null): Promise<Response> {
