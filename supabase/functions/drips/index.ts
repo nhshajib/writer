@@ -1,4 +1,5 @@
 import { withAccountDeletionBilling } from "../_shared/accountDeletion.ts";
+import { acceptClientDiagnostic } from "../_shared/clientDiagnostics.ts";
 import { validateConfirmPatch, validateEngineEvents } from "../_shared/engineProtocol.ts";
 import { parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
 // User-facing API for drips, document connections and documents.
@@ -80,6 +81,10 @@ serve(async (req) => {
   const user = await requireUser(req);
   const parts = routeParts(req);
   const method = req.method;
+  if (parts.length === 1 && parts[0] === "client-errors" && method === "POST") {
+    await rateLimit(user.id, "clientError", { failClosed: true });
+    return await acceptClientDiagnostic(req);
+  }
   if (method === "POST") {
     const operation = parts.at(-1);
     const bucket = operation === "engine"

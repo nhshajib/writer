@@ -1,4 +1,5 @@
 import { functionsUrl, supabase } from "./supabase";
+import { reportClientIssue } from "./diagnostics";
 
 export class ApiError extends Error {
   constructor(
@@ -33,6 +34,7 @@ export async function api<T>(path: string, init: { method?: "GET" | "POST"; body
       signal: AbortSignal.timeout(init.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch {
+    reportClientIssue("api_network");
     // No response at all: offline, blocked, or too slow. Status 0 tells callers the request may not have arrived.
     throw new ApiError(0, navigator.onLine === false
       ? "You're offline. Check your internet connection and try again."
@@ -40,6 +42,7 @@ export async function api<T>(path: string, init: { method?: "GET" | "POST"; body
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status >= 500) reportClientIssue("api_server", res.status, res.headers.get("x-request-id"));
     if (res.status === 429 && !body?.error) throw new ApiError(429, "Too many requests. Wait a few minutes and try again.");
     throw new ApiError(res.status, body?.error ?? "Something went wrong. Please try again.", body?.problems ?? [], body?.attention ?? null);
   }

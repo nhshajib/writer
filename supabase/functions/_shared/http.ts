@@ -1,6 +1,9 @@
+import { diagnosticFailure } from "./diagnostics.ts";
+
 export const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Expose-Headers": "x-request-id",
   "Vary": "Origin",
 };
 
@@ -27,8 +30,9 @@ export function allowedOrigin(origin: string | null): string | null {
   return allowed.has(origin) ? origin : null;
 }
 
-function withCors(response: Response, origin: string | null): Response {
+function withCors(response: Response, origin: string | null, requestId: string): Response {
   const headers = new Headers(response.headers);
+  headers.set("X-Request-ID", requestId);
   for (const [key, value] of Object.entries(corsHeaders)) headers.set(key, value);
   const allowed = allowedOrigin(origin);
   if (allowed) headers.set("Access-Control-Allow-Origin", allowed);
@@ -52,7 +56,6 @@ export function errorResponse(error: unknown): Response {
   if (error instanceof HttpError) {
     return json({ error: error.message }, error.status);
   }
-  console.error(error);
   const limit = /active_drip_limit:(\d+)/.exec(error instanceof Error ? error.message : "");
   if (limit) {
     return json({ error: `Your plan allows ${limit[1]} active session${limit[1] === "1" ? "" : "s"} at a time.` }, 422);
@@ -93,8 +96,8 @@ export async function readTextBounded(req: Request, maxBytes = MAX_BODY_BYTES): 
   }
 }
 
-export async function readJson<T>(req: Request): Promise<T> {
-  const text = await readTextBounded(req);
+export async function readJson<T>(req: Request, maxBytes = MAX_BODY_BYTES): Promise<T> {
+  const text = await readTextBounded(req, maxBytes);
   let body: unknown;
   try {
     body = JSON.parse(text);
@@ -111,13 +114,32 @@ export async function readJson<T>(req: Request): Promise<T> {
 export function serve(handler: (req: Request) => Promise<Response>): void {
   Deno.serve(async (req) => {
     const origin = req.headers.get("Origin");
+    const requestId = crypto.randomUUID();
     if (req.method === "OPTIONS") {
-      return withCors(new Response("ok"), origin);
+      return withCors(new Response("ok"), origin, requestId);
     }
     try {
-      return withCors(await handler(req), origin);
+      return withCors(await handler(req), origin, requestId);
     } catch (error) {
-      return withCors(errorResponse(error), origin);
+      const response = errorResponse(error);
+      if (response.status >= 500) {
+        const services = [
+          "drips",
+          "drip-tick",
+          "billing",
+          "stripe-webhook",
+          "google-oauth-start",
+          "google-oauth-callback",
+        ];
+        const service = new URL(req.url).pathname.split("/").find((part) => services.includes(part)) ?? "unknown";
+        console.error("typewit.request_error", {
+          service,
+          status: response.status,
+          request_id: requestId,
+          ...diagnosticFailure(error),
+        });
+      }
+      return withCors(response, origin, requestId);
     }
   });
 }

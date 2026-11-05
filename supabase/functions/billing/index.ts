@@ -14,6 +14,7 @@ import { sha256Hex } from "../_shared/crypto.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
+import { diagnosticFailure } from "../_shared/diagnostics.ts";
 import {
   customerSubscriptions,
   isMissingStripeCustomer,
@@ -61,7 +62,7 @@ serve(async (req) => {
     if (action === "reprice") return await reprice(user.id, secretKey);
   } catch (error) {
     if (error instanceof StripeError) {
-      console.error("Stripe error", error.status, error.code, error.param, error.message);
+      console.error("typewit.stripe_error", { status: error.status, ...diagnosticFailure(error) });
       if (isMissingStripeCustomer(error)) {
         throw new HttpError(
           502,

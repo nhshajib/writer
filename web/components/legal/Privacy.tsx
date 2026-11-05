@@ -37,6 +37,7 @@ export function PrivacyBody() {
       <li>Messages and attachments you choose to send to support, and records needed to respond to your requests.</li>
       <li>Hosting and service logs can contain IP addresses, browser/device information, request times, identifiers and errors for operation, security and troubleshooting. Providers may also produce payment or authentication security signals.</li>
     </ul>
+    <p>For troubleshooting, the signed-in app can send a fixed error category, app area, HTTP status, release identifier and request identifier to our existing Supabase logging service. This diagnostic mechanism does not send submitted text, raw error messages, document URLs or credentials, and is not visitor session replay. Delivery can fail when the browser or network is unavailable. Infrastructure logs are separate technical records as described above.</p>
     <p>We obtain data from you and your device, your chosen sign-in/document provider, Stripe, and the operational providers listed below. Do not submit information you are not authorized to process. We do not request health, biometric, political, religious or other special-category data; avoid including it in test text or support messages.</p>
 
     <h2>Lawful basis for processing — GDPR Article 6</h2>

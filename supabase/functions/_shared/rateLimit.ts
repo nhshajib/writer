@@ -21,6 +21,7 @@ export const RATE_LIMITS = {
   billingPortal: [120, 3600],
   billingSummary: [120, 60],
   billingReprice: [12, 3600],
+  clientError: [30, 60],
 } as const satisfies Record<string, readonly [number, number]>;
 
 /**

@@ -3,6 +3,7 @@ import "@fontsource-variable/inter";
 import "./globals.css";
 import { MobileViewport } from "@/components/MobileViewport";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
+import { ErrorReporting } from "@/components/ErrorReporting";
 import { PUBLIC_ROBOTS, SITE_URL } from "@/lib/seo";
 import { THEME_SCRIPT } from "@/lib/themeScript";
 
@@ -51,7 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <a href="#main" className="skip-link">Skip to main content</a>
-        <MobileViewport /><RecoveryRedirect />
+        <MobileViewport /><RecoveryRedirect /><ErrorReporting />
         {children}
       </body>
     </html>

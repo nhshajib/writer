@@ -261,6 +261,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path === "/functions/v1/billing/portal") return send(res, 200, { url: `/__test/portal?flow=${String(body.flow ?? "")}` });
 
   const parts = path.replace(/^\/functions\/v1\/drips\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "client-errors") return send(res, 200, { accepted: true });
   if (parts[0] === "account" && parts[1] === "delete") {
     if (String(body.confirm_email ?? "").toLowerCase() !== MOCK_USER.email) {
       return send(res, 400, { error: "Type your account's email address to confirm." });

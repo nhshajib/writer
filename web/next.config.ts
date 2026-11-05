@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
+const revision = process.env.COMMIT_REF ?? process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? "local";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_RELEASE: /^[a-f0-9]{40}$/i.test(revision) ? revision : "local" },
   // Static site: every page runs in the browser and talks to Supabase directly,
   // so it can be hosted anywhere (Netlify, Vercel, any static host) from `out/`.
   output: "export",
