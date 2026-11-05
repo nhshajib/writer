@@ -118,14 +118,18 @@ export default function SettingsPage() {
       email_notifications: next || other,
     };
     setBusy(`email-${kind}`);
-    setProfile(patch);
-    const { error: updateError } = await supabase().from("profiles").update(patch).eq("user_id", user.id);
-    setBusy(null);
-    if (updateError) {
+    setProfile(patch, { pending: true });
+    try {
+      const { error: updateError } = await supabase().from("profiles").update(patch).eq("user_id", user.id);
+      if (updateError) throw new Error("Couldn't save your email settings. Please try again.");
+      setProfile(patch);
+      done(next ? "Saved. We'll email you about that." : "Saved. We won't email you about that.");
+    } catch {
       setProfile(before);
-      return setError(`Couldn't save that: ${updateError.message}`);
+      setError("Couldn't save your email settings. Please try again.");
+    } finally {
+      setBusy(null);
     }
-    done(next ? "Saved. We'll email you about that." : "Saved. We won't email you about that.");
   }
 
   async function changePassword(event: FormEvent) {
@@ -283,12 +287,12 @@ export default function SettingsPage() {
           <div><h2 id="notify-title">Notifications</h2><p>Updates always appear under the bell at the top of every page.</p></div>
           <div className="stack" style={{ gap: 0 }}>
             <label className="check" htmlFor="email-completed">
-              <input id="email-completed" type="checkbox" role="switch" checked={emailOn.completed} disabled={busy === "email-completed"}
+              <input id="email-completed" type="checkbox" role="switch" checked={emailOn.completed} disabled={Boolean(busy?.startsWith("email-"))}
                 onChange={(e) => toggleEmail("completed", e.target.checked)} />
               <span>Email me when a session finishes.</span>
             </label>
             <label className="check" htmlFor="email-attention">
-              <input id="email-attention" type="checkbox" role="switch" checked={emailOn.attention} disabled={busy === "email-attention"}
+              <input id="email-attention" type="checkbox" role="switch" checked={emailOn.attention} disabled={Boolean(busy?.startsWith("email-"))}
                 onChange={(e) => toggleEmail("attention", e.target.checked)} />
               <span>Email me when a session pauses and needs me (for example, the document can&apos;t be reached).</span>
             </label>

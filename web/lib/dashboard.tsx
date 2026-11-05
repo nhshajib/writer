@@ -85,7 +85,8 @@ interface DashboardData {
   wordsToday: number;
   displayName: string;
   refresh: () => Promise<void>;
-  setProfile: (update: Partial<Profile>) => void;
+  /** Mark optimistic edits pending, then acknowledge them after the write. */
+  setProfile: (update: Partial<Profile>, options?: { pending?: boolean }) => void;
   markAllRead: () => Promise<void>;
   markRead: (id: string) => void;
 }
@@ -113,7 +114,7 @@ export function useDashboardLoader() {
   const [profileGuard] = useState(() => new ProfileRefreshGuard<Profile>([
     "email_notifications", "email_on_completed", "email_on_attention", "session_defaults", "pace_presets",
     "agreed_terms_version", "age_confirmed_at", "birth_year", "birth_month",
-  ], ["age_confirmed_at"]));
+  ]));
 
   useEffect(() => {
     profileGuard.reset();
@@ -244,8 +245,8 @@ export function useDashboardLoader() {
       wordsToday: state.profile.usage_date === today ? state.profile.words_used_today : 0,
       displayName,
       refresh,
-      setProfile: (update) => {
-        profileGuard.record(update);
+      setProfile: (update, options) => {
+        profileGuard.record(update, options);
         setState((s) => (s.status === "ready" ? { ...s, profile: { ...s.profile, ...update } } : s));
       },
       markRead: (id) => {

@@ -8,8 +8,19 @@ interface Profile {
 }
 const initial: Profile = { email: true, age: null, plan: "pro" };
 
+Deno.test("profile refresh: pending writes survive reads, completed writes yield to later device edits without needing an echo", () => {
+  const guard = new ProfileRefreshGuard<Profile>(["email"]);
+  guard.record({ email: false }, { pending: true });
+  assertEquals(guard.accept(initial, guard.begin())?.email, false);
+  const beforeAck = guard.begin();
+  guard.record({ email: false });
+  assertEquals(guard.accept(initial, beforeAck)?.email, false);
+  // Another device changed it back before this tab ever observed its own save.
+  assertEquals(guard.accept(initial, guard.begin())?.email, true);
+});
+
 Deno.test("profile refresh: server confirmation timestamps retire client markers despite clock differences", () => {
-  const guard = new ProfileRefreshGuard<Profile>(["age"], ["age"]);
+  const guard = new ProfileRefreshGuard<Profile>(["age"]);
   const stale = guard.begin();
   guard.record({ age: "client-confirmed-at" });
   assertEquals(guard.accept(initial, stale)?.age, "client-confirmed-at");

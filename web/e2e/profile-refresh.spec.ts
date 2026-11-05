@@ -1,6 +1,43 @@
 import { expect, test } from "@playwright/test";
 import { CURRENT_TERMS_VERSION } from "../lib/terms";
 
+test("notification edits remain pending through a refresh until the write completes", async ({ page, request }) => {
+  await request.post("/__test/reset");
+  await page.addInitScript(() => localStorage.setItem("sb-localhost-auth-token", JSON.stringify({
+    access_token:"e2e-token", refresh_token:"e2e-refresh", token_type:"bearer", expires_in:86400, expires_at:Math.floor(Date.now()/1000)+86400,
+    user:{id:"u1",aud:"authenticated",role:"authenticated",email:"fixture@example.invalid",user_metadata:{},app_metadata:{provider:"email",providers:["email"]}},
+  })));
+  await page.goto("/app/settings/#notifications");
+  const toggle = page.getByLabel("Email me when a session finishes.", { exact: true });
+  await expect(toggle).toBeChecked();
+  await page.waitForLoadState("networkidle");
+  await page.clock.install();
+  let release!: () => void, captured!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const started = new Promise<void>((r) => { captured = r; });
+  await page.route("**/rest/v1/profiles?*", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    captured();
+    await gate;
+    await route.continue();
+  });
+  try {
+    await toggle.uncheck();
+    await started;
+    await expect(toggle).toBeDisabled();
+    await expect(page.getByLabel("Email me when a session pauses and needs me (for example, the document can't be reached).", { exact:true })).toBeDisabled();
+    const fresh = page.waitForResponse((r) => r.request().method() === "GET" && new URL(r.url()).searchParams.get("select")?.includes("email_notifications") === true);
+    await page.clock.fastForward(5100);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await fresh;
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    await expect(toggle).not.toBeChecked();
+    release();
+    await expect(page.locator(".toast")).toHaveText(/Saved\. We won't email you about that\./);
+    await expect(toggle).toBeEnabled();
+  } finally { release(); }
+});
+
 test("an older OAuth profile snapshot cannot undo an agreement already recorded by another refresh", async ({ page, request }) => {
   await request.post("/__test/reset");
   await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null, agreed_terms_version: null } });
