@@ -339,6 +339,8 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
   let profileWrites = 0;
   let failLookup = false;
   let failTrialUser = false;
+  let liveStatus = "active";
+  let unmapped = false;
   try {
     ["http://database.invalid", "fixture-key", "fixture-webhook", "fixture-stripe"].forEach((v, i) =>
       Deno.env.set(names[i], v)
@@ -363,7 +365,7 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
       if (url.pathname.endsWith("/profiles") && init?.method !== "PATCH") {
         return failLookup
           ? Response.json({ message: "fake lookup outage" }, { status: 500 })
-          : Response.json({ user_id: owner });
+          : Response.json(unmapped ? null : { user_id: owner });
       }
       if (url.pathname.includes("/auth/v1/admin/users/")) {
         return failTrialUser
@@ -372,10 +374,11 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
       }
       if (url.pathname.endsWith("/rpc/claim_trial")) return Response.json(null);
       if (url.hostname === "api.stripe.com") {
+        if (url.pathname.startsWith("/v1/charges/")) return Response.json({ customer: "fixture-customer" });
         return Response.json({
           data: [
             { id: "fixture-ended", customer: "fixture-customer", status: "canceled", trial_end: null },
-            { id: "fixture-live", customer: "fixture-customer", status: "active", trial_end: null },
+            { id: "fixture-live", customer: "fixture-customer", status: liveStatus, trial_end: null },
           ],
           has_more: false,
         });
@@ -391,7 +394,13 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
     }) as typeof fetch;
     const handler = await capture(() => import("../functions/stripe-webhook/index.ts"));
     const timestamp = Math.floor(Date.now() / 1000);
-    const send = async (type: string, id: string, metadata = true, trial = false) => {
+    const send = async (
+      type: string,
+      id: string,
+      metadata = true,
+      trial = false,
+      extra: Record<string, unknown> = {},
+    ) => {
       const payload = JSON.stringify({
         id,
         type,
@@ -403,6 +412,7 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
             status: "canceled",
             trial_end: trial ? timestamp + 86400 : null,
             ...(metadata ? { metadata: { user_id: owner } } : {}),
+            ...extra,
           },
         },
       });
@@ -445,6 +455,25 @@ Deno.test("audit billing routes: same-second deletion cannot remove Pro and a cr
     assertEquals(receipts.get("fixture-event-trial")?.processed_at, null);
     failTrialUser = false;
     assertEquals((await send("customer.subscription.updated", "fixture-event-trial", true, true)).status, 200);
+    liveStatus = "past_due";
+    assertEquals((await send("invoice.payment_failed", "fixture-invoice-failed", false)).status, 200);
+    assertEquals(plan, "pro"); // Keep the existing retry grace, not instant lockout.
+    liveStatus = "unpaid";
+    assertEquals((await send("invoice.paid", "fixture-old-paid", false)).status, 200);
+    assertEquals(plan, "free"); // A stale paid invoice is not a current subscription.
+    liveStatus = "active";
+    assertEquals((await send("invoice.payment_failed", "fixture-old-failed", false)).status, 200);
+    assertEquals(plan, "pro");
+    assertEquals(
+      (await send("charge.dispute.created", "fixture-dispute", false, false, { charge: "ch_fixture" })).status,
+      200,
+    );
+    assertEquals(plan, "pro"); // Signals request review; no automatic cancellation policy.
+    unmapped = true;
+    const priorWrites = profileWrites;
+    assertEquals((await send("customer.subscription.updated", "fixture-deleted-account")).status, 200);
+    assertEquals(profileWrites, priorWrites);
+    assert(receipts.get("fixture-deleted-account")?.processed_at);
   } finally {
     globalThis.fetch = originalFetch;
     names.forEach((n, i) => before[i] === undefined ? Deno.env.delete(n) : Deno.env.set(n, before[i]!));

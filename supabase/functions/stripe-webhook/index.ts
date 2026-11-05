@@ -5,12 +5,8 @@
 import { grantDayPass } from "../_shared/dayPass.ts";
 import { adminClient, requireEnv } from "../_shared/env.ts";
 import { HttpError, json, readTextBounded, serve } from "../_shared/http.ts";
-import {
-  customerSubscriptions,
-  planForSubscriptionStatus,
-  preferredSubscription,
-  verifyStripeSignature,
-} from "../_shared/stripe.ts";
+import { stripeGet, verifyStripeSignature } from "../_shared/stripe.ts";
+import { syncCustomerBilling } from "../_shared/billingSync.ts";
 
 interface StripeEvent {
   id: string;
@@ -63,7 +59,27 @@ serve(async (req) => {
           const { error } = await db.rpc("refund_day_pass", { intent: event.data.object.payment_intent });
           if (error) throw new Error("The Day Pass refund could not be recorded.");
         }
+        await syncCustomerEvent(event.data.object);
+        console.warn("typewit.billing_review", { type: event.type, event_id: event.id });
         break;
+      case "invoice.paid":
+      case "invoice.payment_failed":
+        await syncCustomerEvent(event.data.object);
+        break;
+      case "charge.dispute.created":
+      case "radar.early_fraud_warning.created": {
+        const charge = event.data.object.charge;
+        const id = referenceId(charge);
+        const object = id
+          ? await stripeGet<{ customer?: unknown }>(
+            requireEnv("STRIPE_SECRET_KEY"),
+            `charges/${encodeURIComponent(id)}`,
+          )
+          : event.data.object;
+        await syncCustomerEvent(object);
+        console.warn("typewit.billing_review", { type: event.type, event_id: event.id });
+        break;
+      }
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
@@ -81,55 +97,51 @@ serve(async (req) => {
   return json({ received: true });
 });
 
-async function syncSubscription(subscription: Subscription, _eventType: string, created: number): Promise<void> {
-  const db = adminClient();
-  const userId = await findUserId(subscription);
-  if (!userId) {
-    console.error("No TypeWit user for Stripe customer", subscription.customer);
-    return;
-  }
-
-  // Acquire a generation BEFORE reading Stripe. If another webhook starts
-  // a newer read, this result may not overwrite it even within the same second.
-  const { data: generation, error: generationError } = await db.rpc("begin_stripe_sync", { owner: userId });
-  if (generationError || generation == null) throw new Error("The billing account could not be synchronized.");
-  const subscriptions = await customerSubscriptions<Subscription>(
-    requireEnv("STRIPE_SECRET_KEY"),
-    subscription.customer,
-  );
-  const current = preferredSubscription(subscriptions);
-  const status = current?.status ?? "canceled";
-  const { data: updated, error } = await db.from("profiles").update({
-    subscription_status: status,
-    plan: planForSubscriptionStatus(status),
-    stripe_customer_id: subscription.customer,
-    stripe_event_at: new Date(created * 1000).toISOString(),
-  }).eq("user_id", userId).eq("stripe_sync_generation", generation).select("user_id");
-  if (error || !updated?.length) throw new Error("A newer billing update is being applied. Stripe will retry.");
-
-  // A subscription that starts in trial uses up this person's one trial.
-  if (subscription.trial_end) {
-    const { data, error: userError } = await db.auth.admin.getUserById(userId);
-    if (userError) throw new Error("The trial account could not be checked. Stripe will retry.");
-    const email = data?.user?.email;
-    if (email) {
-      const { error: claimError } = await db.rpc("claim_trial", {
-        email,
-        claimant: userId,
-        subscription_id: subscription.id,
-      });
-      if (claimError) throw new Error(claimError.message);
-    }
-  }
+async function syncSubscription(subscription: Subscription, _eventType: string, _created: number): Promise<void> {
+  const owner = await findOwner(subscription.customer, subscription.metadata?.user_id);
+  if (!owner) return;
+  await syncCustomerBilling({
+    ...owner,
+    customer: subscription.customer,
+    secret: requireEnv("STRIPE_SECRET_KEY"),
+    fallbackTrial: subscription,
+  });
 }
 
-async function findUserId(subscription: Subscription): Promise<string | null> {
-  if (subscription.metadata?.user_id) return subscription.metadata.user_id;
-  const { data, error } = await adminClient()
-    .from("profiles")
-    .select("user_id")
-    .eq("stripe_customer_id", subscription.customer)
-    .maybeSingle();
+function referenceId(value: unknown): string | null {
+  const id = typeof value === "string"
+    ? value
+    : value && typeof value === "object"
+    ? (value as { id?: unknown }).id
+    : null;
+  return typeof id === "string" && id.length > 0 && id.length <= 255 ? id : null;
+}
+
+async function syncCustomerEvent(object: { customer?: unknown }): Promise<void> {
+  const customer = referenceId(object.customer);
+  if (!customer) return;
+  const owner = await findOwner(customer);
+  if (!owner) return; // Deleted/unmapped accounts must not be recreated by retries.
+  await syncCustomerBilling({ ...owner, customer, secret: requireEnv("STRIPE_SECRET_KEY") });
+}
+
+async function findOwner(
+  customer: string,
+  metadataOwner?: string,
+): Promise<{ owner: string; expectedCustomer: string | null } | null> {
+  const db = adminClient();
+  const { data, error } = await db.from("profiles").select("user_id,stripe_customer_id").eq(
+    "stripe_customer_id",
+    customer,
+  ).maybeSingle();
   if (error) throw new Error("The billing account could not be checked. Stripe will retry.");
-  return data?.user_id ?? null;
+  if (data) return { owner: data.user_id, expectedCustomer: customer };
+  if (!metadataOwner) return null;
+  const { data: fallback, error: fallbackError } = await db.from("profiles").select("user_id,stripe_customer_id").eq(
+    "user_id",
+    metadataOwner,
+  ).maybeSingle();
+  if (fallbackError) throw new Error("The billing account could not be checked. Stripe will retry.");
+  if (!fallback || (fallback.stripe_customer_id && fallback.stripe_customer_id !== customer)) return null;
+  return { owner: fallback.user_id, expectedCustomer: fallback.stripe_customer_id ?? null };
 }

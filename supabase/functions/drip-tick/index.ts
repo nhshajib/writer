@@ -9,6 +9,7 @@ import { safeEqual } from "../_shared/crypto.ts";
 import { adminClient, getSecret } from "../_shared/env.ts";
 import { HttpError, json, serve } from "../_shared/http.ts";
 import { housekeeping } from "../_shared/housekeeping.ts";
+import { reconcileBilling } from "../_shared/billingReconcile.ts";
 import { notifyUser } from "../_shared/notifyUser.ts";
 import {
   CLAIM_LOOKAHEAD_SECONDS,
@@ -59,7 +60,12 @@ serve(async (req) => {
 
   // Sessions spend most of a window waiting, so they run side by side.
   const work = Promise.all([
-    housekeeping(drips.length, started),
+    Promise.all([
+      housekeeping(drips.length, started),
+      reconcileBilling(started).catch(() => {
+        console.error("typewit.billing_reconcile", { stage: "unexpected", failed: true });
+      }),
+    ]),
     ...drips.map((drip) => processDrip(drip, connections.get(drip.connection_id), started + MAX_RUN_MS)),
   ]);
   if (typeof EdgeRuntime !== "undefined") {
