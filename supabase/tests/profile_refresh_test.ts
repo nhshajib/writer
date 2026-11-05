@@ -8,6 +8,18 @@ interface Profile {
 }
 const initial: Profile = { email: true, age: null, plan: "pro" };
 
+Deno.test("profile refresh: JSONB key order retires confirmed defaults and later device changes are accepted", () => {
+  interface Settings {
+    defaults: { rhythm: string; minutes: number; nested: { enabled: boolean; amount: number } };
+  }
+  const guard = new ProfileRefreshGuard<Settings>(["defaults"]);
+  guard.record({ defaults: { rhythm: "natural", minutes: 45, nested: { enabled: true, amount: 1 } } });
+  const echoed: Settings = { defaults: { minutes: 45, nested: { amount: 1, enabled: true }, rhythm: "natural" } };
+  assertEquals(guard.accept(echoed, guard.begin()), echoed);
+  const otherDevice: Settings = { defaults: { rhythm: "steady", minutes: 30, nested: { amount: 2, enabled: false } } };
+  assertEquals(guard.accept(otherDevice, guard.begin()), otherDevice);
+});
+
 Deno.test("profile refresh: old snapshots cannot undo saved preferences or confirmed onboarding", () => {
   const guard = new ProfileRefreshGuard<Profile>(["email", "age"]);
   const old = guard.begin();

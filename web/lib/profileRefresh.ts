@@ -1,3 +1,10 @@
+/** JSONB object key order is not meaningful; array order remains meaningful. */
+function jsonValue(value: unknown): string | undefined {
+  return JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]))
+    : item);
+}
+
 /** Keeps locally saved preferences out of older background snapshots. Server-owned fields never enter the override map. */
 export class ProfileRefreshGuard<T extends object> {
   private edits = 0;
@@ -28,7 +35,7 @@ export class ProfileRefreshGuard<T extends object> {
     this.applied = token.request;
     const next = { ...server };
     for (const [key, pending] of this.pending) {
-      if (pending.revision <= token.edits && JSON.stringify(server[key]) === JSON.stringify(pending.value)) {
+      if (pending.revision <= token.edits && jsonValue(server[key]) === jsonValue(pending.value)) {
         this.pending.delete(key);
       } else {
         next[key] = pending.value;
