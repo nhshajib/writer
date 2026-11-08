@@ -92,13 +92,28 @@ export const GUIDES: Guide[] = [
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
   },
   {
-    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-10-21", title: "Paste Text into Google Docs Without Losing Formatting",
-    description: "Keep headings, bold, italic, bullets and highlights when pasting text. Compare normal Google Docs paste with TypeWit’s scheduled formatted text entry.",
-    summary: "For a normal one-time paste, use Google Docs directly. If you need approved text entered over time for testing, TypeWit can preserve its supported formatting without asking you to rewrite it as Markdown.",
+    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-08", title: "How to Paste in Google Docs Without Losing Formatting",
+    description: "Keep formatting in Google Docs with normal paste: Ctrl+V on Windows or ChromeOS, Command+V on Mac. Learn when to use plain-text paste and how to fix lost styles.",
+    summary: "To paste into Google Docs without losing formatting, copy from the original formatted source and use normal Paste: Ctrl+V on Windows or ChromeOS, or Command+V on Mac. Paste without formatting intentionally removes styles. Check a short sample first because not every source layout transfers exactly.",
     sections: [
       { heading: "Start with the paste option you actually need", paragraphs: [
-        "For an immediate paste into Google Docs, copy the source and use the normal Paste command in the document. The separate Paste without formatting command intentionally removes styles. Google’s keyboard-shortcut reference lists the commands for your operating system; browser restrictions can affect menu-based clipboard access.",
+        "For a one-time transfer, you can paste directly into Google Docs without a TypeWit account. Normal Paste brings across the formatting available on the clipboard; it does not guarantee an exact copy of every font, table or page layout. Google’s keyboard-shortcut reference lists the commands for your operating system.",
         "If formatting disappears, check whether the source application copied rich text or only plain text. A plain-text clipboard has no heading or highlight information for another application to recover. Try copying from the original formatted document rather than from a plain-text intermediary.",
+      ], steps: [
+        "Select a short passage with the bold text, heading or list you want to keep in the original document or webpage.",
+        "Copy with Ctrl+C on Windows or ChromeOS, or Command+C on Mac.",
+        "Open the Google Doc in editing mode and place the cursor where the passage should go.",
+        "Use normal Paste: Ctrl+V on Windows or ChromeOS, or Command+V on Mac. Do not add Shift if you want to retain formatting.",
+        "Check the pasted styles and paragraph boundaries before copying a longer passage. Undo if the result is not what you expected.",
+      ] },
+      { heading: "Paste text only when you want to remove formatting", paragraphs: [
+        "To paste text only in Google Docs, use Ctrl+Shift+V on Windows or ChromeOS, or Command+Shift+V on Mac. This is useful when you want the destination document’s formatting instead of the source styling. It is the opposite of keeping source formatting.",
+        "If you accidentally used this command, undo and paste normally from the original source again. Adding bold or a heading afterward cannot recover formatting that was never included in a plain-text clipboard.",
+      ] },
+      { heading: "If Google Docs paste still loses your styles", paragraphs: [
+        "Copy directly from the formatted original. Passing text through a plain-text editor or a text-only field can strip styles before Google Docs receives it. Test a simple bold phrase first to separate a clipboard problem from a complex document-layout problem.",
+        "If a right-click or menu paste is blocked, try the keyboard shortcut while the document is editable and focused. Clipboard permissions and browser restrictions can affect menu access. Google notes that shortcuts can also vary with the keyboard or language.",
+        "Check where you pasted: text added inside an existing paragraph or list may interact with that paragraph’s style. Try a new paragraph and inspect the result. For complete page-layout fidelity, compare the imported document separately rather than expecting ordinary clipboard paste to reproduce everything.",
       ] },
       { heading: "Paste formatted text into TypeWit", paragraphs: [
         "Open New session and paste normally into Text to enter. TypeWit reads supported clipboard formatting and shows a visual editor. You do not need to add # before headings or ** around bold text. Formatted paste is included on Free.",
@@ -258,12 +273,12 @@ export const GUIDES: Guide[] = [
 
 /** When each public page last changed substantively; the sitemap's lastmod. Pages not listed use CONTENT_UPDATED. */
 export const PAGE_UPDATED: Record<string, string> = {
-  "/terms/": "2026-10-31", "/privacy/": "2026-10-31", "/cookies/": "2026-10-31", "/subprocessors/": "2026-10-31", "/pricing/": "2026-10-27",
-  "/": "2026-10-23", "/how-it-works/":"2026-10-23", "/features/":"2026-10-23", "/use-cases/":"2026-10-23", "/faq/":"2026-10-27", "/google-docs-auto-typer/": "2026-10-27", "/word-auto-typer/": "2026-10-27", "/guides/": "2026-10-26",
+  "/terms/": "2026-10-31", "/privacy/": "2026-11-05", "/cookies/": "2026-10-31", "/subprocessors/": "2026-10-31", "/pricing/": "2026-10-27",
+  "/about/": "2026-11-08", "/": "2026-11-08", "/how-it-works/":"2026-10-23", "/features/":"2026-10-23", "/use-cases/":"2026-10-23", "/faq/":"2026-10-27", "/google-docs-auto-typer/": "2026-10-27", "/word-auto-typer/": "2026-10-27", "/guides/": "2026-10-26",
   ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
 };
 
 export const PUBLIC_PAGES = [
-  "/", "/how-it-works/", "/features/", "/use-cases/", "/faq/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),
+  "/", "/about/", "/how-it-works/", "/features/", "/use-cases/", "/faq/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),
   "/pricing/", "/support/", "/responsible-use/", "/privacy/", "/terms/", "/cookies/", "/subprocessors/",
 ];

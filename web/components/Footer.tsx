@@ -3,7 +3,7 @@ import { Logo, Wordmark } from "@/components/Logo";
 import { Icon } from "@/components/Icons";
 
 export function Footer({compact=false}:{compact?:boolean}) {
-  if(compact) return <footer className="site-footer home-footer"><div className="home-compatibility"><span>Works with the documents you use</span><Link href="/google-docs-auto-typer/">Google Docs</Link><Link href="/word-auto-typer/">Microsoft Word</Link></div><div className="home-footer-base"><span>© {new Date().getFullYear()} TypeWit</span><nav aria-label="Resources and legal"><Link href="/guides/">Guides</Link><Link href="/support/">Support</Link><Link href="/privacy/">Privacy</Link><Link href="/terms/">Terms</Link><Link href="/cookies/">Cookies</Link><Link href="/subprocessors/">Service providers</Link><Link href="/responsible-use/">Responsible use</Link></nav></div></footer>;
+  if(compact) return <footer className="site-footer home-footer"><div className="home-compatibility"><span>Works with the documents you use</span><Link href="/google-docs-auto-typer/">Google Docs</Link><Link href="/word-auto-typer/">Microsoft Word</Link></div><div className="home-footer-base"><span>© {new Date().getFullYear()} TypeWit</span><nav aria-label="Resources and legal"><Link href="/about/">About TypeWit</Link><Link href="/guides/">Guides</Link><Link href="/support/">Support</Link><Link href="/privacy/">Privacy</Link><Link href="/terms/">Terms</Link><Link href="/cookies/">Cookies</Link><Link href="/subprocessors/">Service providers</Link><Link href="/responsible-use/">Responsible use</Link></nav></div></footer>;
 
   return (
     <footer className="site-footer">
@@ -31,6 +31,7 @@ export function Footer({compact=false}:{compact?:boolean}) {
           <nav aria-labelledby="f-help">
             <h2 id="f-help">Here to help</h2>
             <ul>
+              <li><Link href="/about/">About TypeWit</Link></li>
               <li><Link href="/guides/">Guides</Link></li>
               <li><Link href="/support/">Support</Link></li>
               <li><Link href="/faq/">Common questions</Link></li>

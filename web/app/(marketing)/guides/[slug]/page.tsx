@@ -16,7 +16,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const path = `/guides/${slug}/`;
   return <article className="prose seo-article"><Breadcrumbs items={[{ name: "Guides", path: "/guides/" }, { name: guide.title, path }]} />
     <p className="kicker">Practical guide</p><h1>{guide.title}</h1>
-    <p className="updated">By the TypeWit team · Updated <time dateTime={guide.updated}>{new Date(`${guide.updated}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}</time></p><p className="seo-summary">{guide.summary}</p>
+    <p className="updated">By the <Link href="/about/">TypeWit team</Link> · Updated <time dateTime={guide.updated}>{new Date(`${guide.updated}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}</time></p><p className="seo-summary">{guide.summary}</p>
     <nav className="seo-toc" aria-label="On this page"><strong>In this guide</strong><ul>{guide.sections.map((s,i) => <li key={s.heading}><a href={`#section-${i+1}`}>{s.heading}</a></li>)}</ul></nav>
     {guide.sections.map((section, i) => <section key={section.heading} aria-labelledby={`section-${i+1}`}><h2 id={`section-${i+1}`}>{section.heading}</h2>{section.paragraphs.map(p => <p key={p}>{p}</p>)}{section.steps && <ol>{section.steps.map(step => <li key={step}>{step}</li>)}</ol>}</section>)}
     <h2>Official references</h2><ul>{guide.sources.map(source => <li key={source.url}><a href={source.url}>{source.label}</a></li>)}</ul>

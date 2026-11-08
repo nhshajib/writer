@@ -1,4 +1,9 @@
 keyword,intent,priority,owning_path,evidence,monthly_searches,organic_difficulty
+TypeWit,branded navigation,P0,/,Brand collides with unrelated Rust crate; no branded query disclosed in supplied export,unavailable,unavailable
+TypeWit auto typer,branded commercial,P0,/,Brand plus category; global English audience,unavailable,unavailable
+about TypeWit,branded informational,P1,/about/,Product and operator identity; not measured demand,unavailable,unavailable
+TypeWit Google Docs,branded commercial,P1,/google-docs-auto-typer/,Brand plus Google provider; not measured demand,unavailable,unavailable
+TypeWit Word,branded commercial,P1,/word-auto-typer/,Brand plus Word add-in; not measured demand,unavailable,unavailable
 Google Docs auto typer,commercial,P1,/google-docs-auto-typer/,Sampled competitor titles and category search results,unavailable,unavailable
 Auto typer for Google Docs,commercial,P1,/google-docs-auto-typer/,Dripwriter Duey and AutoTyper public pages,unavailable,unavailable
 Google Docs auto typer without extension,commercial,P1,/google-docs-auto-typer/,Cloud execution differentiator and competitor pages,unavailable,unavailable
@@ -9,8 +14,10 @@ how to choose a Google Docs auto typer,commercial investigation,P2,/guides/choos
 auto typer extension vs cloud,commercial investigation,P2,/guides/auto-typer-extension-vs-cloud/,Different execution models in sampled products,unavailable,unavailable
 Word auto typer add-in,commercial,P2,/word-auto-typer/,Product-fit long-tail hypothesis,unavailable,unavailable
 schedule text entry Google Docs,informational,P2,/guides/schedule-text-google-docs/,Product-fit long-tail hypothesis not established volume,unavailable,unavailable
-paste text Google Docs keep formatting,informational,P2,/guides/paste-text-keep-formatting-google-docs/,Native Google Docs task and product-fit hypothesis,unavailable,unavailable
+paste text Google Docs keep formatting,informational,P1,/guides/paste-text-keep-formatting-google-docs/,Owner-provided Search Console export supports formatting intent; exact analytics kept private,unavailable,unavailable
 Google Docs version history groups edits,informational,P2,/guides/google-docs-version-history/,Google help and existing user support questions,unavailable,unavailable
 auto type text Microsoft Word,informational,P2,/guides/auto-type-text-microsoft-word/,Native Word tools and paced entry distinct intents,unavailable,unavailable
 Google Docs voice typing,informational,P3,/guides/voice-typing-google-docs/,Google Docs official help; less direct commercial fit,unavailable,unavailable
 TypeWit pricing,branded transactional,P1,/pricing/,Brand navigation; not measured demand,unavailable,unavailable
+how to paste in Google Docs without losing formatting,informational,P1,/guides/paste-text-keep-formatting-google-docs/,Owner-provided Search Console formatting-query cluster; no raw metrics published,unavailable,unavailable
+auto typer for word,commercial,P1,/word-auto-typer/,Disclosed in owner Search Console export; one observation is not market volume,unavailable,unavailable

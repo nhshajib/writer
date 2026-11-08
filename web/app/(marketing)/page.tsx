@@ -6,13 +6,17 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMeta, SITE_URL } from "@/lib/seo";
 import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
 
+const HOME_TITLE = "TypeWit — Auto Typer for Google Docs & Word";
+const HOME_DESCRIPTION = "TypeWit schedules text entry into Google Docs without a Chrome extension, plus Microsoft Word via an add-in. Keep formatting and start free.";
+
 export const metadata: Metadata = {
   ...pageMeta(
     "/",
     "Auto Typer for Google Docs & Word",
-    "Schedule approved text entry into Google Docs and Word. Keep supported formatting, choose a typing rhythm and pause anytime. Free plan available.",
+    HOME_DESCRIPTION,
+    { openGraph: { title: HOME_TITLE }, twitter: { title: HOME_TITLE } },
   ),
-  title: { absolute: "Auto Typer for Google Docs & Word · TypeWit" },
+  title: { absolute: HOME_TITLE },
 };
 
 const STRUCTURED_DATA = {
@@ -27,21 +31,27 @@ const STRUCTURED_DATA = {
       url: `${SITE_URL}/`,
       logo: `${SITE_URL}/brand/mark-512.png`,
       email: SUPPORT_EMAIL,
+      description: "Operator of TypeWit, the scheduled text-entry app for Google Docs and Microsoft Word.",
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       name: "TypeWit",
+      alternateName: "typewit.com",
       url: `${SITE_URL}/`,
+      inLanguage: "en",
+      description: HOME_DESCRIPTION,
       publisher: { "@id": `${SITE_URL}/#organization` },
     },
     {
       "@type": "SoftwareApplication",
+      "@id": `${SITE_URL}/#software`,
       publisher: { "@id": `${SITE_URL}/#organization` },
       name: "TypeWit",
       url: `${SITE_URL}/`,
       applicationCategory: "ProductivityApplication",
       operatingSystem: "Web",
+      sameAs: ["https://www.saashub.com/typewit"],
       description:
         "Schedules automated entry of approved text into Google Docs and Microsoft Word for authorized testing, with supported formatting and adjustable pacing.",
       offers: [
@@ -77,14 +87,14 @@ export default function Home() {
     <>
       <section className="home-hero" aria-labelledby="hero-title">
         <div className="home-copy">
-          <p className="home-eyebrow">AUTOMATED DOCUMENT ENTRY</p>
+          <p className="home-eyebrow">TYPEWIT AUTO TYPER</p>
           <h1 id="hero-title">
             <span>Your words.</span>
             <br />Entered at<br className="desktop-break" /> your pace.
           </h1>
           <p className="home-description">
-            Your approved text, entered into Google Docs or Word. Keep your
-            formatting, choose a rhythm, and stay in control.
+            TypeWit is an auto typer for Google Docs and Word. Paste formatted
+            text, choose a rhythm, and control every session.
           </p>
           <div className="home-actions">
             <Link href="/signup/" className="btn btn-primary" id="hero-cta">

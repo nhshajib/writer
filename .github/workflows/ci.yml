@@ -46,6 +46,8 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci
+      - name: Static SEO audit
+        run: npm run seo:check
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
       - name: Browser tests

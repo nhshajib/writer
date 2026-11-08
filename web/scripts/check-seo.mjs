@@ -93,4 +93,26 @@ assert(!/Disallow: \/(?:app|login|signup|word)/.test(robots), 'Crawlers must see
 const homepage = await readFile(path.join(out, 'index.html'), 'utf8');
 assert(!homepage.includes('It never imitates human typing'));
 assert(!homepage.includes('"@type":"FAQPage"'));
+// Brand identity is present in rendered HTML, not only after client hydration.
+const homeTitle = decode(/<title>(.*?)<\/title>/.exec(homepage)?.[1] || '');
+assert(homeTitle.startsWith('TypeWit'), 'Homepage title must identify the brand first');
+const homeMeta = tags(homepage, 'meta');
+assert.equal(homeMeta.find(m => m.property === 'og:title')?.content, homeTitle);
+assert.equal(homeMeta.find(m => m.name === 'twitter:title')?.content, homeTitle);
+assert(/TypeWit is an auto typer for Google Docs and Word/.test(homepage));
+const homeGraph = [...homepage.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
+  .flatMap(m => JSON.parse(m[1])['@graph'] || []);
+const website = homeGraph.find(n => n['@type'] === 'WebSite');
+const organization = homeGraph.find(n => n['@type'] === 'Organization');
+const software = homeGraph.find(n => n['@type'] === 'SoftwareApplication');
+assert.equal(website?.name, 'TypeWit');
+assert.equal(website?.alternateName, 'typewit.com');
+assert.equal(website?.publisher?.['@id'], organization?.['@id']);
+assert.equal(software?.['@id'], `${origin}/#software`);
+assert(software?.sameAs?.includes('https://www.saashub.com/typewit'));
+const about = await readFile(path.join(out, 'about/index.html'), 'utf8');
+const aboutData = [...about.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
+  .map(m => JSON.parse(m[1])).find(n => n['@type'] === 'AboutPage');
+assert.equal(aboutData?.about?.['@id'], software['@id']);
+assert(tags(homepage, 'a').some(a => a.href === '/about/'), 'Brand page must be discoverable');
 console.log(`SEO checks passed: ${cases.length} indexing-policy cases, ${PUBLIC_PAGES.length} canonical public pages (${indexable ? "Netlify production" : "non-indexable build"}), ${linkCount} internal links, private-route exclusions, sitemap and JSON-LD.`);

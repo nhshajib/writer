@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   robots: PUBLIC_ROBOTS,
   appleWebApp: { capable: true, title: "TypeWit", statusBarStyle: "default" },
   title: {
-    default: "Auto Typer for Google Docs & Word · TypeWit",
+    default: "TypeWit — Auto Typer for Google Docs & Word",
     template: "%s · TypeWit",
   },
   description:

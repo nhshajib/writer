@@ -79,3 +79,7 @@ Outreach draft:
 For each eventual submission record: platform, account owner, submission date, exact submitted text, moderation status, live listing URL, link destination and referral visits. Pending review is not a live backlink. A live link is not proof of ranking impact. Keep one canonical listing per site; check duplicates first.
 
 Do not post irrelevant forum comments, mass-generated guest posts, fake reviews, link exchanges or paid ranking links. Google's [spam policy](https://developers.google.com/search/docs/essentials/spam-policies) explicitly addresses link manipulation and low-quality directory links. Legitimate listings are for product discovery; editorial citations should be earned by useful material.
+
+## Verified status — 8 November 2026
+
+The public listing https://www.saashub.com/typewit is live and links to typewit.com. Its description distinguishes Google Docs cloud sessions from the Word add-in. Checked read-only: no review, rating or external post was created. Product Hunt publication was not independently established. Use `/about/` for product identity and existing canonical provider pages for relevant references; avoid mass keyword-rich submissions. See [current audit](2026-11-08-brand-audit.md).

@@ -120,7 +120,7 @@ test("standalone information pages retain their content, breadcrumbs and small-s
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     for (
-      const path of ["/how-it-works/", "/features/", "/use-cases/", "/faq/"]
+      const path of ["/how-it-works/", "/features/", "/use-cases/", "/faq/", "/about/"]
     ) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

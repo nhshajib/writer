@@ -33,7 +33,8 @@ test('new public pages remain readable and accessible on mobile', async ({page})
 
 test('public metadata is present without JavaScript and private pages are excluded', async ({request}) => {
   const home=await (await request.get('/')).text();
-  expect(home).toContain('<title>Auto Typer for Google Docs &amp; Word · TypeWit</title>');
+  // Intentional brand-first SEO title; keep checking the exact server-rendered value.
+  expect(home).toContain('<title>TypeWit — Auto Typer for Google Docs &amp; Word</title>');
   expect(home).not.toContain('It never imitates human typing');
   const xml=await (await request.get('/sitemap.xml')).text();
   expect((xml.match(/<loc>/g)||[]).length).toBe(PUBLIC_PAGES.length);
