@@ -162,9 +162,7 @@ export function DocumentsWorkspace({ accountsOnly = false }: { accountsOnly?: bo
       <section className="card" id="word" aria-labelledby="word-title">
         <h2 id="word-title" className="with-icon mb-3"><span className="doc-icon sm word" aria-hidden="true"><Icon.doc /></span>Microsoft Word</h2>
         <p className="small muted">
-          In Word, TypeWit runs as an add-in: a panel beside your document that enters your approved text into that
-          document, at the pace you set. It can only change the document it is open in, and TypeWit stores no Microsoft
-          password or token.
+          The add-in enters approved text into its open Word document. TypeWit stores no Microsoft password or OAuth token.
         </p>
         <details className="more">
         <summary>How to add TypeWit to Word</summary>

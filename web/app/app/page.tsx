@@ -138,7 +138,7 @@ export default function HomePage() {
             <h2 id="setup-title">Get started</h2>
             <span className="small muted">Takes about two minutes</span>
           </div>
-          <p className="muted">Paste your text, pick a rhythm, and review before starting. Your document updates automatically while you get on with your day.</p>
+          <p className="muted">Start with a short passage and a document you can edit.</p>
           <div className="row mt-4">
             {googleConnected || wordUsed ? <Link href="/app/new" className="btn btn-primary">Create your first session</Link> : <button type="button" className="btn btn-primary" onClick={connect}>Connect Google Docs</button>}
             <Link href="/app/connections#word" className="small">Using Microsoft Word?</Link>

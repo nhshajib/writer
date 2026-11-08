@@ -13,10 +13,10 @@ export default function AboutPage() {
     <h1>TypeWit: your text, entered on your schedule.</h1>
     <p className="seo-summary">TypeWit is a web app that enters text you approve into Google Docs or Microsoft Word over time. It is operated by Typewit Organization. You supply the words, review the destination and formatting, and control the session.</p>
     <h2>Two document workflows, one dashboard</h2>
-    <p>The <Link href="/google-docs-auto-typer/">Google Docs auto typer</Link> runs on TypeWit’s servers through Google’s API. No Chrome extension is needed, and an approved session can continue after you close the dashboard. Connect your Google account and create a document or select an existing file through Google Drive’s picker.</p>
-    <p>The <Link href="/word-auto-typer/">Microsoft Word auto typer</Link> uses the TypeWit add-in. Word and the add-in panel must remain open while it runs. Word sessions do not continue in the cloud after the panel closes.</p>
+    <p>The <Link href="/google-docs-auto-typer/">Google Docs auto typer</Link> runs on TypeWit’s servers through Google’s API. No Chrome extension is needed, and an approved session can continue after you close the dashboard. The setup page explains account permissions and document selection.</p>
+    <p>The <Link href="/word-auto-typer/">Microsoft Word auto typer</Link> uses the TypeWit add-in. Keep Word and its add-in panel open while entry runs.</p>
     <h2>Prepared text, with controls you can understand</h2>
-    <p>Paste text with supported formatting, choose a rhythm and duration, and review it before starting. Sentence steps are the default. Pause, resume or stop a session from its controls. Available scheduling, editing and pacing options depend on your plan; the <Link href="/pricing/">plan comparison</Link> lists those differences.</p>
+    <p>You approve the text and destination before entry begins. Session controls and an activity log help you monitor the result. The <Link href="/pricing/">plan comparison</Link> explains scheduling, pacing and editing access.</p>
     <p>TypeWit is not an AI writer or rewriter. Supported formatting does not include complete document layout, images or tables. Google controls how edits appear in version history; automated entries do not establish human authorship or guarantee separate visible versions.</p>
     <h2>Built for authorized document-entry testing</h2>
     <p>Use TypeWit for workflow tests, product demonstrations and typing simulations you have permission to run. Academic cheating, fabricated writing histories and false authorship claims are prohibited by the <Link href="/responsible-use/">Responsible Use Agreement</Link>.</p>

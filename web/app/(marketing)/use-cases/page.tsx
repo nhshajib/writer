@@ -11,7 +11,7 @@ export default function Page() {
   return (
     <InformationPage
       title={"Made for your document workflow"}
-      intro={"Use TypeWit for authorized document testing, formatting checks, pacing experiments and accessible entry of your own approved text."}
+      intro={"Choose a test with a clear outcome: confirm formatting, compare pacing, or check an accessible document-entry workflow."}
       path="/use-cases/"
     >
       <div className="use-case-grid">

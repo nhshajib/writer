@@ -590,15 +590,14 @@ function SessionView() {
               {drip.provider === "microsoft"
                 ? (
                   <>
-                    TypeWit enters your approved text into this Word document at scheduled times, through the TypeWit add-in in
-                    Word. It runs only while the document and the TypeWit panel are open in Word; while they&apos;re closed,
-                    nothing is entered and the rest of the schedule moves later.
+                    The TypeWit add-in enters approved text on schedule. Keep this Word document and the TypeWit panel open;
+                    closing either delays the remaining schedule.
                   </>
                 )
                 : (
                   <>
-                    TypeWit enters your approved text into this Google Doc at scheduled times, through the Google Docs API, using
-                    your Google account. It runs on TypeWit&apos;s servers: you can close this page or let your computer sleep.
+                    Approved text enters this document through the Google Docs API using your connected account.
+                    It runs on TypeWit&apos;s servers, so you can close this page or let your computer sleep.
                   </>
                 )}
             </div>

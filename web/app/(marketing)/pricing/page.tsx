@@ -15,8 +15,8 @@ type Interval = "year" | "month" | "day";
 const COMPARE = PLAN_COMPARISON;
 
 const FAQ: { q: string; a: string }[] = [
-  { q: "Can I take long breaks between writing blocks?", a: "Yes, with Day Pass or Pro. Choose writing blocks from 5 minutes to 12 hours and rests from 15 minutes to 8 hours. Long breaks are added to the writing time. Google Docs continues automatically even with the browser closed; Word needs its document and add-in open. Every restart and the finish must fit Day Pass access. Service delays can move the resume time later; separate Google version-history groups are not guaranteed." },
-  { q: "How does the Day Pass work?", a: "Pay $3.99 once for 24 hours from payment confirmation. No subscription, trial or renewal. It includes unlimited words, one active session, writing hours, customizable writing blocks with rests up to 8 hours, and priority dispatch. Restarts and the finish must fit the remaining access window. At expiry, unfinished pass sessions pause; existing document text and your activity log remain. Buy another pass after expiry or upgrade to Pro to resume. Pro adds advanced drafting, playback and the final revision pass." },
+  { q: "Can I take long breaks between writing blocks?", a: "Yes. Day Pass and Pro support 5-minute to 12-hour writing blocks and 15-minute to 8-hour rests. The preview includes breaks and checks Day Pass expiry. Google Docs resumes in the cloud; Word needs its add-in open. Provider delays can shift continuation, and Google controls history grouping." },
+  { q: "How does the Day Pass work?", a: "Pay $3.99 once for 24 hours from payment confirmation, with no renewal. It includes unlimited words, one active session, writing hours, blocks and priority dispatch. Every restart and the finish must fit before expiry. Unfinished sessions pause when access ends; text and logs remain. Renew after expiry or upgrade to resume." },
   { q: "Can I continue an existing or shared Google Doc?", a: "Yes, on every plan, without a three-day restriction. Choose the document from Google Drive. TypeWit appends your approved text to the same document, or Pro can target a heading. If collaborators change the insertion point, entry pauses for your review. It does not overwrite their work." },
   {
     q: "How does the free trial work?",
@@ -106,7 +106,7 @@ function PricingContent() {
           <button type="button" aria-pressed={billing === "month"} disabled={busy} onClick={() => setBilling("month")}>Monthly</button>
           <button type="button" aria-pressed={billing === "year"} disabled={busy} onClick={() => setBilling("year")}>Yearly <span>Save 28%</span></button>
         </div>
-        <p className="pricing-intro muted">Monthly and Yearly include the same Pro features; Yearly costs $23.88 less than 12 monthly payments. A Day Pass gives you one day without a subscription.</p>
+        <p className="pricing-intro muted">Yearly Pro saves $23.88 compared with 12 monthly payments. Choose Day Pass for a single day without a subscription.</p>
         <div className="pricing-cards">
           <section className="plan" aria-labelledby="free-title">
             <h2 id="free-title">Free</h2><p className="desc">Try a short document session.</p>
@@ -130,7 +130,7 @@ function PricingContent() {
         </div>
         <p className="hint pricing-disclosure">Eligible new Pro subscribers get 7 days free with a card. Then $6.99/month or $60/year, paid upfront and renewed automatically until canceled. Cancel before the trial ends to avoid the first charge. Taxes may apply. Existing subscribers can manage their plan in <Link href="/app/billing/">Plan &amp; usage</Link>.</p>
         <h2 id="compare-title" className="section-title">Compare every feature</h2>
-        <p id="compare-note" className="pricing-compare-note">Compare three levels of access: Free, Day Pass and Pro. <strong>Monthly and yearly Pro include exactly the same features.</strong> Choose monthly for flexibility, or yearly to save 28%.</p>
+        <p id="compare-note" className="pricing-compare-note"><strong>Monthly and yearly Pro include the same features.</strong> This table compares access across Free, Day Pass and Pro.</p>
         <div className="compare-wrap pricing-comparison">
           <table className="compare" aria-labelledby="compare-title" aria-describedby="compare-note">
             <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Day Pass</th><th scope="col">Pro<span className="compare-tier-note">Monthly or yearly</span></th></tr></thead>
@@ -142,7 +142,7 @@ function PricingContent() {
 
       <section id="pro-steps" className="section" aria-labelledby="steps-title">
         <div className="container">
-          <div className="section-head"><h2 id="steps-title">Getting Pro takes a minute.</h2></div>
+          <div className="section-head"><h2 id="steps-title">Activate Pro</h2></div>
           <ol className="steps">
             <li><h3>Create your account</h3><p>Continue with Google, Discord or a personal email, and accept the Responsible Use Agreement.</p></li>
             <li><h3>Start your free week</h3><p>Pick yearly or monthly above and add a card on Stripe&apos;s secure page.</p></li>

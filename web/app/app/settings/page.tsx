@@ -279,7 +279,7 @@ export default function SettingsPage() {
         </section>
 
         <section className="setting" id="defaults" hidden={activeSection !== "defaults"} aria-labelledby="defaults-title">
-          <div><h2 id="defaults-title">Session defaults</h2><p>What New session starts from, on any device. You can still change anything per session.</p></div>
+          <div><h2 id="defaults-title">Session defaults</h2><p>Save starting settings for new sessions. Adjust them before each run.</p></div>
           <SessionDefaultsForm />
         </section>
 
@@ -355,7 +355,7 @@ export default function SettingsPage() {
         </section>
 
         <section className="setting" id="data" hidden={activeSection !== "data"} aria-labelledby="data-title">
-          <div><h2 id="data-title">Your data</h2><p>What TypeWit keeps, and clearing it.</p></div>
+          <div><h2 id="data-title">Your data</h2><p>Review, export or remove saved account data.</p></div>
           <div className="stack" style={{ gap: "0.75rem", justifyItems: "start" }}>
             <ul className="small muted" style={{ paddingLeft: "1.1rem" }}>
               <li>Each session&apos;s approved text, its split into steps and its schedule are stored in TypeWit&apos;s database (Supabase), readable only by your account.</li>

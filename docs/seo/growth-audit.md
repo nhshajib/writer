@@ -1,3 +1,5 @@
+> **Content follow-up:** [Site-wide copy audit and polish](content-audit.md) records repetition removal, page intent and preserved legal/private-page safeguards.
+
 > **8 November 2026 follow-up:** See [brand visibility and site audit](2026-11-08-brand-audit.md) for current research, changes, verified SaaSHub listing and Search Console steps. The older research below is historical, not a current rank report.
 
 # TypeWit search growth audit and implementation

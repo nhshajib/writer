@@ -145,7 +145,7 @@ function SignupForm() {
     <div className="auth">
       <div className="auth-box">
         <h1 id="signup-title">Create your account</h1>
-        <p className="sub">A little less typing. A little more time for you.</p>
+        <p className="sub">Start free and review your text before it enters a document.</p>
         <p className="signup-step">1 · Create account <span aria-hidden="true">→</span> 2 · Confirm your age</p>
 
         <form className="auth-form signup" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">

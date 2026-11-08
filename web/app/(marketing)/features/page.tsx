@@ -1,6 +1,7 @@
 import { pageMeta } from "@/lib/seo";
 import { InformationPage } from "@/components/marketing/InformationPage";
 import { FEATURES } from "@/lib/marketing-content";
+import Link from "next/link";
 export const metadata = pageMeta(
   "/features/",
   "Features that keep you in control",
@@ -10,7 +11,7 @@ export default function Page() {
   return (
     <InformationPage
       title={"Features that keep you in control"}
-      intro={"Explore approved text entry, formatted paste, flexible pacing, writing blocks and session controls for Google Docs and Microsoft Word."}
+      intro={"Review what each control does, from formatted paste to pauses and simulated corrections. Choose the settings your test needs."}
       path="/features/"
     >
       <ul className="lp-features">
@@ -48,12 +49,11 @@ export default function Page() {
         </p>
       </section>
       <section className="information-section">
-        <h2>Choose the plan that fits the work</h2>
+        <h2>See the setup for your document</h2>
         <p>
-          Free gives you 250 words daily and sessions up to 60 minutes. Day Pass
-          provides unlimited words for 24 hours for $3.99 with no renewal. Pro
-          supports week-long sessions and up to three active sessions, with the
-          same features on monthly and yearly billing.
+          The <Link href="/google-docs-auto-typer/">Google Docs auto typer</Link> runs in the cloud.
+          The <Link href="/word-auto-typer/">Microsoft Word auto typer</Link> uses an open add-in.
+          Each setup guide explains permissions and supported formatting.
         </p>
       </section>
     </InformationPage>

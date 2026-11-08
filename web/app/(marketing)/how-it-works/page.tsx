@@ -11,7 +11,7 @@ export default function Page() {
   return (
     <InformationPage
       title={"How TypeWit works"}
-      intro={"Paste your formatted text, choose a rhythm, then review and approve. Learn how scheduled entry works in Google Docs and Microsoft Word."}
+      intro={"Three steps take your prepared draft from the editor to a document. Start with a short sample to check the result."}
       path="/how-it-works/"
     >
       <ol className="lp-steps">
@@ -48,9 +48,8 @@ export default function Page() {
       <section className="information-section">
         <h2>Review, pause, or change direction</h2>
         <p>
-          Check supported formatting and approve the exact text before starting.
-          Pause or stop whenever you need. Pro users can edit remaining text and
-          settings while paused, approve again, and resume.
+          Pause or stop from the session controls. Pro users can replace remaining
+          text or change settings while paused, then approve the changes and resume.
         </p>
         <p>
           Writing blocks add long rests between periods of entry. Times are

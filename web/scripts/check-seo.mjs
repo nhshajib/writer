@@ -3,7 +3,7 @@ import { readFile, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { allowIndexing } from '../lib/indexing.ts';
-import { PUBLIC_PAGES } from '../lib/search-content.ts';
+import { GUIDES, RELATED_GUIDES, PUBLIC_PAGES } from '../lib/search-content.ts';
 
 const cases = [
   [{ VERCEL: '1', VERCEL_ENV: 'production' }, false],
@@ -24,6 +24,13 @@ const cases = [
   [{ NEXT_PUBLIC_NOINDEX: 'true' }, false],
 ];
 for (const [env, expected] of cases) assert.equal(allowIndexing(env), expected, JSON.stringify(env));
+// Editorial links must remain useful and complete as the guide catalogue grows.
+for (const guide of GUIDES) {
+  const related = RELATED_GUIDES[guide.slug];
+  assert(related?.length >= 2 && related.length <= 3, `${guide.slug}: focused related reading`);
+  assert.equal(new Set(related).size, related.length, `${guide.slug}: duplicate related guide`);
+  assert(related.every(slug => slug !== guide.slug && GUIDES.some(g => g.slug === slug)), `${guide.slug}: invalid related guide`);
+}
 const out = fileURLToPath(new URL('../out/', import.meta.url));
 const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://typewit.com').origin;
 const sitemap = await readFile(path.join(out, 'sitemap.xml'), 'utf8');
@@ -50,6 +57,7 @@ for (const url of PUBLIC_PAGES.map(p => origin+p)) {
   const title = decode(/<title>(.*?)<\/title>/.exec(html)?.[1] || '');
   const description = meta.find(m => m.name === 'description')?.content;
   assert(title && title.length < 100, `${url}: missing or excessive title`);
+  assert.equal((title.match(/\bTypeWit\b/gi) || []).length, 1, `${url}: brand must not repeat in the title`);
   assert(!titles.has(title), `Duplicate title: ${title}`); titles.add(title);
   assert(description && description.length >= 60 && description.length <= 200, `${url}: description`);
   assert(!descriptions.has(description), `Duplicate description: ${url}`); descriptions.add(description);
@@ -85,6 +93,8 @@ for (const url of PUBLIC_PAGES.map(p => origin+p)) {
 for (const route of ['app','app/new','app/session','app/connections','login','signup','reset-password','account','word']) {
   const html = await readFile(path.join(out, route, 'index.html'), 'utf8');
   assert(tags(html, 'meta').some(m => m.name === 'robots' && /noindex/.test(m.content)), `${route}: must be noindex`);
+  const privateTitle = decode(/<title>(.*?)<\/title>/.exec(html)?.[1] || '');
+  assert.equal((privateTitle.match(/\bTypeWit\b/gi) || []).length, 1, `${route}: title branding`);
 }
 const robots = await readFile(path.join(out, 'robots.txt'), 'utf8');
 assert.equal(robots.includes(`Sitemap: ${origin}/sitemap.xml`), indexable);

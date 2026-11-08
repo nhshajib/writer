@@ -6,8 +6,8 @@ export const metadata = pageMeta("/guides/", "Google Docs & Word Auto Typer Guid
 export default function Guides() {
   return <article className="prose seo-hub"><Breadcrumbs items={[{ name: "Guides", path: "/guides/" }]} />
     <p className="kicker">TypeWit guides</p><h1>Document entry, explained.</h1>
-    <p>Learn how to set up automated text entry in Google Docs and Word, preserve supported formatting, dictate instead of typing, choose between extension and cloud auto typers, and understand what your document’s history can and cannot show.</p>
-    <div className="seo-cards">{GUIDES.map(guide => <Link href={`/guides/${guide.slug}/`} key={guide.slug}><h2>{guide.title}</h2><p>{guide.summary}</p><span>Read guide →</span></Link>)}</div>
+    <p>Find an answer for the task in front of you: paste without losing formatting, schedule entry, compare tools or understand document history.</p>
+    <div className="seo-cards">{GUIDES.map(guide => <Link href={`/guides/${guide.slug}/`} key={guide.slug}><h2>{guide.title}</h2><p>{guide.description}</p><span>Read guide →</span></Link>)}</div>
     <h2>Choose your document provider</h2><p>Explore the <Link href="/google-docs-auto-typer/">Google Docs auto typer</Link> for cloud sessions or the <Link href="/word-auto-typer/">Microsoft Word auto typer</Link> for the Word add-in. See <Link href="/pricing/">Free, Day Pass and Pro plans</Link> before choosing advanced settings.</p>
   </article>;
 }

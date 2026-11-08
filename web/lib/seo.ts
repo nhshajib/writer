@@ -14,14 +14,16 @@ export const PUBLIC_ROBOTS: Metadata["robots"] = INDEXABLE
   : NOINDEX;
 
 export function pageMeta(path: string, title: string, description: string, extra: Metadata = {}): Metadata {
+  const includesBrand = /\bTypeWit\b/i.test(title);
+  const brandedTitle = includesBrand ? title : `${title} · TypeWit`;
   const base: Metadata = {
-    title, description, robots: PUBLIC_ROBOTS,
+    title: includesBrand ? { absolute: title } : title, description, robots: PUBLIC_ROBOTS,
     alternates: { canonical: path },
     openGraph: {
-      title: `${title} · TypeWit`, description, url: `${SITE_URL}${path}`, siteName: "TypeWit", type: "website",
+      title: brandedTitle, description, url: `${SITE_URL}${path}`, siteName: "TypeWit", type: "website",
       images: [{ url: `${SITE_URL}/opengraph-image.png`, width: 1200, height: 630, alt: "TypeWit automated text entry for Google Docs and Word" }],
     },
-    twitter: { card: "summary_large_image", title: `${title} · TypeWit`, description, images: [`${SITE_URL}/twitter-image.png`] },
+    twitter: { card: "summary_large_image", title: brandedTitle, description, images: [`${SITE_URL}/twitter-image.png`] },
   };
   return { ...base, ...extra, openGraph: { ...base.openGraph, ...extra.openGraph }, twitter: { ...base.twitter, ...extra.twitter } };
 }
