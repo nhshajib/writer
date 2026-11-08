@@ -23,7 +23,9 @@ jobs:
         run: deno task test
 
   web:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04; ubuntu-latest can advance to
+    # an unsupported release before our browser dependency is upgraded.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web
