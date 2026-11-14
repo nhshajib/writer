@@ -170,8 +170,8 @@ test("the compact homepage on a phone links to its details without a long landin
   await page.emulateMedia({ colorScheme: "dark" });
   await expectNoAxeViolations(page);
   await header.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("navigation",{name:"Main mobile",exact:true}).getByRole("link",{name:"Features",exact:true}).click();
-  await expect(page).toHaveURL(/\/features\//);
+  await page.getByRole("navigation",{name:"Main mobile",exact:true}).getByRole("link",{name:"How it works",exact:true}).click();
+  await expect(page).toHaveURL(/\/how-it-works\//);
   await expect(page.getByRole("heading", { name: "A clear record",exact:true })).toBeVisible();
   await expectNoAxeViolations(page);
   await page.goto("/pricing/");

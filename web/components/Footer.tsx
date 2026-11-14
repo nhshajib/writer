@@ -22,8 +22,7 @@ export function Footer({compact=false}:{compact?:boolean}) {
             <h2 id="f-product">Explore</h2>
             <ul>
               <li><Link href="/how-it-works/">How it works</Link></li>
-              <li><Link href="/features/">Features</Link></li>
-              <li><Link href="/use-cases/">Use cases</Link></li>
+              <li><Link href="/how-it-works/#features">Features</Link></li>
               <li><Link href="/google-docs-auto-typer/">Google Docs</Link></li>
               <li><Link href="/word-auto-typer/">Microsoft Word</Link></li>
               <li><Link href="/pricing/">Plans &amp; pricing</Link></li>

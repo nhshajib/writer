@@ -295,11 +295,11 @@ export const RELATED_GUIDES: Record<string, string[]> = {
 export const PAGE_UPDATED: Record<string, string> = {
   "/support/": "2026-11-08",
   "/terms/": "2026-10-31", "/privacy/": "2026-11-05", "/cookies/": "2026-10-31", "/subprocessors/": "2026-10-31", "/pricing/": "2026-11-08",
-  "/about/": "2026-11-08", "/": "2026-11-14", "/how-it-works/":"2026-11-08", "/features/":"2026-11-08", "/use-cases/":"2026-11-08", "/faq/":"2026-11-08", "/google-docs-auto-typer/": "2026-11-08", "/word-auto-typer/": "2026-11-08", "/guides/": "2026-11-08",
+  "/about/": "2026-11-08", "/": "2026-11-14", "/how-it-works/":"2026-11-14", "/faq/":"2026-11-08", "/google-docs-auto-typer/": "2026-11-08", "/word-auto-typer/": "2026-11-08", "/guides/": "2026-11-08",
   ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
 };
 
 export const PUBLIC_PAGES = [
-  "/", "/about/", "/how-it-works/", "/features/", "/use-cases/", "/faq/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),
+  "/", "/about/", "/how-it-works/", "/faq/", "/google-docs-auto-typer/", "/word-auto-typer/", "/guides/", ...GUIDES.map(g => `/guides/${g.slug}/`),
   "/pricing/", "/support/", "/responsible-use/", "/privacy/", "/terms/", "/cookies/", "/subprocessors/",
 ];

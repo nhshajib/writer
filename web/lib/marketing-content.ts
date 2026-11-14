@@ -1,10 +1,10 @@
 import { Icon } from "@/components/Icons";
 
 export const USES = [
-  "Document workflow testing",
-  "Formatting checks",
-  "Pacing experiments",
-  "Accessible document entry",
+  { title: "Document workflow testing", text: "Test scheduled text entry in a document you own or have permission to use, then check each confirmed step in the activity log." },
+  { title: "Formatting checks", text: "Bring a formatted sample and see how headings, emphasis, lists and highlights arrive in the document you chose." },
+  { title: "Pacing experiments", text: "Compare Natural and Steady, or use paid controls to try longer blocks, rests and custom pacing." },
+  { title: "Accessible document entry", text: "Dictate or prepare your draft with the tools you already use, then paste, approve and control entry by keyboard or screen reader." },
 ];
 
 export const STEPS = [

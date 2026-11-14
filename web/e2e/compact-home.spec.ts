@@ -32,8 +32,9 @@ test(
     for (
       const [name, path] of [
         ["How it works", "/how-it-works/"],
-        ["Features", "/features/"],
-        ["Use cases", "/use-cases/"],
+        ["Google Docs", "/google-docs-auto-typer/"],
+        ["Word", "/word-auto-typer/"],
+        ["Guides", "/guides/"],
         ["FAQ", "/faq/"],
       ]
     ) {
@@ -126,7 +127,7 @@ test("standalone information pages retain their content, breadcrumbs and small-s
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     for (
-      const path of ["/how-it-works/", "/features/", "/use-cases/", "/faq/", "/about/"]
+      const path of ["/how-it-works/", "/faq/", "/about/"]
     ) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

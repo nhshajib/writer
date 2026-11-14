@@ -84,5 +84,17 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/features/:path*",
+      "destination": "/how-it-works/#features",
+      "permanent": true
+    },
+    {
+      "source": "/use-cases/:path*",
+      "destination": "/how-it-works/#use-cases",
+      "permanent": true
+    }
   ]
 }

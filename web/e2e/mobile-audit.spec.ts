@@ -12,7 +12,7 @@ test.use({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMot
 test.beforeEach(async({request})=>{await request.post('/__test/reset');});
 
 test('every public page has a reachable phone menu, closes on selection, and restores focus',async({page})=>{
-  for(const path of ['/','/features/','/faq/','/pricing/','/guides/','/support/','/privacy/']) {
+  for(const path of ['/','/how-it-works/','/faq/','/pricing/','/guides/','/support/','/privacy/']) {
     await page.goto(path);
     const menu=page.getByRole('button',{name:'Open menu',exact:true});
     await expect(menu).toBeVisible();
@@ -24,14 +24,14 @@ test('every public page has a reachable phone menu, closes on selection, and res
     await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(menu).toBeFocused();
   }
   await page.getByRole('button',{name:'Open menu',exact:true}).click();
-  await page.getByRole('navigation',{name:'Main mobile'}).getByRole('link',{name:'Features',exact:true}).click();
-  await expect(page).toHaveURL(/\/features\//);
+  await page.getByRole('navigation',{name:'Main mobile'}).getByRole('link',{name:'Guides',exact:true}).click();
+  await expect(page).toHaveURL(/\/guides\//);
   await expect(page.getByRole('dialog')).toBeHidden();
 });
 
 test('public, auth and dashboard layouts fit narrow phones, including enlarged text',async({page},info)=>{
   await page.addInitScript(s=>localStorage.setItem('sb-localhost-auth-token',JSON.stringify(s)),session);
-  const routes=['/','/how-it-works/','/features/','/use-cases/','/faq/','/pricing/','/guides/','/support/','/privacy/','/terms/','/responsible-use/','/google-docs-auto-typer/','/word-auto-typer/','/login/','/signup/','/reset-password/','/app/','/app/new/','/app/sessions/','/app/account/','/app/settings/','/app/connections/','/app/documents/','/app/billing/','/word/'];
+  const routes=['/','/how-it-works/','/faq/','/pricing/','/guides/','/support/','/privacy/','/terms/','/responsible-use/','/google-docs-auto-typer/','/word-auto-typer/','/login/','/signup/','/reset-password/','/app/','/app/new/','/app/sessions/','/app/account/','/app/settings/','/app/connections/','/app/documents/','/app/billing/','/word/'];
   for(const width of [320,390,430]) {
     await page.setViewportSize({width,height:844});
     for(const path of routes) {

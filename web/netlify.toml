@@ -40,6 +40,31 @@
   NEXT_PUBLIC_SITE_URL = "https://typewit.com"
   NEXT_PUBLIC_NOINDEX = "true"
 
+# Features and Use cases were merged into How it works (November 2026).
+[[redirects]]
+  from = "/features"
+  to = "/how-it-works/#features"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/features/*"
+  to = "/how-it-works/#features"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/use-cases"
+  to = "/how-it-works/#use-cases"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/use-cases/*"
+  to = "/how-it-works/#use-cases"
+  status = 301
+  force = true
+
 # Keep the apex domain as the single public search address.
 [[redirects]]
   from = "https://www.typewit.com/*"

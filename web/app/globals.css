@@ -3075,3 +3075,28 @@ body:has(.lp-hero) { background: var(--bg); }
 }
 @media (prefers-reduced-motion: reduce) { .home-card { transition: none; } .home-card:active { transform: none; } }
 
+
+/* ---------------------------------------------------------------------------
+ * How it works: each step beside a real screen from the app, then features and uses
+ * ------------------------------------------------------------------------- */
+.how-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 3.5rem; }
+.how-step { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 2.5rem; align-items: center; }
+.how-step:nth-child(even) { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
+.how-step:nth-child(even) .how-step-copy { order: 2; }
+.how-step-copy h2 { font-size: 1.5rem; margin: 0.9rem 0 0.6rem; }
+.how-step-copy p { color: var(--text-2); font-size: 1.0625rem; line-height: 1.65; }
+.how-shot { margin: 0; }
+.how-shot img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-md, 0 18px 40px -24px #000f2240); background: var(--raised); }
+.how-shot figcaption { margin-top: 0.6rem; font-size: 0.875rem; color: var(--muted); }
+.how-wide { max-width: none; }
+.how-wide > p, .how-note { max-width: 800px; margin-top: 1.5rem; }
+.how-wide .lp-features { margin-top: 1.5rem; }
+.how-wide .use-case-grid { margin-top: 1.5rem; }
+.how-wide .use-case-grid h3 { font-size: 1.125rem; margin-bottom: 0.5rem; }
+@media (max-width: 767px) {
+  .how-steps { gap: 2.5rem; }
+  .how-step, .how-step:nth-child(even) { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+  .how-step:nth-child(even) .how-step-copy { order: 0; }
+  .how-step-copy h2 { font-size: 1.3rem; }
+  .how-shot img { border-radius: 14px; }
+}

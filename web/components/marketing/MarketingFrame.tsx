@@ -13,7 +13,7 @@ export function MarketingFrame({ children }: { children: React.ReactNode }) {
     const follow = () => {
       const target: Record<string, string> = {
         "#how": "/how-it-works/",
-        "#features": "/features/",
+        "#features": "/how-it-works/#features",
         "#faq": "/faq/",
         "#pricing": "/pricing/",
       };
