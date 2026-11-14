@@ -3034,7 +3034,7 @@ body:has(.lp-hero) { background: var(--bg); }
   .billing-expiry { padding-inline: 20px; }
   .billing-usage > section { padding: 16px; }
   .billing-stat { font-size: 1.5rem; }
-  .billing-stat > span { display: block; margin-top: 4px; font-size: 0.8125rem; }
+  .billing-stat > span { margin-left: 2px; font-size: 0.875rem; }
   .billing-section-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .billing-offers { grid-template-columns: minmax(0, 1fr); }
   .billing-inclusions { padding: 12px 20px; }
@@ -3174,4 +3174,30 @@ body:has(.lp-hero) { background: var(--bg); }
 @media (max-width: 767px) {
   .home-more { padding-inline: 24px; }
   .how-shot img { max-height: 560px; object-fit: cover; object-position: top; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Phone audit fixes (every public, auth and dashboard page at 320–430px):
+ * 44px tap targets, no text under 12px, and a few spacing corrections.
+ * ------------------------------------------------------------------------- */
+.site-footer .footer-brand .brand { min-height: 44px; display: inline-flex; align-items: center; }
+.auth-page .auth-side-foot a, .auth-page .auth-side-foot .foot-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
+.home-plans > a, .home-guides > a, .information-end > a:not(.btn) { min-height: 44px; display: inline-flex; align-items: center; }
+.prose .seo-toc a { padding-block: 11px; }
+@media (max-width: 767px) {
+  /* Inline policy links keep their place in the sentence but get a taller tap area. */
+  .auth-page .signup-agree .link-btn.inline { padding-block: 10px; margin-block: -10px; }
+  .home-footer-base nav a { min-height: 44px; min-width: 44px; justify-content: center; display: inline-flex; align-items: center; }
+  .home-eyebrow, .home-frame .home-eyebrow { font-size: 0.75rem; letter-spacing: 0.08em; }
+  .billing-choice button span { font-size: 0.75rem; }
+  .tab-bar a { font-size: 0.75rem; }
+  /* Dashboard: titles, small links and number fields big enough to tap. */
+  .app-top .top-brand { min-width: 44px; min-height: 44px; }
+  .lh-title a.title, .doc-cell a.title { display: inline-flex; align-items: center; min-height: 44px; }
+  .card-head a.small { display: inline-flex; align-items: center; min-height: 44px; }
+  .slider-field input, .slider-field input[type="range"] { min-height: 44px; }
+  .app-main dd a { display: inline-flex; align-items: center; min-height: 44px; }
+  #edit-session-hint { display: block; margin-top: 8px; }
+  .pricing-hero { padding-top: 16px; }
+  .site-footer nav ul { gap: 0; }
 }

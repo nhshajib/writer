@@ -117,7 +117,7 @@ export default function BillingPage() {
         <div className="billing-usage">
           <section aria-labelledby="usage-title">
             <h3 id="usage-title">Words today</h3>
-            <p className="billing-stat">{wordsToday.toLocaleString()}<span>{limits.dailyWords ? ` / ${limits.dailyWords}` : " · unlimited"}</span></p>
+            <p className="billing-stat">{wordsToday.toLocaleString()}{limits.dailyWords ? <span>{` / ${limits.dailyWords}`}</span> : null}</p>
             {limits.dailyWords ? <>
               <div className="billing-meter" role="meter" aria-label="Words used today" aria-valuemin={0} aria-valuemax={limits.dailyWords} aria-valuenow={Math.min(wordsToday, limits.dailyWords)}>
                 <span style={{ width: `${usagePercent}%`, background: usagePercent >= 90 ? "var(--amber)" : undefined }} />
