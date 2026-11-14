@@ -74,6 +74,25 @@ Public search results for “auto typer for Google Docs” are led by vendor com
 
 Next, once Search Console data exists: compare impressions per query against this map, expand the pages already gaining impressions, and add guides only for questions people actually search. Earning genuine links (accessibility communities, productivity directories, a Product Hunt launch) will matter more for the competitive “auto typer for Google Docs” term than further on-page changes.
 
+## Update, 14 November 2026: Search Console review
+
+Search Console (last 3 months, web): about 270 impressions and 2 clicks. No query contains the brand name. The paste-formatting guide earned 243 of the impressions (average position about 12); the homepage, legal pages and the Word page had a handful each.
+
+**Brand query.** Searches for “typewit” are read as a near-miss of the established brand Typewise, and typewit.com has almost no mentions elsewhere (only SaaSHub). On-site, the homepage H1 now starts with “TypeWit:”, and Organization, WebSite and SoftwareApplication markup list the spellings “Typewit” and “Type Wit”. Brand ranking will mostly come from consistent off-site profiles and mentions that link to typewit.com, plus time.
+
+**Keyword map additions**
+
+| Query group (from Search Console) | Page |
+| --- | --- |
+| copy and paste in Google Docs without losing / changing formatting; keep formatting when copying | `/guides/paste-text-keep-formatting-google-docs/` |
+| paste text only Google Docs; paste without formatting | same guide, “Copy and paste without changing your document’s format” |
+| paste in Google Docs with formatting; paste from ChatGPT / Markdown | same guide, Paint format and Markdown sections |
+| typewit, type wit, typewit app | `/` |
+
+The guide was retitled “Copy and Paste in Google Docs Without Losing Formatting” and now answers both intents (keep the source format vs. match the document), plus Paint format, Clear formatting and Paste from Markdown. The homepage links to it.
+
+**Deploy.** On 14 November the live site was still built from commit b38d61d (8 November); later commits on `main` had not been deployed by Netlify. Check the Netlify deploy log before judging any of these changes.
+
 ## Launch and measurement
 
 1. Confirm the Netlify main site uses `NEXT_PUBLIC_SITE_URL=https://typewit.com`, `CONTEXT=production` (provided by Netlify), no `NEXT_PUBLIC_NOINDEX=true`, and no `NEXT_PUBLIC_ALLOW_INDEXING=false` in the production environment. An explicit noindex setting is intentionally respected. Vercel always stays noindex, regardless of `VERCEL_ENV` or any allow override; Netlify deploy previews and branch deploys stay noindex too.

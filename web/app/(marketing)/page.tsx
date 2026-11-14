@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 /** The guides most visitors start with, by task. */
-const FEATURED_GUIDES = ["choose-google-docs-auto-typer", "auto-typer-extension-vs-cloud", "auto-type-text-microsoft-word"]
+const FEATURED_GUIDES = ["choose-google-docs-auto-typer", "paste-text-keep-formatting-google-docs", "auto-type-text-microsoft-word"]
   .map((slug) => GUIDES.find((g) => g.slug === slug)!);
 
 const STRUCTURED_DATA = {
@@ -32,6 +32,7 @@ const STRUCTURED_DATA = {
       "@type": "Organization",
       "@id": ORGANIZATION_ID,
       name: "TypeWit",
+      alternateName: ["Typewit", "Type Wit"],
       legalName: "Typewit Organization",
       address: { "@type": "PostalAddress", addressCountry: "BD" },
       url: `${SITE_URL}/`,
@@ -43,7 +44,7 @@ const STRUCTURED_DATA = {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       name: "TypeWit",
-      alternateName: "typewit.com",
+      alternateName: ["Typewit", "Type Wit", "typewit.com"],
       url: `${SITE_URL}/`,
       inLanguage: "en",
       description: HOME_DESCRIPTION,
@@ -58,7 +59,7 @@ export default function Home() {
     <>
       <section className="home-hero" aria-labelledby="hero-title">
         <div className="home-copy">
-          <h1 id="hero-title" className="home-eyebrow">Auto typer for Google Docs and Word</h1>
+          <h1 id="hero-title" className="home-eyebrow">TypeWit: auto typer for Google Docs and Word</h1>
           <p className="home-slogan">
             <span>Your words.</span>
             <br />Entered at<br className="desktop-break" /> your pace.

@@ -15,7 +15,7 @@ test(
     const hero = await page.locator("main > section.home-hero").boundingBox();
     expect(hero!.y + hero!.height).toBeLessThanOrEqual(960);
     await expect(page.locator("main > section")).toHaveCount(1);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Auto typer for Google Docs and Word");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("TypeWit: auto typer for Google Docs and Word");
     for (const name of ["What is TypeWit?", "Works where you write", "Plans", "Guides"]) {
       await expect(page.getByRole("heading", { level: 2, name, exact: true })).toBeVisible();
     }

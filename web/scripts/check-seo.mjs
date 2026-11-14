@@ -116,7 +116,7 @@ const website = homeGraph.find(n => n['@type'] === 'WebSite');
 const organization = homeGraph.find(n => n['@type'] === 'Organization');
 const software = homeGraph.find(n => n['@type'] === 'SoftwareApplication');
 assert.equal(website?.name, 'TypeWit');
-assert.equal(website?.alternateName, 'typewit.com');
+assert([website?.alternateName].flat().includes('typewit.com'), 'WebSite alternateName includes the domain');
 assert.equal(website?.publisher?.['@id'], organization?.['@id']);
 assert.equal(software?.['@id'], `${origin}/#software`);
 assert(software?.sameAs?.includes('https://www.saashub.com/typewit'));

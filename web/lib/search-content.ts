@@ -92,13 +92,16 @@ export const GUIDES: Guide[] = [
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
   },
   {
-    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-08", title: "How to Paste in Google Docs Without Losing Formatting",
-    description: "Keep formatting in Google Docs with normal paste: Ctrl+V on Windows or ChromeOS, Command+V on Mac. Learn when to use plain-text paste and how to fix lost styles.",
-    summary: "To paste into Google Docs without losing formatting, copy from the original formatted source and use normal Paste: Ctrl+V on Windows or ChromeOS, or Command+V on Mac. Paste without formatting intentionally removes styles. Check a short sample first because not every source layout transfers exactly.",
+    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-14", title: "Copy and Paste in Google Docs Without Losing Formatting",
+    description: "Keep formatting with Ctrl+V (Command+V on Mac), paste text only with Ctrl+Shift+V to match your document, fix lost bold and headings, and paste Markdown from AI chats.",
+    summary: "To copy and paste in Google Docs without losing formatting, copy from the formatted original and use normal Paste: Ctrl+V on Windows or ChromeOS, Command+V on Mac. If you want the pasted text to take on your document’s format instead, use Paste without formatting: Ctrl+Shift+V, or Command+Shift+V on Mac.",
     sections: [
-      { heading: "Start with the paste option you actually need", paragraphs: [
-        "For a one-time transfer, you can paste directly into Google Docs without a TypeWit account. Normal Paste brings across the formatting available on the clipboard; it does not guarantee an exact copy of every font, table or page layout. Google’s keyboard-shortcut reference lists the commands for your operating system.",
-        "If formatting disappears, check whether the source application copied rich text or only plain text. A plain-text clipboard has no heading or highlight information for another application to recover. Try copying from the original formatted document rather than from a plain-text intermediary.",
+      { heading: "Which paste do you need?", paragraphs: [
+        "Keep the source formatting (bold, headings, lists, links): use normal Paste, Ctrl+V or Command+V. Match the format of the document you are pasting into: use Paste without formatting, Ctrl+Shift+V or Command+Shift+V, or Edit > Paste without formatting. Copy only the formatting from one part of a document to another: use the Paint format tool on the toolbar.",
+        "For a one-time transfer you don’t need any other tool: these are built into Google Docs. Normal Paste brings across the formatting available on the clipboard; it does not guarantee an exact copy of every font, table or page layout. Google’s keyboard-shortcut reference lists the commands for your operating system.",
+      ] },
+      { heading: "Paste and keep the original formatting", paragraphs: [
+        "If formatting disappears, check whether the source application copied rich text or only plain text. A plain-text clipboard has no heading or highlight information for another application to recover. Copy from the original formatted document rather than from a plain-text intermediary.",
       ], steps: [
         "Select a short passage with the bold text, heading or list you want to keep in the original document or webpage.",
         "Copy with Ctrl+C on Windows or ChromeOS, or Command+C on Mac.",
@@ -106,14 +109,21 @@ export const GUIDES: Guide[] = [
         "Use normal Paste: Ctrl+V on Windows or ChromeOS, or Command+V on Mac. Do not add Shift if you want to retain formatting.",
         "Check the pasted styles and paragraph boundaries before copying a longer passage. Undo if the result is not what you expected.",
       ] },
-      { heading: "Paste text only when you want to remove formatting", paragraphs: [
-        "To paste text only in Google Docs, use Ctrl+Shift+V on Windows or ChromeOS, or Command+Shift+V on Mac. This is useful when you want the destination document’s formatting instead of the source styling. It is the opposite of keeping source formatting.",
-        "If you accidentally used this command, undo and paste normally from the original source again. Adding bold or a heading afterward cannot recover formatting that was never included in a plain-text clipboard.",
+      { heading: "Copy and paste without changing your document’s format", paragraphs: [
+        "When pasted text arrives in the wrong font, size or color, you want it to match your document instead. Use Paste without formatting: Ctrl+Shift+V on Windows or ChromeOS, Command+Shift+V on Mac, or Edit > Paste without formatting. The words keep the style of the paragraph you paste into.",
+        "Already pasted? Select the text and choose Format > Clear formatting (Ctrl+\\ or Command+\\), then apply your own heading or bold. Note that this removes the source’s bold and headings too: paste-text-only and keeping formatting are opposite choices.",
+      ] },
+      { heading: "Copy formatting with Paint format", paragraphs: [
+        "To make one passage look like another inside the same document, select text that already has the look you want, click Paint format (the paint-roller icon) on the toolbar, then select the text to change. Double-click Paint format to apply it to several places, and click it again to stop.",
+      ] },
+      { heading: "Paste from ChatGPT, Claude and other Markdown sources", paragraphs: [
+        "Text copied with an AI chat’s copy button is often Markdown, so it arrives in Google Docs with ** and # symbols instead of bold and headings. Google Docs can convert it: turn on Tools > Preferences > Enable Markdown, then right-click in the document and choose Paste from Markdown.",
+        "Alternatively, select the rendered answer on the page instead of using the copy button: that copies rich text, which normal Paste keeps. TypeWit’s visual editor also accepts rich text from the clipboard, so check the styles there before approving a session.",
       ] },
       { heading: "If Google Docs paste still loses your styles", paragraphs: [
         "Copy directly from the formatted original. Passing text through a plain-text editor or a text-only field can strip styles before Google Docs receives it. Test a simple bold phrase first to separate a clipboard problem from a complex document-layout problem.",
-        "If a right-click or menu paste is blocked, try the keyboard shortcut while the document is editable and focused. Clipboard permissions and browser restrictions can affect menu access. Google notes that shortcuts can also vary with the keyboard or language.",
-        "Check where you pasted: text added inside an existing paragraph or list may interact with that paragraph’s style. Try a new paragraph and inspect the result. For complete page-layout fidelity, compare the imported document separately rather than expecting ordinary clipboard paste to reproduce everything.",
+        "If a right-click or menu paste is blocked, use the keyboard shortcut while the document is editable and focused. Clipboard permissions and browser restrictions can affect menu access. Google notes that shortcuts can also vary with the keyboard or language.",
+        "Check where you pasted: text added inside an existing paragraph or list may interact with that paragraph’s style. Try a new paragraph and inspect the result. For complete page-layout fidelity, open or import the original file instead of expecting ordinary clipboard paste to reproduce everything.",
       ] },
       { heading: "Paste formatted text into TypeWit", paragraphs: [
         "For scheduled entry, paste into TypeWit’s visual editor instead of the document. Supported styles are included on Free, without adding Markdown markers.",
@@ -135,7 +145,10 @@ export const GUIDES: Guide[] = [
       { heading: "Keep the purpose clear", paragraphs: [
         "Use scheduled entry only for authorized tests, and inspect the completed document before sharing.",
       ] },
-    ], sources: [{ label: "Google Docs keyboard shortcuts", url: "https://support.google.com/docs/answer/179738" }],
+    ], sources: [
+      { label: "Google Docs keyboard shortcuts", url: "https://support.google.com/docs/answer/179738" },
+      { label: "Google Workspace Updates: import and export Markdown in Google Docs", url: "https://workspaceupdates.googleblog.com/2024/07/import-and-export-markdown-in-google-docs.html" },
+    ],
   },
   {
     slug: "google-docs-version-history", published: "2026-10-21", updated: "2026-11-08", title: "Google Docs Version History and Automated Edits",
@@ -286,7 +299,7 @@ export const RELATED_GUIDES: Record<string, string[]> = {
 export const PAGE_UPDATED: Record<string, string> = {
   "/support/": "2026-11-08",
   "/terms/": "2026-10-31", "/privacy/": "2026-11-05", "/cookies/": "2026-10-31", "/subprocessors/": "2026-10-31", "/pricing/": "2026-11-08",
-  "/about/": "2026-11-08", "/": "2026-11-08", "/how-it-works/":"2026-11-08", "/features/":"2026-11-08", "/use-cases/":"2026-11-08", "/faq/":"2026-11-08", "/google-docs-auto-typer/": "2026-11-08", "/word-auto-typer/": "2026-11-08", "/guides/": "2026-11-08",
+  "/about/": "2026-11-08", "/": "2026-11-14", "/how-it-works/":"2026-11-08", "/features/":"2026-11-08", "/use-cases/":"2026-11-08", "/faq/":"2026-11-08", "/google-docs-auto-typer/": "2026-11-08", "/word-auto-typer/": "2026-11-08", "/guides/": "2026-11-08",
   ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
 };
 

@@ -30,6 +30,7 @@ export const SOFTWARE = {
   "@id": SOFTWARE_ID,
   publisher: { "@id": ORGANIZATION_ID },
   name: "TypeWit",
+  alternateName: ["Typewit", "Type Wit"],
   url: `${SITE_URL}/`,
   applicationCategory: "ProductivityApplication",
   operatingSystem: "Web",
