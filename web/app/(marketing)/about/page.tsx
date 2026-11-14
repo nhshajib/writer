@@ -10,8 +10,8 @@ export default function AboutPage() {
   return <article className="prose seo-landing">
     <Breadcrumbs items={[{ name: "About TypeWit", path: "/about/" }]} />
     <p className="kicker">About the product</p>
-    <h1>TypeWit: your text, entered on your schedule.</h1>
-    <p className="seo-summary">TypeWit is a web app that enters text you approve into Google Docs or Microsoft Word over time. It is operated by Typewit Organization. You supply the words, review the destination and formatting, and control the session.</p>
+    <h1>About TypeWit, the auto typer for Google Docs and Word</h1>
+    <p className="seo-summary">TypeWit is a web app that enters text you approve into Google Docs or Microsoft Word over time. It is operated by Typewit Organization. You supply the words, review the destination and formatting, and control the session. TypeWit (typewit.com) is not related to Typewise, the AI keyboard app.</p>
     <h2>Two document workflows, one dashboard</h2>
     <p>The <Link href="/google-docs-auto-typer/">Google Docs auto typer</Link> runs on TypeWit’s servers through Google’s API. No Chrome extension is needed, and an approved session can continue after you close the dashboard. The setup page explains account permissions and document selection.</p>
     <p>The <Link href="/word-auto-typer/">Microsoft Word auto typer</Link> uses the TypeWit add-in. Keep Word and its add-in panel open while entry runs.</p>

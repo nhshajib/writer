@@ -40,7 +40,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Is Free really free?",
-    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 250 words a day (about half a page) and sessions up to 60 minutes, with Natural and Steady rhythms, sentence pauses, every insertion mode and accessibility feature.",
+    a: "Yes. The Free plan has no time limit and doesn't need a card. It includes 250 words a day (about half a page) and sessions up to 60 minutes, with Natural and Steady rhythms, sentence pauses, single-word, word-group and sentence entry, and every accessibility feature.",
   },
 ];
 
@@ -92,6 +92,7 @@ function PricingContent() {
             Auto typer plans: <span className="soft">free, Day Pass or Pro.</span>
           </h1>
           <p className="lead">Try every Pro feature free for 7 days. Cancel any time.</p>
+          <p className="pricing-summary">Free gives 250 words a day and sessions up to 60 minutes, with no card. The Day Pass is {DAY_PASS_PRICE} for 24 hours of unlimited words and doesn’t renew. Pro is {PRO_PRICE.month.amount} a month or {PRO_PRICE.year.total} a year and adds scheduled starts, the Drafting rhythm and sessions up to a week. See <Link href="/faq/">common questions</Link> and how <Link href="/guides/schedule-text-google-docs/">scheduling works</Link>.</p>
           {canceled && (
             <p className="alert alert-info pricing-note" role="status">
               Checkout was canceled. You haven't been charged.

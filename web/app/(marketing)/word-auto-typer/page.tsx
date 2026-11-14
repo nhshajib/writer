@@ -14,7 +14,7 @@ export default function WordAutoTyper() {
   return <article className="prose seo-landing"><Breadcrumbs items={[{name:"Word auto typer",path:"/word-auto-typer/"}]} />
     <p className="kicker">Microsoft Word add-in</p><h1>A Microsoft Word auto typer inside your document.</h1>
     <PageByline updated={PAGE_UPDATED["/word-auto-typer/"]} />
-    <p className="seo-summary">TypeWit’s Word add-in enters text you approve into the document beside it. Choose a rhythm and duration, follow progress, and pause or stop whenever you need to review the result.</p>
+    <p className="seo-summary">TypeWit’s Word add-in enters text you approve into the open Word document beside it, at the rhythm and finish time you choose. Add it yourself in Word on the web, or have an administrator deploy it to Word for Windows and Mac. Keep the document and panel open while it runs; Free covers 250 words a day.</p>
     <div className="row"><Link href="/signup/" className="btn btn-primary">Create a free account</Link><Link href="/app/connections/#word" className="btn btn-secondary">Word setup instructions</Link></div>
     <p className="hint">For authorized testing. Check your Word host’s setup requirements below.</p>
     <h2>How to set up the Word add-in</h2>

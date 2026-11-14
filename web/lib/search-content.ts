@@ -92,8 +92,8 @@ export const GUIDES: Guide[] = [
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
   },
   {
-    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-14", title: "Copy and Paste in Google Docs Without Losing Formatting",
-    description: "Keep formatting with Ctrl+V (Command+V on Mac), paste text only with Ctrl+Shift+V to match your document, fix lost bold and headings, and paste Markdown from AI chats.",
+    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-14", title: "Copy & Paste in Google Docs Without Losing Format",
+    description: "Keep formatting with Ctrl+V, or paste text only with Ctrl+Shift+V to match your document. Fix lost bold and headings, and paste Markdown from AI chats.",
     summary: "To copy and paste in Google Docs without losing formatting, copy from the formatted original and use normal Paste: Ctrl+V on Windows or ChromeOS, Command+V on Mac. If you want the pasted text to take on your document’s format instead, use Paste without formatting: Ctrl+Shift+V, or Command+Shift+V on Mac.",
     sections: [
       { heading: "Which paste do you need?", paragraphs: [
@@ -112,6 +112,9 @@ export const GUIDES: Guide[] = [
       { heading: "Copy and paste without changing your document’s format", paragraphs: [
         "When pasted text arrives in the wrong font, size or color, you want it to match your document instead. Use Paste without formatting: Ctrl+Shift+V on Windows or ChromeOS, Command+Shift+V on Mac, or Edit > Paste without formatting. The words keep the style of the paragraph you paste into.",
         "Already pasted? Select the text and choose Format > Clear formatting (Ctrl+\\ or Command+\\), then apply your own heading or bold. Note that this removes the source’s bold and headings too: paste-text-only and keeping formatting are opposite choices.",
+      ] },
+      { heading: "Paste from Word or another Google Doc", paragraphs: [
+        "Between two Google Docs, copy from the source tab and paste with Ctrl+V or Command+V: headings, lists and links come across. From Microsoft Word, copy from the open document and paste the same way. For long Word files, tables or page layout, open the .docx with File > Open in Google Docs instead of pasting.",
       ] },
       { heading: "Copy formatting with Paint format", paragraphs: [
         "To make one passage look like another inside the same document, select text that already has the look you want, click Paint format (the paint-roller icon) on the toolbar, then select the text to change. Double-click Paint format to apply it to several places, and click it again to stop.",
@@ -218,8 +221,8 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "auto-type-text-microsoft-word", published: "2026-10-22", updated: "2026-11-08",
-    title: "Auto Typer for Word: Built-In Options and Add-Ins Compared",
-    description: "Looking for an auto typer for Microsoft Word? Compare Word’s AutoCorrect, Quick Parts and Dictate with an add-in such as TypeWit for paced entry of prepared text.",
+    title: "Auto Typer for Word: Built-In Tools vs Add-Ins",
+    description: "Need an auto typer for Microsoft Word? Compare Word’s AutoCorrect, Quick Parts and Dictate with an add-in like TypeWit for paced entry of prepared text.",
     summary: "Word already has tools that insert text for you. Use AutoCorrect or Quick Parts for snippets you reuse, Dictate to speak instead of type, and an add-in like TypeWit when approved text should be entered over time.",
     sections: [
       { heading: "Pick the tool for the job", paragraphs: [
@@ -253,7 +256,7 @@ export const GUIDES: Guide[] = [
   {
     slug: "voice-typing-google-docs", published: "2026-10-22", updated: "2026-11-08",
     title: "Google Docs Voice Typing and Hands-Free Entry",
-    description: "Turn on Google Docs voice typing, check dictated text and learn when a separate scheduled-entry workflow is useful. Includes keyboard and screen-reader guidance.",
+    description: "Turn on Google Docs voice typing, check dictated text and see when scheduled entry helps. Includes keyboard and screen-reader tips.",
     summary: "Use Tools → Voice typing to dictate directly into Google Docs. If you want to edit a dictated draft before scheduled entry, use a separate speech app and review the result in TypeWit.",
     sections: [
       { heading: "Turn on voice typing in Google Docs", paragraphs: [
@@ -293,9 +296,9 @@ export const RELATED_GUIDES: Record<string, string[]> = {
 
 /** When each public page last changed substantively; the sitemap's lastmod. Pages not listed use CONTENT_UPDATED. */
 export const PAGE_UPDATED: Record<string, string> = {
-  "/support/": "2026-11-08",
-  "/terms/": "2026-10-31", "/privacy/": "2026-11-05", "/cookies/": "2026-10-31", "/subprocessors/": "2026-10-31", "/pricing/": "2026-11-08",
-  "/about/": "2026-11-08", "/": "2026-11-14", "/how-it-works/":"2026-11-14", "/faq/":"2026-11-08", "/google-docs-auto-typer/": "2026-11-08", "/word-auto-typer/": "2026-11-08", "/guides/": "2026-11-08",
+  "/support/": "2026-11-14",
+  "/terms/": "2026-10-31", "/privacy/": "2026-11-05", "/cookies/": "2026-10-31", "/subprocessors/": "2026-10-31", "/pricing/": "2026-11-14",
+  "/about/": "2026-11-14", "/": "2026-11-14", "/how-it-works/":"2026-11-14", "/faq/":"2026-11-14", "/google-docs-auto-typer/": "2026-11-14", "/word-auto-typer/": "2026-11-14", "/guides/": "2026-11-08",
   ...Object.fromEntries(GUIDES.map(g => [`/guides/${g.slug}/`, g.updated])),
 };
 

@@ -28,12 +28,13 @@ export function Sheet({ open, onClose, title, children, dismissible = true, clas
   }, [open]);
 
   return (
-    <dialog ref={ref} className={`sheet ${className}`} aria-labelledby={titleId} onClose={onClose}
+    <dialog ref={ref} className={`sheet ${className}`} aria-label={title} onClose={onClose}
       onClick={(e) => dismissible && e.target === ref.current && ref.current?.close()}>
       <div className="sheet-inner">
         <span className="sheet-grabber" aria-hidden="true" />
         <div className="sheet-head">
-          {/* Only while open, so a closed menu adds no heading to the page outline (crawlers read it ahead of the h1). */}
+          {/* Only while open, so a closed menu adds no heading to the page outline (crawlers read it ahead of the h1).
+              The dialog is named by aria-label: a label pointing at a heading that appears later isn't always picked up. */}
           {open && <h2 id={titleId}>{title}</h2>}
           <button type="button" className="icon-btn" onClick={() => ref.current?.close()}>
             <Icon.close /><span className="sr-only">Close</span>

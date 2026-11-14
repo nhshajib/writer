@@ -5,7 +5,7 @@ import { TermsBody } from "@/components/legal/Terms";
 import { LEGAL_UPDATED } from "@/lib/site";
 import { OnThisPage } from "@/components/legal/OnThisPage";
 
-export const metadata: Metadata = pageMeta("/terms/", "Terms of Service", "The terms for using TypeWit, including plans, billing, cancelling and acceptable use.");
+export const metadata: Metadata = pageMeta("/terms/", "Terms of Service", "The terms for using TypeWit: accounts, Free, Day Pass and Pro plans, billing and cancelling, acceptable use, and how we handle changes and disputes.");
 
 export default function TermsPage() {
   return (

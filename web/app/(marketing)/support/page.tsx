@@ -41,7 +41,7 @@ export default function SupportPage() {
       <h3>How do I delete my account?</h3>
       <p>Go to <Link href="/app/settings/">Settings</Link> and choose Delete my account. Review the confirmation carefully. An ongoing subscription must be ended before deletion; the confirmation can offer that option. You can also email <a href={`mailto:${SUPPORT_EMAIL}?subject=Delete%20my%20account`}>{SUPPORT_EMAIL}</a> from the address you signed up with.</p>
       <h3>Something else?</h3>
-      <p>See the <Link href="/pricing/#faq">pricing questions</Link>, or just email us.</p>
+      <p>Try the <Link href="/faq/">common questions</Link>, the <Link href="/pricing/#faq">pricing questions</Link>, the <Link href="/word-auto-typer/">Word add-in setup</Link> or the guide to <Link href="/guides/paste-text-keep-formatting-google-docs/">pasting without losing formatting</Link>, or just email us.</p>
     </article>
   );
 }

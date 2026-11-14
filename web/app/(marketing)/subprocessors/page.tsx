@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { OnThisPage } from "@/components/legal/OnThisPage";
 import { LEGAL_UPDATED, SUPPORT_EMAIL } from "@/lib/site";
 import { pageMeta } from "@/lib/seo";
-export const metadata: Metadata = pageMeta("/subprocessors/", "Service Providers and Subprocessors", "The providers supporting TypeWit, the data they handle and their privacy information.");
+export const metadata: Metadata = pageMeta("/subprocessors/", "Service Providers and Subprocessors", "The service providers that run TypeWit (hosting, database, payments, email), what data each handles, where it is processed, and links to their policies.");
 const providers = [
   {name:"Supabase",purpose:"Database, authentication and Edge Functions. The primary project is configured in Ohio, United States (us-east-2); backup, support and onward-processing locations require separate assessment.",data:"Account and eligibility records, approved session text/formatting, previews, schedules, activity, encrypted Google credentials, notifications and billing identifiers.",role:"Processor for TypeWit application operations; its own account/service administration is subject to its terms.",url:"https://supabase.com/privacy",legal:"https://supabase.com/legal/dpa"},
   {name:"Netlify",purpose:"Production website hosting and delivery.",data:"Web requests, IP/device information and operational/security logs. The application calls its separate backend for account/session data.",role:"Hosting processor for the website; separate provider administration can have its own purposes.",url:"https://www.netlify.com/privacy/",legal:"https://www.netlify.com/legal/data-processing-addendum/"},

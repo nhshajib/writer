@@ -12,19 +12,19 @@ export const STEPS = [
     icon: Icon.doc,
     title: "Paste your text",
     text:
-      "Paste your draft, or use your device’s dictation. Check supported styles in the visual editor.",
+      "Paste your draft into the editor, or dictate it with your device’s voice input first. Headings, bold, italic, lists and highlights stay as you pasted them, and you see exactly what will be entered before anything reaches the document.",
   },
   {
     icon: Icon.sliders,
     title: "Choose a rhythm",
     text:
-      "Choose Natural, Steady or Pro’s Drafting rhythm, then set when entry should finish.",
+      "Pick Natural for varied timing with short pauses, Steady for an even pace, or Pro’s Drafting rhythm. Then set when entry should finish, from a few minutes to an hour on Free, a day with a Day Pass or a week on Pro.",
   },
   {
     icon: Icon.play,
     title: "Review and start",
     text:
-      "Select your document, check the text and approve. Follow progress from the dashboard.",
+      "Choose a new or existing Google Doc, or open Word with the add-in, check the text once more and approve. Follow progress, pause, resume or stop from any device, and download the activity log when it’s done.",
   },
 ];
 
@@ -69,7 +69,7 @@ export const FEATURES = [
 export const FAQ = [
   {
     q: "Is there a free plan?",
-    a: "Yes. Free includes 250 words a day, sessions up to 60 minutes, Natural and Steady rhythms, all insertion modes and accessibility features. No card is needed. Compare Day Pass and Pro on the pricing page.",
+    a: "Yes. Free includes 250 words a day, sessions up to 60 minutes, Natural and Steady rhythms, single-word, word-group and sentence entry, and every accessibility feature. No card is needed. Compare Day Pass and Pro on the pricing page.",
   },
   {
     q: "Is using TypeWit cheating?",
@@ -91,5 +91,8 @@ export const FAQ = [
     q: "Can I use it with dictation?",
     a: "Yes. Use your device’s voice input or another dictation app, then paste and review the result. TypeWit handles the scheduled entry, not speech recognition.",
   },
+  { q: "Is TypeWit the same as Typewise?", a: "No. TypeWit (typewit.com) enters text you have already written into Google Docs and Microsoft Word on a schedule. It is not related to Typewise, the AI keyboard app." },
+  { q: "What does the Day Pass include?", a: "For $3.99 once, with no renewal: 24 hours of unlimited words, one active session, sessions up to 24 hours within that time, writing hours and custom writing blocks. Pro adds scheduled starts, the Drafting rhythm and sessions up to a week." },
+  { q: "Will pasted formatting survive?", a: "Headings, bold, italic, lists, alignment and highlights are kept when you paste into TypeWit's editor, on every plan. Images, tables, fonts and page layout are not reproduced." },
   { q: "Can I sign in with Discord?", a: "Yes. Choose Continue with Discord and complete the account checks. Connect Google separately in Connected accounts. To use Word, set a password in Settings for add-in sign-in." },
 ];

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { InformationPage } from "@/components/marketing/InformationPage";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { PageByline } from "@/components/seo/PageByline";
 import { FEATURES, STEPS, USES } from "@/lib/marketing-content";
 import { PAGE_UPDATED } from "@/lib/search-content";
 import { pageMeta } from "@/lib/seo";
 import { webPage } from "@/lib/structured-data";
 
-const TITLE = "How TypeWit Works: Auto Typer Features for Google Docs & Word";
+const TITLE = "How TypeWit Works: Auto Typer for Google Docs & Word";
 const DESCRIPTION =
   "See how the TypeWit auto typer works, with real screenshots: paste formatted text, choose a rhythm and finish time, then follow entry in Google Docs or Word.";
 export const metadata = pageMeta("/how-it-works/", TITLE, DESCRIPTION);
@@ -27,6 +28,7 @@ export default function Page() {
       path="/how-it-works/"
       crumb="How it works"
     >
+      <PageByline updated={PAGE_UPDATED["/how-it-works/"]} />
       <ol className="how-steps">
         {STEPS.map(({ title, text }, i) => (
           <li key={title} className="how-step">
@@ -40,7 +42,7 @@ export default function Page() {
                 <source media="(max-width: 767px)" srcSet={SHOTS[i].phone.src} width={SHOTS[i].phone.width} height={SHOTS[i].phone.height} />
                 <img src={SHOTS[i].src} width={SHOTS[i].width} height={SHOTS[i].height} alt={SHOTS[i].alt} loading={i === 0 ? "eager" : "lazy"} decoding="async" />
               </picture>
-              <figcaption>{CAPTIONS[i]}</figcaption>
+              <figcaption>{CAPTIONS[i]}{i === 0 && <> See <Link href="/guides/paste-text-keep-formatting-google-docs/">how to paste without losing formatting</Link>.</>}{i === 2 && <> How this compares with <Link href="/guides/google-docs-version-history/">Google Docs version history</Link>.</>}</figcaption>
             </figure>
           </li>
         ))}

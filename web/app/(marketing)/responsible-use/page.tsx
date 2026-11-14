@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import type { Metadata } from "next";
 import { pageMeta } from "@/lib/seo";
@@ -12,6 +13,7 @@ export default function ResponsibleUsePage() {
       <h1>Responsible Use Agreement</h1>
       <p className="updated">Version {CURRENT_TERMS_VERSION}. Everyone agrees to this before using TypeWit.</p>
       <Agreement headingLevel={2} />
+      <p>Related: <Link href="/about/">About TypeWit</Link> · <Link href="/faq/">Common questions</Link> · <Link href="/privacy/">Privacy Policy</Link></p>
     </article>
   );
 }

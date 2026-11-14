@@ -89,7 +89,7 @@ Search Console (last 3 months, web): about 270 impressions and 2 clicks. No quer
 | paste in Google Docs with formatting; paste from ChatGPT / Markdown | same guide, Paint format and Markdown sections |
 | typewit, type wit, typewit app | `/` |
 
-The guide was retitled “Copy and Paste in Google Docs Without Losing Formatting” and now answers both intents (keep the source format vs. match the document), plus Paint format, Clear formatting and Paste from Markdown. The homepage links to it.
+The guide was retitled “Copy & Paste in Google Docs Without Losing Format” (short enough to keep “· TypeWit” within 60 characters) and now answers both intents (keep the source format vs. match the document), plus Paint format, Clear formatting and Paste from Markdown. The homepage links to it.
 
 **Deploy.** On 14 November the live site was still built from commit b38d61d (8 November); later commits on `main` had not been deployed by Netlify. Check the Netlify deploy log before judging any of these changes.
 

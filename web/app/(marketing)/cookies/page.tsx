@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { OnThisPage } from "@/components/legal/OnThisPage";
 import { pageMeta } from "@/lib/seo";
 import { LEGAL_UPDATED, SUPPORT_EMAIL } from "@/lib/site";
-export const metadata: Metadata = pageMeta("/cookies/", "Cookie and Storage Policy", "How TypeWit uses authentication storage, local drafts, preferences and consent choices.");
+export const metadata: Metadata = pageMeta("/cookies/", "Cookie and Storage Policy", "How TypeWit uses browser storage for sign-in, unsent drafts and preferences, which items are essential, and the choices you have about the rest.");
 export default function CookiesPage() {
   return <article className="prose">
     <Breadcrumbs items={[{name:"Cookie and Storage Policy",path:"/cookies/"}]} />

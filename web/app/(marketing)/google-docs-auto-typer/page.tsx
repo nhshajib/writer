@@ -6,15 +6,15 @@ import { PageByline } from "@/components/seo/PageByline";
 import { PAGE_UPDATED } from "@/lib/search-content";
 import { pageMeta } from "@/lib/seo";
 import { webPage } from "@/lib/structured-data";
-import { DAY_PASS_PRICE } from "@/lib/site";
+import { DAY_PASS_PRICE, PRO_PRICE } from "@/lib/site";
 const TITLE = "Google Docs Auto Typer, No Extension Needed";
-const DESCRIPTION = "A Google Docs auto typer that runs in the cloud, no Chrome extension needed. Paste formatted text, pick a rhythm and finish time, and close your laptop. Start free.";
+const DESCRIPTION = "A Google Docs auto typer that runs in the cloud, with no Chrome extension. Paste formatted text, pick a rhythm and finish time, then close your laptop.";
 export const metadata = pageMeta("/google-docs-auto-typer/", TITLE, DESCRIPTION);
 export default function GoogleDocsAutoTyper() {
   return <article className="prose seo-landing"><Breadcrumbs items={[{name:"Google Docs auto typer",path:"/google-docs-auto-typer/"}]} />
     <p className="kicker">Cloud text entry</p><h1>Google Docs auto typer, on your schedule.</h1>
     <PageByline updated={PAGE_UPDATED["/google-docs-auto-typer/"]} />
-    <p className="seo-summary">Paste your prepared text, choose a document and let TypeWit enter it over time. Google Docs sessions run in the cloud, with supported formatting and controls you can reach from your dashboard.</p>
+    <p className="seo-summary">TypeWit is a Google Docs auto typer that needs no Chrome extension. Paste your prepared text, choose a new or existing document and a finish time, and TypeWit enters it from its servers, so you can close the tab or the laptop. Free covers 250 words a day; the Day Pass is {DAY_PASS_PRICE} and Pro {PRO_PRICE.month.amount} a month.</p>
     <div className="row"><Link href="/signup/" className="btn btn-primary">Start free</Link><Link href="/pricing/" className="btn btn-secondary">Compare plans</Link></div>
     <p className="hint">For authorized testing only.</p>
     <h2>How the Google Docs auto typer works</h2>

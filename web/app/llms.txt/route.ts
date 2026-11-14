@@ -20,6 +20,7 @@ export function GET() {
     link("/how-it-works/", "How it works and features", "paste, choose a rhythm, review and start; rhythms, formatting, pause and resume, activity log"),
     link("/pricing/", "Pricing", "Free, Day Pass and Pro compared"),
     link("/faq/", "FAQ", "common questions"),
+    link("/about/", "About", "what TypeWit is, who operates it and how to contact us"),
     "",
     "## Guides",
     ...GUIDES.map((g) => link(`/guides/${g.slug}/`, g.title, g.description)),
