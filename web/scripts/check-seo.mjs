@@ -120,6 +120,7 @@ assert([website?.alternateName].flat().includes('typewit.com'), 'WebSite alterna
 assert.equal(website?.publisher?.['@id'], organization?.['@id']);
 assert.equal(software?.['@id'], `${origin}/#software`);
 assert(software?.sameAs?.includes('https://www.saashub.com/typewit'));
+assert(organization?.sameAs?.includes('https://www.facebook.com/61595826605810/'), 'Organization links the official Facebook page');
 const about = await readFile(path.join(out, 'about/index.html'), 'utf8');
 const aboutData = [...about.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
   .map(m => JSON.parse(m[1])).find(n => n['@type'] === 'AboutPage');

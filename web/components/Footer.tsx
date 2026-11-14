@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Logo, Wordmark } from "@/components/Logo";
 import { Icon } from "@/components/Icons";
+import { FACEBOOK_URL } from "@/lib/site";
 
 export function Footer({compact=false}:{compact?:boolean}) {
-  if(compact) return <footer className="site-footer home-footer"><div className="home-compatibility"><span>Works with the documents you use</span><Link href="/google-docs-auto-typer/">Google Docs</Link><Link href="/word-auto-typer/">Microsoft Word</Link></div><div className="home-footer-base"><span>© {new Date().getFullYear()} TypeWit</span><nav aria-label="Resources and legal"><Link href="/about/">About TypeWit</Link><Link href="/guides/">Guides</Link><Link href="/support/">Support</Link><Link href="/privacy/">Privacy</Link><Link href="/terms/">Terms</Link><Link href="/cookies/">Cookies</Link><Link href="/subprocessors/">Service providers</Link><Link href="/responsible-use/">Responsible use</Link></nav></div></footer>;
+  if(compact) return <footer className="site-footer home-footer"><div className="home-compatibility"><span>Works with the documents you use</span><Link href="/google-docs-auto-typer/">Google Docs</Link><Link href="/word-auto-typer/">Microsoft Word</Link></div><div className="home-footer-base"><span>© {new Date().getFullYear()} TypeWit</span><nav aria-label="Resources and legal"><Link href="/about/">About TypeWit</Link><Link href="/guides/">Guides</Link><Link href="/support/">Support</Link><Link href="/privacy/">Privacy</Link><Link href="/terms/">Terms</Link><Link href="/cookies/">Cookies</Link><Link href="/subprocessors/">Service providers</Link><Link href="/responsible-use/">Responsible use</Link><a href={FACEBOOK_URL} rel="me noopener" target="_blank">Facebook</a></nav></div></footer>;
 
   return (
     <footer className="site-footer">
@@ -35,6 +36,7 @@ export function Footer({compact=false}:{compact?:boolean}) {
               <li><Link href="/guides/">Guides</Link></li>
               <li><Link href="/support/">Support</Link></li>
               <li><Link href="/faq/">Common questions</Link></li>
+              <li><a href={FACEBOOK_URL} rel="me noopener" target="_blank">TypeWit on Facebook</a></li>
               <li><Link href="/login/">Sign in</Link></li>
             </ul>
           </nav>

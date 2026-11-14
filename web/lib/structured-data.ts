@@ -1,5 +1,5 @@
 import { SITE_URL } from "./seo";
-import { DAY_PASS_PRICE, PRO_PRICE } from "./site";
+import { DAY_PASS_PRICE, PRO_PRICE, SAASHUB_URL } from "./site";
 
 /** Shared Schema.org nodes, so the homepage, pricing and provider pages describe TypeWit the same way. */
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
@@ -34,7 +34,7 @@ export const SOFTWARE = {
   url: `${SITE_URL}/`,
   applicationCategory: "ProductivityApplication",
   operatingSystem: "Web",
-  sameAs: ["https://www.saashub.com/typewit"],
+  sameAs: [SAASHUB_URL],
   description:
     "Schedules automated entry of approved text into Google Docs and Microsoft Word for authorized testing, with supported formatting and adjustable pacing.",
   offers: OFFERS,

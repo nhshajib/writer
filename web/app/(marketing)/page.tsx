@@ -5,7 +5,7 @@ import { LivePreview } from "@/components/marketing/LivePreview";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMeta, SITE_URL } from "@/lib/seo";
 import { GUIDES } from "@/lib/search-content";
-import { DAY_PASS_PRICE, PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
+import { DAY_PASS_PRICE, FACEBOOK_URL, PRO_PRICE, SAASHUB_URL, SUPPORT_EMAIL } from "@/lib/site";
 import { ORGANIZATION_ID, SOFTWARE } from "@/lib/structured-data";
 
 const HOME_TITLE = "TypeWit — Auto Typer for Google Docs & Word";
@@ -38,6 +38,7 @@ const STRUCTURED_DATA = {
       url: `${SITE_URL}/`,
       logo: `${SITE_URL}/brand/mark-512.png`,
       email: SUPPORT_EMAIL,
+      sameAs: [FACEBOOK_URL, SAASHUB_URL],
       description: "Operator of TypeWit, the scheduled text-entry app for Google Docs and Microsoft Word.",
     },
     {

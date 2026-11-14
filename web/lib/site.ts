@@ -11,3 +11,7 @@ export const PRO_PRICE = {
 /** On the Yearly toggle: $60 a year against 12 × $6.99 = $83.88. */
 export const YEARLY_SAVING = "save 28%";
 export const DAY_PASS_PRICE = "$3.99";
+
+/** Official TypeWit profiles elsewhere; listed in Organization sameAs so search engines connect them to typewit.com. */
+export const FACEBOOK_URL = "https://www.facebook.com/61595826605810/";
+export const SAASHUB_URL = "https://www.saashub.com/typewit";
