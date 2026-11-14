@@ -1,6 +1,7 @@
 "use client";
 
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Agreement } from "@/components/Agreement";
 import { Icon } from "@/components/Icons";
 import { PrivacyBody } from "@/components/legal/Privacy";
@@ -23,6 +24,8 @@ const DOCS: Record<LegalDoc, { title: string; note: string; body: () => ReactNod
 /**
  * A button that opens a policy in a dialog, so reading it doesn't leave the
  * page. `onAgree` adds an "I agree" button (used for the Responsible Use Agreement).
+ * The dialog is created only while open, at the end of <body>: a closed policy is
+ * not part of the page's text, a surrounding label or the indexed content.
  */
 export function LegalDialog({ doc, children, className = "link-btn inline", onAgree }: {
   doc: LegalDoc;
@@ -31,12 +34,17 @@ export function LegalDialog({ doc, children, className = "link-btn inline", onAg
   onAgree?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   const { title, note, body } = DOCS[doc];
+
+  useEffect(() => {
+    if (open && dialog.current && !dialog.current.open) dialog.current.showModal();
+  }, [open]);
   const titleId = `legal-${doc}-title`;
   return (
     <>
-      <button type="button" className={className} onClick={() => dialog.current?.showModal()} aria-haspopup="dialog">{children}</button>
-      <dialog ref={dialog} className="agreement-dialog" aria-labelledby={titleId}
+      <button type="button" className={className} onClick={() => setOpen(true)} aria-haspopup="dialog">{children}</button>
+      {open && createPortal(<dialog ref={dialog} className="agreement-dialog" aria-labelledby={titleId} onClose={() => setOpen(false)}
         onClick={(e) => e.target === dialog.current && dialog.current?.close()}>
         <div className="agreement-dialog-head">
           <div>
@@ -52,7 +60,7 @@ export function LegalDialog({ doc, children, className = "link-btn inline", onAg
           <button type="button" className="btn btn-ghost" onClick={() => dialog.current?.close()}>Close</button>
           {onAgree && <button type="button" className="btn btn-primary" onClick={() => { onAgree(); dialog.current?.close(); }}>I agree</button>}
         </div>
-      </dialog>
+      </dialog>, document.body)}
     </>
   );
 }

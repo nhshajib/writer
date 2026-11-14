@@ -3100,3 +3100,78 @@ body:has(.lp-hero) { background: var(--bg); }
   .how-step-copy h2 { font-size: 1.3rem; }
   .how-shot img { border-radius: 14px; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Sign in and Join, final layer: one calm column, matching 52px controls,
+ * no card-in-card. Earlier auth rules above stay for the gate and reset pages.
+ * ------------------------------------------------------------------------- */
+.auth-page .auth-main-inner { max-width: 400px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.auth-page .auth-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--text-2); font-size: 0.875rem; font-weight: 550; }
+.auth-page .auth-back svg { width: 16px; height: 16px; transform: rotate(180deg); }
+.auth-page .auth-back:hover { color: var(--text); text-decoration: none; }
+.auth-page .auth-tabs { margin-bottom: 32px; padding: 4px; border-radius: 14px; background: var(--surface-2); }
+.auth-page .auth-tabs a { min-height: 40px; border-radius: 10px; font-size: 0.9375rem; }
+.auth-page .auth-box h1 { font-size: 1.875rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.03em; text-align: left; }
+.auth-page .auth-box .sub { margin-top: 8px; font-size: 0.9375rem; line-height: 1.5; color: var(--text-2); text-align: left; }
+.auth-page .auth-form { margin-top: 28px; gap: 18px; }
+.auth-page .signup-account { gap: 18px; }
+.auth-page .social-sign-in { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.auth-page .auth-main .btn-lg { min-height: 52px; border-radius: 14px; font-size: 0.9375rem; font-weight: 600; }
+.auth-page .social-sign-in .btn-google, .auth-page .social-sign-in .btn-discord { gap: 10px; background: var(--raised); color: var(--text); border: 1px solid var(--border-strong, var(--border)); box-shadow: none; }
+.auth-page .social-sign-in .btn-google:hover, .auth-page .social-sign-in .btn-discord:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong, var(--border)); }
+.auth-page .btn-google svg, .auth-page .btn-discord svg { width: 20px; height: 20px; flex: none; }
+.auth-page .btn-discord svg { color: #5865f2; }
+.auth-page .auth-main .btn-primary { background: var(--accent); border-color: var(--accent); box-shadow: none; }
+.auth-page .auth-main .btn-primary:hover { background: var(--accent-hover); }
+.auth-page .auth-main .btn:active:not(:disabled) { transform: scale(0.98); }
+.auth-page .or { margin: 2px 0; font-size: 0.8125rem; color: var(--muted); }
+.auth-page .auth-main .field { gap: 8px; }
+.auth-page .auth-main .label { font-size: 0.875rem; font-weight: 600; }
+.auth-page .auth-main input[type="email"], .auth-page .auth-main input[type="password"], .auth-page .auth-main input[type="text"] { min-height: 52px; border-radius: 14px; padding: 0 16px; font-size: 16px; background: var(--raised); border: 1px solid var(--border-strong, var(--border)); }
+.auth-page .auth-main input:focus { border-color: var(--accent); }
+.auth-page .password-toggle { font-size: 0.875rem; }
+.auth-page .signup-rule { font-size: 0.8125rem; }
+.auth-page .signup-agree { padding: 0; border: 0; background: transparent; }
+.auth-page .signup-agree .check { gap: 12px; min-height: 0; padding: 2px 0; font-size: 0.875rem; line-height: 1.55; color: var(--text-2); }
+.auth-page .signup-agree .check input { margin-top: 2px; width: 20px; height: 20px; flex: none; }
+.auth-page .signup-agree .link-btn.inline { min-height: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; white-space: normal; }
+.auth-page .auth-fine { margin-top: 20px; font-size: 0.75rem; line-height: 1.5; color: var(--muted); text-align: center; }
+.auth-page .auth-side-foot { gap: 4px 18px; }
+@media (min-width: 768px) {
+  .auth-page .auth-main { padding-block: 40px; }
+}
+@media (max-width: 767px) {
+  .auth-page { padding: 0; place-items: stretch; }
+  .auth-page .auth-side { padding: calc(8px + var(--safe-top)) 20px calc(16px + var(--safe-bottom)); }
+  .auth-page .auth-side-top { min-height: 56px; }
+  .auth-page .auth-main { padding: 12px 0 24px; place-items: start stretch; }
+  .auth-page .auth-main-inner { width: 100%; max-width: 440px; margin: 0 auto; }
+  .auth-page .auth-tabs { margin-bottom: 28px; }
+  .auth-page .auth-box h1 { font-size: 1.75rem; }
+}
+@media (max-width: 340px) {
+  .auth-page .social-sign-in { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .auth-page .auth-main .btn:active:not(:disabled) { transform: none; } }
+
+/* ---------------------------------------------------------------------------
+ * Phones and every page: one quiet breadcrumb style, a clean contents list,
+ * aligned homepage cards and readable step screenshots.
+ * ------------------------------------------------------------------------- */
+.seo-breadcrumbs, .prose .seo-breadcrumbs { margin: 16px 0 24px; font-size: 0.8125rem; line-height: 1.4; color: var(--muted); }
+.seo-breadcrumbs ol, .prose .seo-breadcrumbs ol { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.seo-breadcrumbs li, .prose .seo-breadcrumbs li { margin: 0; font-size: inherit; line-height: inherit; white-space: nowrap; }
+.seo-breadcrumbs li:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.seo-breadcrumbs li + li::before { padding-right: 6px; }
+.seo-breadcrumbs a, .prose .seo-breadcrumbs a { color: var(--text-2); text-decoration: none; }
+.seo-breadcrumbs a:hover { color: var(--accent); }
+.prose .seo-toc ul { display: grid; gap: 2px; margin: 10px 0 0; padding: 0; list-style: none; }
+.prose .seo-toc li { margin: 0; padding: 0; }
+.prose .seo-toc li::marker { content: none; }
+.prose .seo-toc a { display: block; padding: 7px 0 7px 14px; border-left: 2px solid var(--border); font-size: 0.9375rem; line-height: 1.45; text-decoration: none; }
+.prose .seo-toc a:hover { border-left-color: var(--accent); }
+.how-shot picture { display: block; }
+@media (max-width: 767px) {
+  .home-more { padding-inline: 24px; }
+  .how-shot img { max-height: 560px; object-fit: cover; object-position: top; }
+}

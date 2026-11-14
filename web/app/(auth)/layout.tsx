@@ -13,7 +13,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="auth-side">
           <div className="auth-side-top">
             <Link href="/" className="brand"><Logo /><Wordmark /></Link>
-            <Link href="/" className="pill-link"><Icon.arrowRight />Back to site</Link>
+            <Link href="/" className="auth-back"><Icon.arrowRight />Home</Link>
           </div>
           <main id="main" tabIndex={-1} className="auth-main">
             <div className="auth-main-inner">

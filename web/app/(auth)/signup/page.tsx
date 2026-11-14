@@ -145,8 +145,7 @@ function SignupForm() {
     <div className="auth">
       <div className="auth-box">
         <h1 id="signup-title">Create your account</h1>
-        <p className="sub">Start free and review your text before it enters a document.</p>
-        <p className="signup-step">1 · Create account <span aria-hidden="true">→</span> 2 · Confirm your age</p>
+        <p className="sub">Free plan, no card needed. We’ll ask your age next.</p>
 
         <form className="auth-form signup" onSubmit={onSubmit} noValidate aria-labelledby="signup-title">
           <fieldset className="signup-account" disabled={busy}>
@@ -158,10 +157,8 @@ function SignupForm() {
               <input id="email" type="email" autoComplete="email" inputMode="email" required value={email} placeholder="you@gmail.com"
                 onChange={(e) => { setEmail(e.target.value); if (problems.email) setProblems((p) => ({ ...p, email: undefined })); }}
                 onBlur={() => email && setProblems((p) => ({ ...p, email: emailProblem(email) ?? undefined }))}
-                aria-invalid={problems.email ? "true" : undefined} aria-describedby={problems.email ? "email-error" : "email-hint"} />
-              {problems.email
-                ? <span id="email-error" className="error-text">{problems.email}</span>
-                : <span id="email-hint" className="hint">A personal address, such as Gmail, Outlook or iCloud.</span>}
+                aria-invalid={problems.email ? "true" : undefined} aria-describedby={problems.email ? "email-error" : undefined} />
+              {problems.email && <span id="email-error" className="error-text">{problems.email}</span>}
             </div>
             <div className="field">
               <label className="label" htmlFor="password">Password</label>
@@ -173,18 +170,17 @@ function SignupForm() {
                 : <span id="password-hint" className={`hint signup-rule${strong ? " met" : ""}`}>{strong && <Icon.check />}At least 8 characters</span>}
             </div>
             <div className="signup-agree" data-invalid={problems.agree ? true : undefined}>
-              <label className="check" htmlFor="agree">
-                <input id="agree" type="checkbox" checked={agreed} aria-invalid={problems.agree ? "true" : undefined}
-                  aria-describedby={problems.agree ? "agree-error" : "agree-note"}
+              {/* The checkbox is named by the sentence beside it. The policy names are buttons that open in place,
+                  kept out of a <label> so their (closed) documents never count as label text. */}
+              <div className="check">
+                <input id="agree" type="checkbox" checked={agreed} aria-labelledby="agree-label" aria-invalid={problems.agree ? "true" : undefined}
+                  aria-describedby={problems.agree ? "agree-error" : undefined}
                   onChange={(e) => { setAgreed(e.target.checked); setProblems((p) => ({ ...p, agree: undefined })); }} />
-                <span>I agree to the Terms and Responsible Use Agreement, and I&apos;ve read the Privacy Policy.</span>
-              </label>
-              <p className="signup-legal">
-                Read: <LegalDialog doc="terms">Terms</LegalDialog> · <LegalDialog doc="agreement" onAgree={() => { setAgreed(true); setProblems((p) => ({ ...p, agree: undefined })); }}>Responsible Use</LegalDialog> · <LegalDialog doc="privacy">Privacy</LegalDialog>
-              </p>
-              {problems.agree
-                ? <p id="agree-error" className="error-text">{problems.agree}</p>
-                : <p id="agree-note" className="hint">For authorized use only. Academic cheating and false claims of authorship aren&apos;t allowed.</p>}
+                <span id="agree-label">
+                  <label htmlFor="agree">I agree to the </label><LegalDialog doc="terms">Terms</LegalDialog><label htmlFor="agree"> and </label><LegalDialog doc="agreement" onAgree={() => { setAgreed(true); setProblems((p) => ({ ...p, agree: undefined })); }}>Responsible Use Agreement</LegalDialog><label htmlFor="agree">, and I&apos;ve read the </label><LegalDialog doc="privacy">Privacy Policy</LegalDialog><label htmlFor="agree">.</label>
+                </span>
+              </div>
+              {problems.agree && <p id="agree-error" className="error-text">{problems.agree}</p>}
             </div>
             {error && <p className="alert alert-error" role="alert">{error}</p>}
             <button type="submit" className="btn btn-primary btn-lg btn-block">
@@ -192,7 +188,7 @@ function SignupForm() {
             </button>
           </fieldset>
         </form>
-        <p className="signup-reassurance">Free to start. No card needed.</p>
+        <p className="auth-fine">For authorized use only. Academic cheating and false claims of authorship aren&apos;t allowed.</p>
       </div>
     </div>
   );

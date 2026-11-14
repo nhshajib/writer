@@ -11,11 +11,11 @@ const DESCRIPTION =
   "See how the TypeWit auto typer works, with real screenshots: paste formatted text, choose a rhythm and finish time, then follow entry in Google Docs or Word.";
 export const metadata = pageMeta("/how-it-works/", TITLE, DESCRIPTION);
 
-/** Real dashboard screens, one per step (captured from the app, see public/screens). */
+/** Real dashboard screens, one per step, captured from the app at desktop and phone size (public/screens). */
 const SHOTS = [
-  { src: "/screens/paste-formatted-text.webp", width: 1200, height: 705, alt: "The TypeWit editor with pasted text that kept its heading, bold words and bullet list" },
-  { src: "/screens/choose-rhythm.webp", width: 1200, height: 924, alt: "Choosing the Natural, Steady or Drafting rhythm and a finish time, with the schedule summary below" },
-  { src: "/screens/session-activity-log.webp", width: 1400, height: 1274, alt: "A finished session in the dashboard: progress, the schedule timeline and the activity log" },
+  { src: "/screens/paste-formatted-text.webp", phone: { src: "/screens/paste-formatted-text-m.webp", width: 640, height: 1251 }, width: 1200, height: 705, alt: "The TypeWit editor with pasted text that kept its heading, bold words and bullet list" },
+  { src: "/screens/choose-rhythm.webp", phone: { src: "/screens/choose-rhythm-m.webp", width: 640, height: 1368 }, width: 1200, height: 924, alt: "Choosing the Natural, Steady or Drafting rhythm and a finish time, with the schedule summary below" },
+  { src: "/screens/session-activity-log.webp", phone: { src: "/screens/session-activity-log-m.webp", width: 640, height: 835 }, width: 1400, height: 1274, alt: "A finished session in the dashboard: progress, the schedule timeline and the activity log" },
 ];
 const CAPTIONS = ["Formatting stays as you pasted it.", "Pick a rhythm and when it should finish.", "Every step is logged; pause or stop at any time."];
 
@@ -36,7 +36,10 @@ export default function Page() {
               <p>{text}</p>
             </div>
             <figure className="how-shot">
-              <img {...SHOTS[i]} loading={i === 0 ? "eager" : "lazy"} decoding="async" />
+              <picture>
+                <source media="(max-width: 767px)" srcSet={SHOTS[i].phone.src} width={SHOTS[i].phone.width} height={SHOTS[i].phone.height} />
+                <img src={SHOTS[i].src} width={SHOTS[i].width} height={SHOTS[i].height} alt={SHOTS[i].alt} loading={i === 0 ? "eager" : "lazy"} decoding="async" />
+              </picture>
               <figcaption>{CAPTIONS[i]}</figcaption>
             </figure>
           </li>

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icons";
 import { Logo } from "@/components/Logo";
@@ -31,11 +30,9 @@ const LINES = [
 
 /** The left half of the sign-in pages: a document filling in, and what TypeWit does. Decorative apart from the slides. */
 export function AuthVisual() {
-  const pathname = usePathname().replace(/\/$/, "");
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
   const region = useRef<HTMLDivElement>(null);
-  const onSignup = pathname === "/signup";
 
   useEffect(() => {
     if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -51,7 +48,6 @@ export function AuthVisual() {
         <Link href="/" className="auth-visual-brand"><Logo /><span>Type<span>Wit</span></span></Link>
         <nav aria-label="Site" className="auth-visual-nav">
           <Link href="/pricing/">Pricing</Link>
-          <Link href={onSignup ? "/login/" : "/signup/"} className="pill">{onSignup ? "Sign in" : "Join"}</Link>
         </nav>
       </div>
 

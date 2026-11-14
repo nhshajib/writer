@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { PasswordField } from "@/components/PasswordField";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
@@ -87,7 +86,7 @@ export default function LoginPage() {
     <div className="auth">
       <div className="auth-box">
         <h1 id="login-title">Welcome back</h1>
-        <p className="sub">Sign in to TypeWit.</p>
+        <p className="sub">Sign in to continue your sessions.</p>
         <form className="auth-form" onSubmit={onSubmit} aria-labelledby="login-title">
           <SocialSignInButtons busy={busy} onContinue={social} />
           <p className="or">or with email</p>
@@ -108,7 +107,6 @@ export default function LoginPage() {
           )}
           {notice && <p className="alert alert-info" role="status">{notice}</p>}
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-          <p className="small muted center">New to TypeWit? <Link href={next === "/app/" ? "/signup/" : `/signup/?next=${encodeURIComponent(next)}`}>Create a free account</Link></p>
         </form>
       </div>
     </div>
