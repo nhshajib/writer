@@ -27,3 +27,12 @@ export function pageMeta(path: string, title: string, description: string, extra
   };
   return { ...base, ...extra, openGraph: { ...base.openGraph, ...extra.openGraph }, twitter: { ...base.twitter, ...extra.twitter } };
 }
+
+/** Sign-in and dashboard pages: their own title, description and share link, kept out of search with no canonical. */
+export function privateMeta(path: string, title: string, description: string, robots: Metadata["robots"] = NOINDEX): Metadata {
+  return {
+    title, description, robots,
+    openGraph: { title: `${title} · TypeWit`, description, url: `${SITE_URL}${path}`, siteName: "TypeWit", type: "website" },
+    twitter: { title: `${title} · TypeWit`, description },
+  };
+}

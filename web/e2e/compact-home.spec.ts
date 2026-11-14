@@ -9,12 +9,18 @@ test(
     await page.goto("/");
     const frame = await page.locator(".home-frame").boundingBox();
     expect(frame!.width).toBeCloseTo(1136, 0);
-    expect(frame!.height).toBeLessThanOrEqual(980);
     await expect(page.locator(".home-backdrop")).toHaveCSS("background-image", "none");
     await expect(page.locator(".home-frame")).toHaveCSS("box-shadow", "none");
-    expect(await page.evaluate(() => document.documentElement.scrollHeight))
-      .toBeLessThanOrEqual(980);
+    // The hero still fills the first screen on its own; the overview sections follow below it.
+    const hero = await page.locator("main > section.home-hero").boundingBox();
+    expect(hero!.y + hero!.height).toBeLessThanOrEqual(960);
     await expect(page.locator("main > section")).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Auto typer for Google Docs and Word");
+    for (const name of ["What is TypeWit?", "Works where you write", "Plans", "Guides"]) {
+      await expect(page.getByRole("heading", { level: 2, name, exact: true })).toBeVisible();
+    }
+    await expect(page.locator(".home-more").getByRole("link", { name: /Google Docs auto typer/ })).toHaveAttribute("href", "/google-docs-auto-typer/");
+    await expect(page.locator(".home-more").getByRole("link", { name: /Microsoft Word auto typer/ })).toHaveAttribute("href", "/word-auto-typer/");
     await expect(page.locator(".footer-invitation")).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: "Get started free", exact: true }).last(),

@@ -17,7 +17,7 @@ export default function AboutPage() {
     <p>The <Link href="/word-auto-typer/">Microsoft Word auto typer</Link> uses the TypeWit add-in. Keep Word and its add-in panel open while entry runs.</p>
     <h2>Prepared text, with controls you can understand</h2>
     <p>You approve the text and destination before entry begins. Session controls and an activity log help you monitor the result. The <Link href="/pricing/">plan comparison</Link> explains scheduling, pacing and editing access.</p>
-    <p>TypeWit is not an AI writer or rewriter. Supported formatting does not include complete document layout, images or tables. Google controls how edits appear in version history; automated entries do not establish human authorship or guarantee separate visible versions.</p>
+    <p>TypeWit is not an AI writer or rewriter. Supported formatting does not include complete document layout, images or tables. Google controls how edits appear in version history, and automated entries don’t guarantee separate visible versions.</p>
     <h2>Built for authorized document-entry testing</h2>
     <p>Use TypeWit for workflow tests, product demonstrations and typing simulations you have permission to run. Academic cheating, fabricated writing histories and false authorship claims are prohibited by the <Link href="/responsible-use/">Responsible Use Agreement</Link>.</p>
     <h2>Product guidance and support</h2>

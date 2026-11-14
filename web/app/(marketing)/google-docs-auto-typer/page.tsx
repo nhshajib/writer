@@ -1,15 +1,22 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { Questions } from "@/components/seo/Questions";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { PageByline } from "@/components/seo/PageByline";
+import { PAGE_UPDATED } from "@/lib/search-content";
 import { pageMeta } from "@/lib/seo";
+import { webPage } from "@/lib/structured-data";
 import { DAY_PASS_PRICE } from "@/lib/site";
-export const metadata = pageMeta("/google-docs-auto-typer/", "Google Docs Auto Typer, No Extension Needed", "A Google Docs auto typer that runs in the cloud, no Chrome extension needed. Paste formatted text, pick a rhythm and finish time, and close your laptop. Start free.");
+const TITLE = "Google Docs Auto Typer, No Extension Needed";
+const DESCRIPTION = "A Google Docs auto typer that runs in the cloud, no Chrome extension needed. Paste formatted text, pick a rhythm and finish time, and close your laptop. Start free.";
+export const metadata = pageMeta("/google-docs-auto-typer/", TITLE, DESCRIPTION);
 export default function GoogleDocsAutoTyper() {
   return <article className="prose seo-landing"><Breadcrumbs items={[{name:"Google Docs auto typer",path:"/google-docs-auto-typer/"}]} />
     <p className="kicker">Cloud text entry</p><h1>Google Docs auto typer, on your schedule.</h1>
+    <PageByline updated={PAGE_UPDATED["/google-docs-auto-typer/"]} />
     <p className="seo-summary">Paste your prepared text, choose a document and let TypeWit enter it over time. Google Docs sessions run in the cloud, with supported formatting and controls you can reach from your dashboard.</p>
     <div className="row"><Link href="/signup/" className="btn btn-primary">Start free</Link><Link href="/pricing/" className="btn btn-secondary">Compare plans</Link></div>
-    <p className="hint">For authorized testing only. Automated entry is not proof of human authorship.</p>
+    <p className="hint">For authorized testing only.</p>
     <h2>How the Google Docs auto typer works</h2>
     <ol><li>Connect a Google account and paste your text into New session.</li><li>Create a Google Doc with an optional document name, or choose an existing document using Google Drive’s picker.</li><li>Choose Natural or Steady, or Pro’s Drafting rhythm, and set the total duration.</li><li>Review the text and destination, approve the session, then start. Pause, resume or stop from your dashboard.</li></ol>
     <p>TypeWit uses Google’s API and your connected account. Its drive.file permission covers documents it creates or you select through the picker, rather than every file in Drive.</p>
@@ -39,5 +46,6 @@ export default function GoogleDocsAutoTyper() {
       { q: "How fast does it type?", a: "You choose when it should finish, from a few minutes up to 60 minutes on Free, a day with a Day Pass, or a week on Pro. Pro can also set a typing speed from 20 to 150 words per minute, with timing variation and breaks." },
       { q: "Does it work with Google Slides or Sheets?", a: <>No. TypeWit works with Google Docs and Microsoft Word. For Word, see the <Link href="/word-auto-typer/">Word auto typer</Link>.</> },
     ]} />
+    <JsonLd data={{ "@context": "https://schema.org", ...webPage({ path: "/google-docs-auto-typer/", name: TITLE, description: DESCRIPTION, published: "2026-10-22", updated: PAGE_UPDATED["/google-docs-auto-typer/"] }) }} />
   </article>;
 }

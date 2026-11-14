@@ -13,7 +13,7 @@ export default function Page() {
     <div className="container faq-page">
       <Breadcrumbs items={[{name:"Frequently asked questions",path:"/faq/"}]} />
       <section className="faq-layout" aria-labelledby="faq-page-title">
-        <header className="faq-introduction"><h1 id="faq-page-title">Questions?<br />We’re here to help.</h1><div><p>Clear answers about your documents, plans and control. Need a hand with something else?</p><Link className="btn btn-primary" href="/support/">Contact support</Link></div></header>
+        <header className="faq-introduction"><h1 id="faq-page-title">Auto typer questions,<br />answered.</h1><div><p>Clear answers about your documents, plans and control. Need a hand with something else?</p><Link className="btn btn-primary" href="/support/">Contact support</Link></div></header>
         <div className="faq question-cards">{FAQ.map((item,i)=><details key={item.q} open={i === 0}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div>
       </section>
       <JsonLd

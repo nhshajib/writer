@@ -10,7 +10,7 @@ export default function SupportPage() {
   return (
     <article className="prose"><Breadcrumbs items={[{ name: "Support", path: "/support/" }]} />
       <p className="kicker">Support</p>
-      <h1>How can we help?</h1>
+      <h1>TypeWit support: how can we help?</h1>
       <p className="updated support-lead">
         Choose a quick answer below, or send the details to our support team.
       </p>

@@ -16,7 +16,7 @@ export const GUIDES: Guide[] = [
     sections: [
       { heading: "First, decide whether you need an auto typer", paragraphs: [
         "For an immediate transfer, ordinary Google Docs paste is enough. For speech-to-text, use Google Docs voice typing. An auto typer is useful when approved text must arrive gradually for an authorized demonstration or document-entry test.",
-        "A typing simulator does not write the content for you. Separate text generation, rewriting and paced entry when comparing products: buying one does not necessarily include the others. Automated edits do not prove human authorship.",
+        "A typing simulator does not write the content for you. Separate text generation, rewriting and paced entry when comparing products: buying one does not necessarily include the others.",
       ] },
       { heading: "Check where the typing actually runs", paragraphs: [
         "Ask whether the tool requires an open browser tab, a browser extension, a desktop app or a cloud service. Background-tab support is different from continuing after the computer shuts down. Confirm the provider’s requirements rather than assuming every auto typer runs the same way.",
@@ -44,7 +44,7 @@ export const GUIDES: Guide[] = [
       ] },
       { heading: "Treat version-history promises carefully", paragraphs: [
         "Google decides how document changes are grouped and retained. More API writes, word-sized steps or longer rests do not guarantee separate visible versions. Check the document itself and the tool’s activity log instead of judging success by a promised number of history entries.",
-        "Choose a tool whose explanations distinguish automation from authorship. TypeWit is for authorized testing and prohibits academic cheating, fabricated writing histories and deceptive authorship claims. A realistic demonstration is still an automated demonstration.",
+        "Choose a tool whose explanations distinguish automation from authorship: a realistic demonstration is still an automated demonstration.",
       ] },
     ], sources: [
       { label: "Google Drive: choose scopes and understand drive.file", url: "https://developers.google.com/workspace/drive/api/guides/api-specific-auth" },
@@ -59,7 +59,7 @@ export const GUIDES: Guide[] = [
     summary: "A scheduled start decides when entry begins; duration decides how long it takes. This guide explains how starts, writing hours and rests combine into the full Google Docs schedule.",
     sections: [
       { heading: "What scheduling does", paragraphs: [
-        "TypeWit enters text you supply into a Google Doc through Google’s API. It does not generate the draft. You review the destination, exact text and supported formatting before approving a session. Use it only for authorized testing of document-entry workflows.",
+        "TypeWit enters text you supply into a Google Doc through Google’s API. It does not generate the draft. You review the destination, exact text and supported formatting before approving a session.",
         "The duration spreads a session’s edits over a chosen window. A scheduled start delays the beginning until a later date and time. Starting later is a Pro feature; Free sessions start now and can run for up to 60 minutes. Pro supports sessions up to a week.",
       ] },
       { heading: "Set up a Google Docs session", paragraphs: [], steps: [
@@ -79,7 +79,7 @@ export const GUIDES: Guide[] = [
       ] },
       { heading: "Treat the finish time as a target", paragraphs: [
         "Provider outages, rate limits and document conflicts can delay a session. TypeWit can move the remaining schedule later rather than rushing delayed edits. Inspect the session’s status and activity log before relying on its output.",
-        "Google controls how edits appear in version history. A scheduled session does not guarantee a separate visible version for every word group, and automated edits do not demonstrate human authorship or time spent drafting. Academic cheating and fabricated writing histories are prohibited.",
+        "Google controls how edits appear in version history. A scheduled session does not guarantee a separate visible version for every word group.",
       ] },
       { heading: "Writing blocks and long breaks", paragraphs: [
         "Day Pass and Pro let you choose writing blocks from 5 minutes to 12 hours and rests from 15 minutes to 8 hours. In New session, enable Writing blocks. Choose Writing time; long rests are added, and the preview shows the total elapsed time. Blocks end at completed text steps so temporary corrections finish before a rest.",
@@ -133,7 +133,7 @@ export const GUIDES: Guide[] = [
         "A Pro paused-session replacement can also contain formatted paste. Leave remaining text unchanged when you only want to adjust timing and preserve its existing formatting. Review any replacement carefully, including spaces needed to join it to the text already entered.",
       ] },
       { heading: "Keep the purpose clear", paragraphs: [
-        "Use scheduled entry only for authorized tests, and inspect the completed document before sharing. Formatting and paced edits do not establish authorship.",
+        "Use scheduled entry only for authorized tests, and inspect the completed document before sharing.",
       ] },
     ], sources: [{ label: "Google Docs keyboard shortcuts", url: "https://support.google.com/docs/answer/179738" }],
   },
@@ -196,7 +196,7 @@ export const GUIDES: Guide[] = [
         "For overnight entry or control from another device, compare cloud scheduling and recovery options. Also check where your text is processed and how authorization can be withdrawn.",
       ] },
       { heading: "Use either responsibly", paragraphs: [
-        "Both approaches automate typing. Neither proves that a person wrote a document or how long it took, whatever the rhythm looks like in version history. Academic cheating and fabricated writing histories are prohibited by TypeWit’s Responsible Use Agreement and by most institutions’ rules.",
+        "Both approaches automate typing. Neither proves that a person wrote a document or how long it took, whatever the rhythm looks like in version history.",
       ] },
     ], sources: [
       { label: "Google Drive API: choose scopes (drive.file)", url: "https://developers.google.com/workspace/drive/api/guides/api-specific-auth" },
@@ -205,8 +205,8 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "auto-type-text-microsoft-word", published: "2026-10-22", updated: "2026-11-08",
-    title: "How to Auto Type Text in Microsoft Word",
-    description: "Ways to type text automatically in Microsoft Word: AutoCorrect and Quick Parts for repeated snippets, Dictate for speech, and the TypeWit add-in for paced entry.",
+    title: "Auto Typer for Word: Built-In Options and Add-Ins Compared",
+    description: "Looking for an auto typer for Microsoft Word? Compare Word’s AutoCorrect, Quick Parts and Dictate with an add-in such as TypeWit for paced entry of prepared text.",
     summary: "Word already has tools that insert text for you. Use AutoCorrect or Quick Parts for snippets you reuse, Dictate to speak instead of type, and an add-in like TypeWit when approved text should be entered over time.",
     sections: [
       { heading: "Pick the tool for the job", paragraphs: [
@@ -234,7 +234,7 @@ export const GUIDES: Guide[] = [
         "Review and approve the text, start, and leave the panel open while it runs.",
       ] },
       { heading: "Keep it honest", paragraphs: [
-        "Automated entry is still automation. Don’t use it to misrepresent who wrote a document or how it was drafted, and follow the rules of your school or workplace. TypeWit’s Responsible Use Agreement prohibits academic cheating and fabricated writing histories.",
+        "Automated entry is still automation. Don’t use it to misrepresent who wrote a document or how it was drafted, and follow the rules of your school or workplace.",
       ] },
     ], sources: [
       { label: "Microsoft: create reusable text snippets (AutoCorrect and Quick Parts)", url: "https://support.microsoft.com/office/create-reusable-text-snippets-0bc40cab-f49c-4e06-bcb2-cd43c1674d1b" },

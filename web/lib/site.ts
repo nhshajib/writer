@@ -5,7 +5,7 @@ export const PRIVACY_UPDATED = "5 November 2026";
 
 /** Pro prices as shown on the site; they must match the Stripe prices (see README, Launch checklist). */
 export const PRO_PRICE = {
-  year: { amount: "$5", note: "/ month", saving: "$60 billed yearly · save 28%" },
+  year: { amount: "$5", note: "/ month", saving: "$60 billed yearly · save 28%", total: "$60" },
   month: { amount: "$6.99", note: "/ month", saving: undefined },
 } as const;
 /** On the Yearly toggle: $60 a year against 12 × $6.99 = $83.88. */

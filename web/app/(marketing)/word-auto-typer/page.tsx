@@ -1,12 +1,19 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { Questions } from "@/components/seo/Questions";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { PageByline } from "@/components/seo/PageByline";
+import { PAGE_UPDATED } from "@/lib/search-content";
 import { pageMeta } from "@/lib/seo";
+import { webPage } from "@/lib/structured-data";
 import { DAY_PASS_PRICE } from "@/lib/site";
-export const metadata = pageMeta("/word-auto-typer/", "Microsoft Word Auto Typer Add-in", "Enter approved text into Microsoft Word with the TypeWit add-in. Choose pacing and supported formatting, then pause or resume while the document stays open.");
+const TITLE = "Microsoft Word Auto Typer Add-in";
+const DESCRIPTION = "Enter approved text into Microsoft Word with the TypeWit add-in. Choose pacing and supported formatting, then pause or resume while the document stays open.";
+export const metadata = pageMeta("/word-auto-typer/", TITLE, DESCRIPTION);
 export default function WordAutoTyper() {
   return <article className="prose seo-landing"><Breadcrumbs items={[{name:"Word auto typer",path:"/word-auto-typer/"}]} />
     <p className="kicker">Microsoft Word add-in</p><h1>A Microsoft Word auto typer inside your document.</h1>
+    <PageByline updated={PAGE_UPDATED["/word-auto-typer/"]} />
     <p className="seo-summary">TypeWit’s Word add-in enters text you approve into the document beside it. Choose a rhythm and duration, follow progress, and pause or stop whenever you need to review the result.</p>
     <div className="row"><Link href="/signup/" className="btn btn-primary">Create a free account</Link><Link href="/app/connections/#word" className="btn btn-secondary">Word setup instructions</Link></div>
     <p className="hint">For authorized testing. Check your Word host’s setup requirements below.</p>
@@ -15,7 +22,7 @@ export default function WordAutoTyper() {
     <p>This is a sideloaded add-in workflow, not a claim that TypeWit is listed in Microsoft’s public add-in marketplace. An organization’s administrator can deploy the manifest for supported Word desktop installations. Availability depends on the host and its policies.</p>
     <h2>Supported formatting and pacing</h2>
     <p>Paste into the visual editor to keep supported bold, italic, headings, bullets and highlights without adding Markdown markers. Heading styles depend on the Word host’s API support; font and page-layout reproduction are not promised. Always inspect the document after testing.</p>
-    <p>Free includes Natural and Steady rhythms and 250 words a day; a {DAY_PASS_PRICE} Day Pass removes the word limit for 24 hours. Pro adds Drafting and advanced pacing controls, including adjustable speed, timing variation, temporary typos, false starts and sentence pauses. These are simulations; they do not establish human authorship. Review enabled temporary edits before approval.</p>
+    <p>Free includes Natural and Steady rhythms and 250 words a day; a {DAY_PASS_PRICE} Day Pass removes the word limit for 24 hours. Pro adds Drafting and advanced pacing controls, including adjustable speed, timing variation, temporary typos, false starts and sentence pauses. These are simulated timing effects for testing. Review enabled temporary edits before approval.</p>
     <p>New sessions start with sentences. Sentences over 20 words are entered in two balanced parts, preserving the original text. Advanced settings let you choose other text units when your test needs them.</p>
     <h2>Word sessions need an open document</h2>
     <p>Word entry runs through its open add-in. Closing the panel or document prevents entry; when it resumes, the remaining schedule moves later rather than inserting delayed text in a burst.</p>
@@ -33,5 +40,6 @@ export default function WordAutoTyper() {
       { q: "Can Word type text automatically without an add-in?", a: <>For text you reuse, yes: AutoCorrect and Quick Parts insert saved snippets, and Dictate types what you say. Our guide on <Link href="/guides/auto-type-text-microsoft-word/">how to auto type text in Word</Link> explains when each fits.</> },
       { q: "Is the Word auto typer free?", a: <>Yes, on the Free plan with 250 words a day. Free, Day Pass and Pro cover both Word and Google Docs; compare them on the <Link href="/pricing/">pricing page</Link>.</> },
     ]} />
+    <JsonLd data={{ "@context": "https://schema.org", ...webPage({ path: "/word-auto-typer/", name: TITLE, description: DESCRIPTION, published: "2026-10-22", updated: PAGE_UPDATED["/word-auto-typer/"] }) }} />
   </article>;
 }

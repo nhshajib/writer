@@ -33,7 +33,8 @@ export function Sheet({ open, onClose, title, children, dismissible = true, clas
       <div className="sheet-inner">
         <span className="sheet-grabber" aria-hidden="true" />
         <div className="sheet-head">
-          <h2 id={titleId}>{title}</h2>
+          {/* Only while open, so a closed menu adds no heading to the page outline (crawlers read it ahead of the h1). */}
+          {open && <h2 id={titleId}>{title}</h2>}
           <button type="button" className="icon-btn" onClick={() => ref.current?.close()}>
             <Icon.close /><span className="sr-only">Close</span>
           </button>

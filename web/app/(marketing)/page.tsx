@@ -4,7 +4,9 @@ import { Icon } from "@/components/Icons";
 import { LivePreview } from "@/components/marketing/LivePreview";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMeta, SITE_URL } from "@/lib/seo";
-import { PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
+import { GUIDES } from "@/lib/search-content";
+import { DAY_PASS_PRICE, PRO_PRICE, SUPPORT_EMAIL } from "@/lib/site";
+import { ORGANIZATION_ID, SOFTWARE } from "@/lib/structured-data";
 
 const HOME_TITLE = "TypeWit — Auto Typer for Google Docs & Word";
 const HOME_DESCRIPTION = "TypeWit schedules text entry into Google Docs without a Chrome extension, plus Microsoft Word via an add-in. Keep formatting and start free.";
@@ -19,12 +21,16 @@ export const metadata: Metadata = {
   title: { absolute: HOME_TITLE },
 };
 
+/** The guides most visitors start with, by task. */
+const FEATURED_GUIDES = ["choose-google-docs-auto-typer", "auto-typer-extension-vs-cloud", "auto-type-text-microsoft-word"]
+  .map((slug) => GUIDES.find((g) => g.slug === slug)!);
+
 const STRUCTURED_DATA = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
-      "@id": `${SITE_URL}/#organization`,
+      "@id": ORGANIZATION_ID,
       name: "TypeWit",
       legalName: "Typewit Organization",
       address: { "@type": "PostalAddress", addressCountry: "BD" },
@@ -41,44 +47,9 @@ const STRUCTURED_DATA = {
       url: `${SITE_URL}/`,
       inLanguage: "en",
       description: HOME_DESCRIPTION,
-      publisher: { "@id": `${SITE_URL}/#organization` },
+      publisher: { "@id": ORGANIZATION_ID },
     },
-    {
-      "@type": "SoftwareApplication",
-      "@id": `${SITE_URL}/#software`,
-      publisher: { "@id": `${SITE_URL}/#organization` },
-      name: "TypeWit",
-      url: `${SITE_URL}/`,
-      applicationCategory: "ProductivityApplication",
-      operatingSystem: "Web",
-      sameAs: ["https://www.saashub.com/typewit"],
-      description:
-        "Schedules automated entry of approved text into Google Docs and Microsoft Word for authorized testing, with supported formatting and adjustable pacing.",
-      offers: [
-        { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
-        {
-          "@type": "Offer",
-          name: "Day Pass — 24 hours, no renewal",
-          price: "3.99",
-          priceCurrency: "USD",
-          url: `${SITE_URL}/pricing/`,
-        },
-        {
-          "@type": "Offer",
-          name: "Pro Monthly",
-          price: PRO_PRICE.month.amount.replace("$", ""),
-          priceCurrency: "USD",
-          url: `${SITE_URL}/pricing/`,
-        },
-        {
-          "@type": "Offer",
-          name: "Pro Yearly",
-          price: "60",
-          priceCurrency: "USD",
-          url: `${SITE_URL}/pricing/`,
-        },
-      ],
-    },
+    SOFTWARE,
   ],
 };
 
@@ -87,11 +58,11 @@ export default function Home() {
     <>
       <section className="home-hero" aria-labelledby="hero-title">
         <div className="home-copy">
-          <p className="home-eyebrow">TYPEWIT AUTO TYPER</p>
-          <h1 id="hero-title">
+          <h1 id="hero-title" className="home-eyebrow">Auto typer for Google Docs and Word</h1>
+          <p className="home-slogan">
             <span>Your words.</span>
             <br />Entered at<br className="desktop-break" /> your pace.
-          </h1>
+          </p>
           <p className="home-description">
             TypeWit is an auto typer for Google Docs and Word. Paste formatted
             text, choose a rhythm, and control every session.
@@ -123,6 +94,57 @@ export default function Home() {
           </span>
         </div>
       </section>
+
+      <div className="home-more">
+        <section className="home-intro" aria-labelledby="what-title">
+          <h2 id="what-title">What is TypeWit?</h2>
+          <p>
+            TypeWit is an auto typer that enters text you have already written into a Google Doc or a Microsoft Word
+            document, gradually, over a time you choose. Paste your text with its headings, bold, italic, bullets and
+            highlights, pick a rhythm such as Natural or Steady, review the exact words and approve. TypeWit then enters
+            them in steps and keeps an activity log you can download. You can pause, resume or stop from your phone or
+            computer at any point.
+          </p>
+          <p>
+            It doesn&apos;t write or rewrite anything: the words are yours. It&apos;s built for authorized document-entry
+            testing, demonstrations and accessible entry, under the <Link href="/responsible-use/">Responsible Use Agreement</Link>.
+          </p>
+        </section>
+
+        <section className="home-providers" aria-labelledby="where-title">
+          <h2 id="where-title">Works where you write</h2>
+          <div className="home-cards">
+            <Link href="/google-docs-auto-typer/" className="home-card">
+              <h3>Google Docs auto typer</h3>
+              <p>Runs in the cloud with no Chrome extension, so you can close the tab or the laptop. Use a new document or one you choose in Google&apos;s file picker.</p>
+              <span>Google Docs details <Icon.arrowRight /></span>
+            </Link>
+            <Link href="/word-auto-typer/" className="home-card">
+              <h3>Microsoft Word auto typer</h3>
+              <p>A Word add-in for Word on the web, which your organization can also deploy to Word for Windows and Mac. Keep the document and the TypeWit panel open while it runs.</p>
+              <span>Word details <Icon.arrowRight /></span>
+            </Link>
+          </div>
+        </section>
+
+        <section className="home-plans" aria-labelledby="plans-title">
+          <h2 id="plans-title">Plans</h2>
+          <ul>
+            <li><strong>Free</strong><span>250 words a day, sessions up to 60 minutes. No card needed.</span></li>
+            <li><strong>Day Pass · {DAY_PASS_PRICE}</strong><span>Unlimited words for 24 hours. Pay once, no renewal.</span></li>
+            <li><strong>Pro · {PRO_PRICE.month.amount}/month</strong><span>Or {PRO_PRICE.year.total} a year. Drafting rhythm, scheduled starts and sessions up to a week.</span></li>
+          </ul>
+          <Link href="/pricing/">Compare plans <Icon.arrowRight /></Link>
+        </section>
+
+        <section className="home-guides" aria-labelledby="guides-title">
+          <h2 id="guides-title">Guides</h2>
+          <ul>
+            {FEATURED_GUIDES.map((g) => <li key={g.slug}><Link href={`/guides/${g.slug}/`}>{g.title}</Link></li>)}
+          </ul>
+          <Link href="/guides/">All guides <Icon.arrowRight /></Link>
+        </section>
+      </div>
       <JsonLd data={STRUCTURED_DATA} />
     </>
   );

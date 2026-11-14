@@ -55,12 +55,14 @@
 [[headers]]
   for = "/login/*"
   [headers.values]
-    X-Robots-Tag = "noindex, nofollow"
+    # Matches the page's robots meta: kept out of search, links still followed.
+    X-Robots-Tag = "noindex, follow"
 
 [[headers]]
   for = "/signup/*"
   [headers.values]
-    X-Robots-Tag = "noindex, nofollow"
+    # Matches the page's robots meta: kept out of search, links still followed.
+    X-Robots-Tag = "noindex, follow"
 
 [[headers]]
   for = "/reset-password/*"
