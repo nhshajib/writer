@@ -77,7 +77,7 @@ export const FAQ = [
   },
   {
     q: "Does it work with Microsoft Word?",
-    a: "Yes. Add the TypeWit add-in to Word on the web (your organization can deploy it to Word for Windows and Mac). Word sessions run while the document and the TypeWit panel are open.",
+    a: "Yes, through the TypeWit add-in: install it yourself in Word on the web, or ask your administrator to deploy it to Word for Windows and Mac. Word sessions run while the document and the TypeWit panel are open.",
   },
   {
     q: "Can TypeWit see my other Google Drive files?",

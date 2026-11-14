@@ -122,7 +122,7 @@ export default function Home() {
             </Link>
             <Link href="/word-auto-typer/" className="home-card">
               <h3>Microsoft Word auto typer</h3>
-              <p>A Word add-in for Word on the web, which your organization can also deploy to Word for Windows and Mac. Keep the document and the TypeWit panel open while it runs.</p>
+              <p>A Word add-in for Word on the web, which your organization can also deploy to Word for Windows and Mac. Word sessions run while that document is open.</p>
               <span>Word details <Icon.arrowRight /></span>
             </Link>
           </div>
@@ -131,7 +131,7 @@ export default function Home() {
         <section className="home-plans" aria-labelledby="plans-title">
           <h2 id="plans-title">Plans</h2>
           <ul>
-            <li><strong>Free</strong><span>250 words a day, sessions up to 60 minutes. No card needed.</span></li>
+            <li><strong>Free</strong><span>250 words a day and one-hour sessions, with no card.</span></li>
             <li><strong>Day Pass · {DAY_PASS_PRICE}</strong><span>Unlimited words for 24 hours. Pay once, no renewal.</span></li>
             <li><strong>Pro · {PRO_PRICE.month.amount}/month</strong><span>Or {PRO_PRICE.year.total} a year. Drafting rhythm, scheduled starts and sessions up to a week.</span></li>
           </ul>

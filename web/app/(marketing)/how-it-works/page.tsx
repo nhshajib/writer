@@ -4,15 +4,16 @@ import { STEPS } from "@/lib/marketing-content";
 import Link from "next/link";
 export const metadata = pageMeta(
   "/how-it-works/",
-  "How TypeWit works",
-  "Paste your formatted text, choose a rhythm, then review and approve. Learn how scheduled entry works in Google Docs and Microsoft Word.",
+  "How TypeWit Works: Auto Type into Google Docs & Word",
+  "How the TypeWit auto typer works: paste formatted text, choose a rhythm and finish time, approve, and follow entry into Google Docs or Microsoft Word.",
 );
 export default function Page() {
   return (
     <InformationPage
-      title={"How TypeWit works"}
+      title={"How TypeWit auto types into Google Docs and Word"}
       intro={"Three steps take your prepared draft from the editor to a document. Start with a short sample to check the result."}
       path="/how-it-works/"
+      crumb="How it works"
     >
       <ol className="lp-steps">
         {STEPS.map(({ icon: StepIcon, title, text }, i) => (
@@ -54,8 +55,7 @@ export default function Page() {
         <p>
           Writing blocks add long rests between periods of entry. Times are
           targets; outages, document conflicts and expired access may delay or
-          stop continuation. Google controls how edits are grouped in version
-          history.
+          stop continuation.
         </p>
       </section>
     </InformationPage>

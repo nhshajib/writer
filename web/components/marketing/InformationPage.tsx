@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 export function InformationPage(
-  { title, intro, path, children }: {
+  { title, intro, path, crumb = title, children }: {
     title: string;
+    /** Short breadcrumb label when the H1 is long. */
+    crumb?: string;
     intro: string;
     path: string;
     children: React.ReactNode;
@@ -10,7 +12,7 @@ export function InformationPage(
 ) {
   return (
     <div className="information-page container">
-      <Breadcrumbs items={[{ name: title, path }]} />
+      <Breadcrumbs items={[{ name: crumb, path }]} />
       <header className="information-heading">
         <h1>{title}</h1>
         <p>{intro}</p>

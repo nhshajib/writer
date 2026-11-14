@@ -89,7 +89,7 @@ function PricingContent() {
         <div className="container">
           <p className="kicker">Pricing</p>
           <h1 id="pricing-title" className="display pricing-display">
-            Choose the plan <span className="soft">that fits.</span>
+            Auto typer plans: <span className="soft">free, Day Pass or Pro.</span>
           </h1>
           <p className="lead">Try every Pro feature free for 7 days. Cancel any time.</p>
           {canceled && (
@@ -137,7 +137,7 @@ function PricingContent() {
             <tbody>{COMPARE.map(row => <tr key={row.feature}><th scope="row">{row.feature}</th><td data-label="Free">{row.free}</td><td data-label="Day Pass">{row.day}</td><td data-label="Pro"><strong>{row.pro}</strong></td></tr>)}</tbody>
           </table>
         </div>
-        <p className="hint">For authorized testing only. Simulated edits are automated; Google controls how edits appear in version history. <Link href="/responsible-use/">Read the Responsible Use Agreement</Link>.</p>
+        <p className="hint">For authorized testing only. <Link href="/responsible-use/">Read the Responsible Use Agreement</Link>.</p>
       </section>
 
       <section id="pro-steps" className="section" aria-labelledby="steps-title">

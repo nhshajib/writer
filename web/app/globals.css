@@ -3075,5 +3075,3 @@ body:has(.lp-hero) { background: var(--bg); }
 }
 @media (prefers-reduced-motion: reduce) { .home-card { transition: none; } .home-card:active { transform: none; } }
 
-/* Guides: one responsible-use note per article instead of repeated disclaimers. */
-.seo-note { margin: 2rem 0 1.5rem; padding: 0.9rem 1.1rem; border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; background: var(--surface-2); color: var(--text-2); font-size: 0.9375rem; }

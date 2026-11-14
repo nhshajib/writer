@@ -4,15 +4,16 @@ import { FEATURES } from "@/lib/marketing-content";
 import Link from "next/link";
 export const metadata = pageMeta(
   "/features/",
-  "Features that keep you in control",
-  "Explore approved text entry, formatted paste, flexible pacing, writing blocks and session controls for Google Docs and Microsoft Word.",
+  "Auto Typer Features for Google Docs & Word",
+  "TypeWit’s auto typer features: formatted paste, Natural and Steady rhythms, writing blocks, pause and resume, an activity log and keyboard-first accessibility.",
 );
 export default function Page() {
   return (
     <InformationPage
-      title={"Features that keep you in control"}
+      title={"Auto typer features that keep you in control"}
       intro={"Review what each control does, from formatted paste to pauses and simulated corrections. Choose the settings your test needs."}
       path="/features/"
+      crumb="Features"
     >
       <ul className="lp-features">
         {FEATURES.map(({ icon: FeatureIcon, title, text }) => (
@@ -42,10 +43,8 @@ export default function Page() {
           false starts, presets and scheduled starts.
         </p>
         <p>
-          Review the total schedule before starting. Every Day Pass restart and
-          the finish must fit before expiry. These are automated edits; timing
-          and corrections do not prove human authorship or guarantee separate
-          Google revision groups.
+          The schedule preview shows the full timeline, rests included, before
+          you approve.
         </p>
       </section>
       <section className="information-section">

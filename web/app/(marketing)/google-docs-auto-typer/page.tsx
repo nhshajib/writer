@@ -39,7 +39,7 @@ export default function GoogleDocsAutoTyper() {
     <h2>Writing blocks with longer rests</h2>
     <p>Day Pass and Pro can write in blocks of 5 minutes to 12 hours, separated by 15-minute to 8-hour rests. Choose the writing time; TypeWit adds the long rests and previews the full schedule. Entry resumes while access and writing hours allow; provider delays may move the finish later.</p>
     <Questions items={[
-      { q: "Is there a free auto typer for Google Docs?", a: <>Yes: 250 words a day, sessions up to 60 minutes, Natural and Steady rhythms and formatted paste. No card is needed. See <Link href="/pricing/">plan limits</Link>.</> },
+      { q: "Is there a free auto typer for Google Docs?", a: <>Yes. The Free plan covers 250 words a day in one-hour sessions, with Natural and Steady rhythms and formatted paste. No card is needed. See <Link href="/pricing/">plan limits</Link>.</> },
       { q: "Do I need a Chrome extension?", a: "No. Grant access to your chosen document and use TypeWit in a modern browser, including on a phone or Chromebook." },
       { q: "Does it keep typing if I close my laptop?", a: "Yes. Google Docs sessions continue on the server after starting. Reopen the dashboard whenever you want to check progress or change their status." },
       { q: "Can it type into an existing Google Doc?", a: "Yes. Select it in Google Drive’s picker to append text. Pro can target an existing heading. You must have editing permission." },

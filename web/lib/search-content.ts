@@ -239,12 +239,8 @@ export const GUIDES: Guide[] = [
       ] },
       { heading: "Enter prepared text over time: the TypeWit add-in", paragraphs: [
         "Use the TypeWit add-in when a prepared passage should arrive gradually. Paste supported formatted text, choose a duration and review it before approval. The session controls let you pause or stop.",
-        "Word entry runs inside the open add-in, so keep the document and the TypeWit panel open until it finishes. Google Docs sessions are different: they run in the cloud.",
-      ], steps: [
-        "Save the document in OneDrive or SharePoint, then open it in Word on the web.",
-        "Add the TypeWit add-in using the manifest from Connected accounts in your dashboard; your organization can also deploy it to Word for Windows and Mac.",
-        "Open the TypeWit panel, sign in, paste your text, and choose a rhythm and duration.",
-        "Review and approve the text, start, and leave the panel open while it runs.",
+        "Word entry runs inside the open add-in, so nothing is entered while the document or the panel is closed. Google Docs sessions are different: they run in the cloud.",
+        "Setup takes a few minutes: the Word auto typer page walks through adding the add-in to Word on the web, and an administrator can deploy it to Word for Windows and Mac.",
       ] },
       { heading: "Keep it honest", paragraphs: [
         "Automated entry is still automation. Don’t use it to misrepresent who wrote a document or how it was drafted, and follow the rules of your school or workplace.",
@@ -275,7 +271,7 @@ export const GUIDES: Guide[] = [
         "Approve and start. The session runs in the cloud, so you can close the page; pause or stop it from any device.",
       ] },
       { heading: "Built for keyboard and screen-reader use", paragraphs: [
-        "TypeWit’s dashboard works with the keyboard alone and with screen readers, with large targets and light and dark modes. Progress can be announced to screen readers every 10%, and status changes such as paused or finished are always announced. You can turn the progress announcements off.",
+        "You can run TypeWit entirely from the keyboard or with a screen reader, with large targets in light or dark mode. Progress can be announced to screen readers every 10%, and status changes such as paused or finished are always announced. You can turn the progress announcements off.",
       ] },
       { heading: "Review dictated text before entry", paragraphs: [
         "Check names, punctuation and paragraph breaks after dictation. Voice input may supply plain text without headings or emphasis; add supported styles in the editor, then approve the exact passage you want entered.",

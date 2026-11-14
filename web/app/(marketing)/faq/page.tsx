@@ -5,8 +5,8 @@ import Link from "next/link";
 import { JsonLd } from "@/components/seo/JsonLd";
 export const metadata = pageMeta(
   "/faq/",
-  "Frequently asked questions",
-  "Answers about TypeWit plans, Google Docs permissions, Word sessions, background entry, dictation and responsible use before you start.",
+  "Auto Typer FAQ: Google Docs, Word & Plans",
+  "Answers about the TypeWit auto typer: the free plan, Google Docs permissions, Word sessions, entry after you close the tab, dictation and responsible use.",
 );
 export default function Page() {
   return (
