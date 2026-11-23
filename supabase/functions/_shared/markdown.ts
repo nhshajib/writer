@@ -93,37 +93,83 @@ export function parseMarkdown(src: string): ParsedMarkdown {
  * first one, or one after a styled paragraph), which keeps requests small.
  */
 export function formatsForUnits(parsed: ParsedMarkdown, units: string[]): ChunkFormat[] {
-  const out: ChunkFormat[] = [];
+  const slice = createFormatSlicer(parsed);
   let offset = 0;
-  for (const unit of units) {
+  return units.map((unit) => {
     const from = offset;
-    const to = offset + unit.length;
-    const paragraphs: ParagraphRange[] = [];
-    parsed.paragraphs.forEach((p, i) => {
-      if (p.start < from || p.start >= to) return;
-      const previous = parsed.paragraphs[i - 1];
-      if (p.kind === "normal" && i > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) return;
-      const range: ParagraphRange = {
+    offset += unit.length;
+    return slice(from, offset);
+  });
+}
+
+/**
+ * Index formatting once per compilation. Overlapping and out-of-order spans
+ * retain their original order, including when a revision revisits an old range.
+ */
+export function createFormatSlicer(parsed: ParsedMarkdown): (from: number, to: number) => ChunkFormat {
+  const paragraphs = new FormatRangeIndex(parsed.paragraphs);
+  const spans = new FormatRangeIndex(parsed.spans);
+  return (from, to) => ({
+    paragraphs: paragraphs.overlapping(from, to).flatMap(({ value: p, index }) => {
+      if (p.start < from) return [];
+      const previous = parsed.paragraphs[index - 1];
+      if (p.kind === "normal" && index > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) {
+        return [];
+      }
+      return [{
         start: p.start - from,
         end: Math.min(p.end, to) - from,
         kind: p.kind,
         ...(p.alignment || previous?.alignment ? { alignment: p.alignment ?? "left" } : {}),
-      };
-      if (["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)) {
-        range.after_bullet = true;
-      }
-      paragraphs.push(range);
-    });
-    const spans: SpanRange[] = [];
-    for (const s of parsed.spans) {
-      const start = Math.max(s.start, from);
-      const end = Math.min(s.end, to);
-      if (start < end) spans.push({ ...s, start: start - from, end: end - from });
-    }
-    out.push({ paragraphs, spans });
-    offset = to;
+        ...(["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)
+          ? { after_bullet: true }
+          : {}),
+      }];
+    }),
+    spans: spans.overlapping(from, to).map(({ value: s }) => ({
+      ...s,
+      start: Math.max(s.start, from) - from,
+      end: Math.min(s.end, to) - from,
+    })),
+  });
+}
+
+interface IndexedRange<T> {
+  value: T;
+  index: number;
+}
+
+class FormatRangeIndex<T extends { start: number; end: number }> {
+  private readonly ranges: IndexedRange<T>[];
+  private readonly maxEnd: number[] = [];
+
+  constructor(ranges: readonly T[]) {
+    this.ranges = ranges.map((value, index) => ({ value, index })).sort((a, b) =>
+      a.value.start - b.value.start || a.index - b.index
+    );
+    const build = (node: number, lo: number, hi: number): number => {
+      if (hi - lo === 1) return this.maxEnd[node] = this.ranges[lo].value.end;
+      const mid = Math.floor((lo + hi) / 2);
+      return this.maxEnd[node] = Math.max(build(node * 2, lo, mid), build(node * 2 + 1, mid, hi));
+    };
+    if (this.ranges.length) build(1, 0, this.ranges.length);
   }
-  return out;
+
+  overlapping(from: number, to: number): IndexedRange<T>[] {
+    const found: IndexedRange<T>[] = [];
+    const visit = (node: number, lo: number, hi: number) => {
+      if (this.maxEnd[node] <= from || this.ranges[lo].value.start >= to) return;
+      if (hi - lo === 1) {
+        found.push(this.ranges[lo]);
+        return;
+      }
+      const mid = Math.floor((lo + hi) / 2);
+      visit(node * 2, lo, mid);
+      visit(node * 2 + 1, mid, hi);
+    };
+    if (this.ranges.length && from < to) visit(1, 0, this.ranges.length);
+    return found.sort((a, b) => a.index - b.index);
+  }
 }
 
 /** Whether a unit's format changes anything (so plain units keep the simple insert). */

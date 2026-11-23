@@ -3,7 +3,7 @@
  * before starting; the only temporary text it deletes is text it generated.
  */
 import { splitIntoUnits } from "./chunker.ts";
-import { type ChunkFormat, type ParsedMarkdown } from "./markdown.ts";
+import { type ChunkFormat, createFormatSlicer, type ParsedMarkdown } from "./markdown.ts";
 import { seededRandom } from "./schedule.ts";
 
 export interface DraftingSettings {
@@ -138,32 +138,6 @@ export interface DraftingScript {
   stats: { typos: number; false_starts: number; sentence_pauses: number; extra_edits: number };
 }
 
-function formatSlice(parsed: ParsedMarkdown, from: number, to: number): ChunkFormat {
-  const paragraphs: ChunkFormat["paragraphs"] = [];
-  parsed.paragraphs.forEach((p, i) => {
-    if (p.start < from || p.start >= to) return;
-    const previous = parsed.paragraphs[i - 1];
-    if (p.kind === "normal" && i > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) return;
-    paragraphs.push({
-      start: p.start - from,
-      end: Math.min(p.end, to) - from,
-      kind: p.kind,
-      ...(p.alignment || previous?.alignment ? { alignment: p.alignment ?? "left" } : {}),
-      ...(["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)
-        ? { after_bullet: true }
-        : {}),
-    });
-  });
-  return {
-    paragraphs,
-    spans: parsed.spans.filter((s) => s.start < to && s.end > from).map((s) => ({
-      ...s,
-      start: Math.max(s.start, from) - from,
-      end: Math.min(s.end, to) - from,
-    })),
-  };
-}
-
 /** Compile temporary, reversible edits without changing the approved source. */
 export function compileDrafting(
   sourceChunks: string[],
@@ -171,6 +145,7 @@ export function compileDrafting(
   seed: number,
   parsed: ParsedMarkdown | null = null,
 ): DraftingScript {
+  const formatSlice = parsed ? createFormatSlicer(parsed) : null;
   const invalid = validateDrafting(settings);
   if (invalid) throw new RangeError(invalid);
   const cfg = settings ?? DEFAULT_DRAFTING;
@@ -229,7 +204,7 @@ export function compileDrafting(
     out.action_kinds.push(kind);
     out.sentence_pauses_ms.push(0);
     out.chunk_formats?.push(
-      from !== null ? formatSlice(parsed!, from, from + chunk.length) : { paragraphs: [], spans: [] },
+      from !== null ? formatSlice!(from, from + chunk.length) : { paragraphs: [], spans: [] },
     );
   };
   let global = 0;
