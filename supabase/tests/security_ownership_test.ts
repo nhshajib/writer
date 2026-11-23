@@ -10,6 +10,7 @@ Deno.test("security: another user's session cannot be read, paused or controlled
   let handler!: Handler;
   let unauthorizedWrites = 0;
   let failBudget = false;
+  let denyBudget = false;
   try {
     Deno.env.set(names[0], "http://database.invalid");
     Deno.env.set(names[1], "fixture-service");
@@ -22,6 +23,7 @@ Deno.test("security: another user's session cannot be read, paused or controlled
       }
       if (url.pathname.endsWith("/profiles")) return Response.json({ eligibility_blocked_at: null, plan: "pro" });
       if (url.pathname.endsWith("/rpc/hit_rate_limit")) {
+        if (denyBudget) return Response.json(false);
         return failBudget ? Response.json({ message: "Fixture counter outage" }, { status: 503 }) : Response.json(true);
       }
       if (url.pathname.endsWith("/drips")) {
@@ -90,7 +92,11 @@ Deno.test("security: another user's session cannot be read, paused or controlled
     );
     assertEquals(complex.status, 413);
     assertEquals((await complex.json()).error.includes("Choose larger steps"), true);
+    denyBudget = true;
+    assertEquals((await request("")).status, 429);
+    denyBudget = false;
     failBudget = true;
+    assertEquals((await request("")).status, 503);
     const blocked = await handler(
       new Request("http://edge.invalid/functions/v1/drips/plan", {
         method: "POST",

@@ -88,6 +88,7 @@ serve(async (req) => {
   const user = await requireUser(req);
   const parts = routeParts(req);
   const method = req.method;
+  if (method === "GET") await rateLimit(user.id, "read", { failClosed: true });
   if (parts.length === 1 && parts[0] === "client-errors" && method === "POST") {
     await rateLimit(user.id, "clientError", { failClosed: true });
     return await acceptClientDiagnostic(req);

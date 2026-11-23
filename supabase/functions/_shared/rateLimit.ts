@@ -3,6 +3,7 @@ import { HttpError } from "./http.ts";
 
 /** Per-user request budgets: [max requests, window in seconds]. */
 export const RATE_LIMITS = {
+  read: [600, 60],
   start: [30, 3600],
   pause: [120, 60],
   resume: [120, 60],
@@ -27,7 +28,8 @@ export const RATE_LIMITS = {
 /**
  * Counts one request against the user's budget and throws 429 once it is used
  * up. Session controls retain their fail-open behavior during counter outages.
- * Billing opts into failClosed, so an unverified budget cannot start a charge.
+ * Costly reads, planning, provider calls and billing opt into failClosed so
+ * unverified budgets cannot bypass their limits.
  */
 export async function rateLimit(
   userId: string,

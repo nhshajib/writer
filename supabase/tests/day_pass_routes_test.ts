@@ -192,8 +192,9 @@ Deno.test("playback is owner-scoped, Pro-only and never exposes unconfirmed sour
     Deno.env.set(names[1], "fixture-service");
     globalThis.fetch = (async (input, init) => {
       await Promise.resolve();
-      assert(!init?.method || init.method === "GET");
       const url = new URL(String(input));
+      if (url.pathname.endsWith("/rpc/hit_rate_limit")) return Response.json(true);
+      assert(!init?.method || init.method === "GET");
       if (url.pathname === "/auth/v1/user") return Response.json({ id: owner, role: "authenticated" });
       if (url.pathname.endsWith("/profiles")) return Response.json({ plan: tier, eligibility_blocked_at: null });
       if (url.pathname.endsWith("/drips")) {
