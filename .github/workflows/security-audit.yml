@@ -43,8 +43,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f scripts/security-trial-fixture.sql
       - name: Apply new migration twice
         run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261123000001_trial_checkout_reservations.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261123000001_trial_checkout_reservations.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261123143446_trial_checkout_reservations.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261123143446_trial_checkout_reservations.sql
       - name: Eligibility and grants
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/trial_reservation_database_test.sql
       - name: Concurrent aliased accounts
