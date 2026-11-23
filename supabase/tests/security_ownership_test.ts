@@ -25,7 +25,9 @@ Deno.test("security: another user's session cannot be read, paused or controlled
         return failBudget ? Response.json({ message: "Fixture counter outage" }, { status: 503 }) : Response.json(true);
       }
       if (url.pathname.endsWith("/drips")) {
-        const authorized = url.searchParams.get("user_id") === `eq.${owner}`;
+        // Service-role reads without an owner filter would see this foreign row.
+        const ownerFilter = url.searchParams.get("user_id");
+        const authorized = ownerFilter === null || ownerFilter === `eq.${owner}`;
         if (init?.method === "HEAD") {
           return new Response(null, { headers: { "Content-Range": authorized ? "*/1" : "*/0" } });
         }
