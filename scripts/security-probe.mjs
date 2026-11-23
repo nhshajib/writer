@@ -65,3 +65,24 @@ const historicalEnv = execFileSync("git", [
 ], { maxBuffer: 20 * 1024 * 1024 }).toString().split("\n").filter(Boolean);
 assert(historicalEnv.every(path => path.endsWith(".example")), "Non-example .env file in Git history; investigate/rotate.");
 console.log(JSON.stringify({ check: "source and env history scan", files: scanned, pass: true }));
+
+const html = await (await fetch(website, { signal: AbortSignal.timeout(20000) })).text();
+const assets = [...new Set([...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match =>
+  new URL(match[1], website).href
+))].filter(url => url.startsWith(website + "/_next/static/")).slice(0, 60);
+for (const url of assets) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+  assert.equal(response.status, 200, "Public JavaScript bundle could not be checked");
+  const source = await response.text();
+  assert(!secretPattern.test(source), "Potential secret in a browser bundle (value redacted)");
+  for (const token of source.match(/eyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}/g) ?? []) {
+    try {
+      const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+      assert(payload.role !== "service_role", "Service-role JWT exposed in a browser bundle (value redacted)");
+    } catch (error) {
+      if (error instanceof assert.AssertionError) throw error;
+    }
+  }
+}
+assert(assets.length > 0, "No browser bundles discovered; inspection is incomplete");
+console.log(JSON.stringify({ check: "public browser bundles", files: assets.length, pass: true }));

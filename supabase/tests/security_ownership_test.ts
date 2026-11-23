@@ -22,9 +22,7 @@ Deno.test("security: another user's session cannot be read, paused or controlled
       }
       if (url.pathname.endsWith("/profiles")) return Response.json({ eligibility_blocked_at: null, plan: "pro" });
       if (url.pathname.endsWith("/rpc/hit_rate_limit")) {
-        return failBudget
-          ? Response.json({ message: "Fixture counter outage" }, { status: 503 })
-          : Response.json(true);
+        return failBudget ? Response.json({ message: "Fixture counter outage" }, { status: 503 }) : Response.json(true);
       }
       if (url.pathname.endsWith("/drips")) {
         const authorized = url.searchParams.get("user_id") === `eq.${owner}`;
@@ -72,11 +70,13 @@ Deno.test("security: another user's session cannot be read, paused or controlled
     assertEquals((await request("/pause", "POST")).status, 404);
     assertEquals(unauthorizedWrites, 0);
     failBudget = true;
-    const blocked = await handler(new Request("http://edge.invalid/functions/v1/drips/plan", {
-      method: "POST",
-      headers: { Authorization: "Bearer fixture-owner", "Content-Type": "application/json" },
-      body: JSON.stringify({ text: "Approved fixture.", duration_minutes: 1 }),
-    }));
+    const blocked = await handler(
+      new Request("http://edge.invalid/functions/v1/drips/plan", {
+        method: "POST",
+        headers: { Authorization: "Bearer fixture-owner", "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "Approved fixture.", duration_minutes: 1 }),
+      }),
+    );
     assertEquals(blocked.status, 503);
   } finally {
     globalThis.fetch = originalFetch;
