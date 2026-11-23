@@ -1,0 +1,50 @@
+name: Security audit probes
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/security-audit-*'
+permissions:
+  contents: read
+jobs:
+  boundaries:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read-only production boundaries and repository secret scan
+        run: node scripts/security-probe.mjs
+  dependency-patch:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare exact patch without force
+        run: npm install --package-lock-only --ignore-scripts --save-exact next@15.5.29
+      - name: Record generated manifests for review
+        run: |
+          node -e 'const fs = require("fs"); for (const f of ["package.json", "package-lock.json"]) console.log("AUDIT_MANIFEST_" + f + "_BEGIN\n" + fs.readFileSync(f, "utf8") + "\nAUDIT_MANIFEST_END");'
+      - run: npm ci
+      - run: npm run audit
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci
+      - run: npm run seo:check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
