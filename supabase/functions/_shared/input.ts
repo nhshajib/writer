@@ -1,4 +1,4 @@
-import { z } from "npm:zod@4.1.12";
+import { z } from "npm:zod@4.6.7";
 import { HttpError } from "./http.ts";
 import { MAX_TEXT_CHARS } from "./limits.ts";
 

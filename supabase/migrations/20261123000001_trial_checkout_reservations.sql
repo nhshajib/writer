@@ -6,8 +6,13 @@ create table if not exists public.trial_checkout_reservations (
   expires_at timestamptz not null
 );
 alter table public.trial_checkout_reservations enable row level security;
+drop policy if exists "service only" on public.trial_checkout_reservations;
+create policy "service only" on public.trial_checkout_reservations
+  for all to service_role using (true) with check (true);
 revoke all on public.trial_checkout_reservations from public, anon, authenticated;
 grant all on public.trial_checkout_reservations to service_role;
+create index if not exists trial_checkout_reservations_user_idx
+  on public.trial_checkout_reservations(user_id);
 create index if not exists trial_checkout_reservations_expiry_idx
   on public.trial_checkout_reservations(expires_at);
 

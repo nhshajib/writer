@@ -3,7 +3,8 @@
   "specifiers": {
     "jsr:@std/assert@1.0.13": "1.0.13",
     "jsr:@std/internal@^1.0.6": "1.0.14",
-    "npm:@supabase/supabase-js@2.50.0": "2.50.0"
+    "npm:@supabase/supabase-js@2.50.0": "2.50.0",
+    "npm:zod@4.6.7": "4.6.7"
   },
   "jsr": {
     "@std/assert@1.0.13": {
@@ -59,11 +60,11 @@
     "@supabase/supabase-js@2.50.0": {
       "integrity": "sha512-M1Gd5tPaaghYZ9OjeO1iORRqbTWFEz/cF3pPubRnMPzA+A8SiUsXXWDP+DWsASZcjEcVEcVQIAF38i5wrijYOg==",
       "dependencies": [
-        "@supabase/auth-js@2.70.0",
+        "@supabase/auth-js",
         "@supabase/functions-js",
         "@supabase/node-fetch",
         "@supabase/postgrest-js",
-        "@supabase/realtime-js@2.11.10",
+        "@supabase/realtime-js",
         "@supabase/storage-js"
       ]
     },
@@ -100,6 +101,9 @@
     },
     "ws@8.22.0": {
       "integrity": "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="
+    },
+    "zod@4.6.7": {
+      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg=="
     }
   }
 }
