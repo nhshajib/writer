@@ -25,7 +25,7 @@ serve(async (req) => {
   if (!challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) {
     throw new HttpError(400, "Start Google connect from your dashboard in this browser.");
   }
-  await rateLimit(user.id, "googleConnect");
+  await rateLimit(user.id, "googleConnect", { failClosed: true });
   const state: OAuthState = {
     uid: user.id,
     exp: Math.floor(Date.now() / 1000) + STATE_TTL_SECONDS,

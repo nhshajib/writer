@@ -111,16 +111,16 @@ serve(async (req) => {
   if (parts.length === 0) {
     if (method === "GET") return await listDrips(user.id, new URL(req.url).searchParams.get("before"));
     if (method === "POST") {
-      await rateLimit(user.id, "start");
+      await rateLimit(user.id, "start", { failClosed: true });
       return await createDrip(user.id, req);
     }
   }
   if (parts[0] === "plan" && parts.length === 1 && method === "POST") {
-    await rateLimit(user.id, "plan");
+    await rateLimit(user.id, "plan", { failClosed: true });
     return await previewPlan(user.id, req);
   }
   if (parts[0] === "check" && parts.length === 1 && method === "POST") {
-    await rateLimit(user.id, "check");
+    await rateLimit(user.id, "check", { failClosed: true });
     return await checkConnection(user.id, req);
   }
   if (parts[0] === "clear" && parts.length === 1 && method === "POST") return await clearFinished(user.id);
@@ -131,7 +131,7 @@ serve(async (req) => {
       return await createWordConnection(user.id, user.email);
     }
     if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "picker" && method === "POST") {
-      await rateLimit(user.id, "picker");
+      await rateLimit(user.id, "picker", { failClosed: true });
       return await pickerToken(user.id, parts[1]);
     }
     if (parts.length === 3 && UUID_RE.test(parts[1]) && parts[2] === "disconnect" && method === "POST") {
@@ -142,11 +142,11 @@ serve(async (req) => {
     return await deleteAccount(user.id, user.email, req);
   }
   if (parts[0] === "headings" && parts.length === 1 && method === "GET") {
-    await rateLimit(user.id, "check");
+    await rateLimit(user.id, "check", { failClosed: true });
     return await listHeadings(user.id, new URL(req.url).searchParams);
   }
   if (parts[0] === "documents" && parts.length === 1 && method === "POST") {
-    await rateLimit(user.id, "document");
+    await rateLimit(user.id, "document", { failClosed: true });
     return await createDocument(user.id, req);
   }
   if (parts.length >= 1 && UUID_RE.test(parts[0])) {
@@ -159,7 +159,7 @@ serve(async (req) => {
       if (parts[1] === "resume") return await resumeDrip(user.id, id, req);
       if (parts[1] === "cancel") return await cancelDrip(user.id, id);
       if (parts[1] === "check") {
-        await rateLimit(user.id, "check");
+        await rateLimit(user.id, "check", { failClosed: true });
         return await checkSession(user.id, id);
       }
       if (parts[1] === "delete") return await deleteDrip(user.id, id);
@@ -819,7 +819,7 @@ async function resumeDrip(userId: string, id: string, req: Request): Promise<Res
 
 /** Pro users may replan only the unentered suffix of a safely paused session. */
 async function editPausedSettings(userId: string, id: string, req: Request): Promise<Response> {
-  await rateLimit(userId, "plan");
+  await rateLimit(userId, "plan", { failClosed: true });
   const tier = await userPlan(userId);
   if (tier.plan !== "pro") throw new HttpError(403, "Editing paused session settings is a Pro feature.");
   if (!tier.agreed) throw new HttpError(403, "Accept the current Responsible Use Agreement first.");

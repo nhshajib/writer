@@ -9,6 +9,7 @@ Deno.test("security: another user's session cannot be read, paused or controlled
   const owner = crypto.randomUUID(), outsider = crypto.randomUUID(), id = crypto.randomUUID();
   let handler!: Handler;
   let unauthorizedWrites = 0;
+  let failBudget = false;
   try {
     Deno.env.set(names[0], "http://database.invalid");
     Deno.env.set(names[1], "fixture-service");
@@ -20,25 +21,31 @@ Deno.test("security: another user's session cannot be read, paused or controlled
         return Response.json({ id: caller, role: "authenticated" });
       }
       if (url.pathname.endsWith("/profiles")) return Response.json({ eligibility_blocked_at: null, plan: "pro" });
-      if (url.pathname.endsWith("/rpc/hit_rate_limit")) return Response.json(true);
+      if (url.pathname.endsWith("/rpc/hit_rate_limit")) {
+        return failBudget
+          ? Response.json({ message: "Fixture counter outage" }, { status: 503 })
+          : Response.json(true);
+      }
       if (url.pathname.endsWith("/drips")) {
         const authorized = url.searchParams.get("user_id") === `eq.${owner}`;
         if (init?.method === "HEAD") {
           return new Response(null, { headers: { "Content-Range": authorized ? "*/1" : "*/0" } });
         }
         if (init?.method === "PATCH" && authorized) unauthorizedWrites++;
-        return Response.json(authorized
-          ? {
-            id,
-            user_id: owner,
-            provider: "microsoft",
-            document_id: "fixture-document",
-            status: "running",
-            lease_id: null,
-            chunks_written: 0,
-            total_chunks: 1,
-          }
-          : null);
+        return Response.json(
+          authorized
+            ? {
+              id,
+              user_id: owner,
+              provider: "microsoft",
+              document_id: "fixture-document",
+              status: "running",
+              lease_id: null,
+              chunks_written: 0,
+              total_chunks: 1,
+            }
+            : null,
+        );
       }
       throw new Error(`Unexpected fixture path: ${url.pathname}`);
     }) as typeof fetch;
@@ -52,16 +59,25 @@ Deno.test("security: another user's session cannot be read, paused or controlled
     await import("../functions/drips/index.ts?security-ownership");
     Object.defineProperty(Deno, "serve", { value: originalServe, configurable: true, writable: true });
     const request = (suffix: string, method = "GET", caller = "fixture-outsider") =>
-      handler(new Request(`http://edge.invalid/functions/v1/drips/${id}${suffix}`, {
-        method,
-        headers: { Authorization: `Bearer ${caller}`, "Content-Type": "application/json" },
-        ...(method === "POST" ? { body: JSON.stringify({ op: "control" }) } : {}),
-      }));
+      handler(
+        new Request(`http://edge.invalid/functions/v1/drips/${id}${suffix}`, {
+          method,
+          headers: { Authorization: `Bearer ${caller}`, "Content-Type": "application/json" },
+          ...(method === "POST" ? { body: JSON.stringify({ op: "control" }) } : {}),
+        }),
+      );
     assertEquals((await request("/engine", "POST", "fixture-owner")).status, 200);
     assertEquals((await request("")).status, 404);
     assertEquals((await request("/engine", "POST")).status, 404);
     assertEquals((await request("/pause", "POST")).status, 404);
     assertEquals(unauthorizedWrites, 0);
+    failBudget = true;
+    const blocked = await handler(new Request("http://edge.invalid/functions/v1/drips/plan", {
+      method: "POST",
+      headers: { Authorization: "Bearer fixture-owner", "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "Approved fixture.", duration_minutes: 1 }),
+    }));
+    assertEquals(blocked.status, 503);
   } finally {
     globalThis.fetch = originalFetch;
     Object.defineProperty(Deno, "serve", { value: originalServe, configurable: true, writable: true });
