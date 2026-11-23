@@ -272,6 +272,24 @@ async function checkout(
     if (trialError) throw new Error(trialError.message);
     if (same?.url) return json({ url: same.url, trial: dayPass ? false : Boolean(trialAvailable) });
 
+    let offerTrial = Boolean(trialAvailable);
+    if (offerTrial) {
+      const { data: reservation, error: reservationError } = await db.rpc("reserve_trial_checkout", {
+        email: user.email,
+        owner: user.id,
+      });
+      if (reservationError || !["available", "claimed", "busy"].includes(String(reservation))) {
+        throw new HttpError(503, "Your trial could not be checked. Please try again shortly.");
+      }
+      if (reservation === "busy") {
+        throw new HttpError(
+          409,
+          "A free-trial checkout is already open for this email address. Finish it, or try again after it expires.",
+        );
+      }
+      offerTrial = reservation === "available";
+    }
+
     const params: Record<string, string> = {
       ui_mode: "hosted_page",
       billing_address_collection: "required",
@@ -305,7 +323,7 @@ async function checkout(
       params.success_url = `${appUrl}/app/billing/?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
     } else {
       params["subscription_data[metadata][user_id]"] = user.id;
-      if (trialAvailable) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
+      if (offerTrial) params["subscription_data[trial_period_days]"] = TRIAL_DAYS;
     }
 
     const session = await stripeRequest<{ url: string }>(
@@ -318,7 +336,7 @@ async function checkout(
       // request so older account defaults cannot reject the configured fields.
       "2026-09-30.endive",
     );
-    return json({ url: session.url, trial: dayPass ? false : Boolean(trialAvailable) });
+    return json({ url: session.url, trial: dayPass ? false : offerTrial });
   } finally {
     // A stale request must never release a newer request's lease.
     const { error } = await db.from("billing_checkout_locks").delete().eq("user_id", user.id).eq("lease_id", lease);

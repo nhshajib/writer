@@ -8,7 +8,7 @@ async function probe(name, url, init, expected) {
   const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(20000), ...init });
   const body = await response.text();
   assert(expected.includes(response.status), `${name}: unexpected HTTP ${response.status}`);
-  assert(!/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\\bsk_live_[A-Za-z0-9]{18,}/.test(body),
+  assert(!/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bsk_live_[A-Za-z0-9]{18,}/.test(body),
     `${name}: potential secret in response (redacted)`);
   console.log(JSON.stringify({ check: name, status: response.status, pass: true }));
   return response;
@@ -44,7 +44,7 @@ const preflight = await probe("untrusted origin", functions + "/billing/checkout
 assert.equal(preflight.headers.get("access-control-allow-origin"), null);
 
 const files = execFileSync("git", ["ls-files", "-z"], { maxBuffer: 20 * 1024 * 1024 }).toString().split("\0").filter(Boolean);
-const secretPattern = /\\b(?:sk_live_|sk_test_|rk_live_|whsec_|sb_secret_)[A-Za-z0-9]{18,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|postgres(?:ql)?:\/\/[^:\\s"']+:[^@\\s"']+@/;
+const secretPattern = /\b(?:sk_live_|sk_test_|rk_live_|whsec_|sb_secret_)[A-Za-z0-9]{18,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|postgres(?:ql)?:\/\/[^:\s"']+:[^@\s"']+@/;
 let scanned = 0;
 for (const file of files) {
   if (!/\.(?:tsx?|sql|mjs|json|toml|ya?ml|md)$|(^|\/)\.env/.test(file)) continue;

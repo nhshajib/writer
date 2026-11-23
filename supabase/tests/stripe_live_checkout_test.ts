@@ -66,6 +66,7 @@ async function fixture() {
     locked: false,
     trial: false,
     trialCalls: 0,
+    reservation: "available",
     customerKey: "",
     checkoutVersion: "",
     params: new URLSearchParams(),
@@ -122,6 +123,10 @@ async function fixture() {
     if (url.pathname.endsWith("/rpc/trial_available")) {
       state.trialCalls++;
       return Response.json(state.trial);
+    }
+    if (url.pathname.endsWith("/rpc/reserve_trial_checkout")) {
+      assertEquals(JSON.parse(String(init?.body)), { email: "fixture@example.invalid", owner });
+      return Response.json(state.reservation);
     }
     if (url.hostname === "api.stripe.com") {
       const version = new Headers(init?.headers).get("Stripe-Version");
@@ -428,5 +433,28 @@ Deno.test("checkout replaces cached links without web return navigation for ever
     } finally {
       f.restore();
     }
+  }
+});
+
+Deno.test("security: aliased trial checkouts block races and never silently charge a promised trial", async () => {
+  const f = await fixture();
+  try {
+    f.state.trial = true;
+    f.state.reservation = "busy";
+    assertEquals((await f.send()).status, 409);
+    assertEquals(f.state.sessions, 0);
+    assertEquals(f.state.locked, false);
+    f.state.reservation = "invalid";
+    assertEquals((await f.send()).status, 503);
+    assertEquals(f.state.sessions, 0);
+    f.state.reservation = "claimed";
+    assertEquals((await f.send()).status, 200);
+    assertEquals(f.state.params.get("subscription_data[trial_period_days]"), null);
+    f.state.open = null;
+    f.state.reservation = "available";
+    assertEquals((await f.send()).status, 200);
+    assertEquals(f.state.params.get("subscription_data[trial_period_days]"), "7");
+  } finally {
+    f.restore();
   }
 });

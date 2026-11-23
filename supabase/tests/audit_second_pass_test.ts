@@ -244,6 +244,7 @@ Deno.test("second audit: checkout serializes double clicks, reuses open payment 
         return Response.json(null);
       }
       if (url.pathname.endsWith("/rpc/trial_available")) return Response.json(true);
+      if (url.pathname.endsWith("/rpc/reserve_trial_checkout")) return Response.json("available");
       if (url.hostname === "api.stripe.com") {
         const params = new URLSearchParams(String(init?.body ?? ""));
         if (url.pathname === "/v1/customers") {

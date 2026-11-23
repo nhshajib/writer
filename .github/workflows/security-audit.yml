@@ -48,3 +48,33 @@ jobs:
       - run: npm run seo:check
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+  trial-reservation-database:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-local-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: fixture-local-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Initialize isolated fixture
+        run: psql -v ON_ERROR_STOP=1 -f scripts/security-trial-fixture.sql
+      - name: Apply new migration twice
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261123000001_trial_checkout_reservations.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261123000001_trial_checkout_reservations.sql
+      - name: Eligibility and grants
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/trial_reservation_database_test.sql
+      - name: Concurrent aliased accounts
+        run: python3 scripts/security-trial-race.py
