@@ -2,7 +2,13 @@ import { validatePlanSource } from "../_shared/input.ts";
 import { withAccountDeletionBilling } from "../_shared/accountDeletion.ts";
 import { acceptClientDiagnostic } from "../_shared/clientDiagnostics.ts";
 import { validateConfirmPatch, validateEngineEvents } from "../_shared/engineProtocol.ts";
-import { FormattingComplexityError, parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
+import {
+  FormattingComplexityError,
+  parseFormatted,
+  parseRichText,
+  plainDocument,
+  replaceFormattedTail,
+} from "../_shared/markdown.ts";
 // User-facing API for drips, document connections and documents.
 //
 //   GET  /drips[?before=<iso>]      list my drips (with progress), newest first, 100 at a time

@@ -69,6 +69,25 @@ Deno.test("security: another user's session cannot be read, paused or controlled
     assertEquals((await request("/engine", "POST")).status, 404);
     assertEquals((await request("/pause", "POST")).status, 404);
     assertEquals(unauthorizedWrites, 0);
+    const rich = JSON.stringify({
+      plain: "x".repeat(1000),
+      paragraphs: [{ start: 0, end: 1000, kind: "normal" }],
+      spans: Array.from({ length: 1000 }, () => ({ start: 0, end: 1000, bold: true })),
+    });
+    const complex = await handler(
+      new Request("http://edge.invalid/functions/v1/drips/plan", {
+        method: "POST",
+        headers: { Authorization: "Bearer fixture-owner", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: rich,
+          text_format: "rich",
+          insertion_unit: "character",
+          duration_minutes: 100,
+        }),
+      }),
+    );
+    assertEquals(complex.status, 413);
+    assertEquals((await complex.json()).error.includes("Choose larger steps"), true);
     failBudget = true;
     const blocked = await handler(
       new Request("http://edge.invalid/functions/v1/drips/plan", {
