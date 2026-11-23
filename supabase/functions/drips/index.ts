@@ -2,7 +2,7 @@ import { validatePlanSource } from "../_shared/input.ts";
 import { withAccountDeletionBilling } from "../_shared/accountDeletion.ts";
 import { acceptClientDiagnostic } from "../_shared/clientDiagnostics.ts";
 import { validateConfirmPatch, validateEngineEvents } from "../_shared/engineProtocol.ts";
-import { parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
+import { FormattingComplexityError, parseFormatted, parseRichText, plainDocument, replaceFormattedTail } from "../_shared/markdown.ts";
 // User-facing API for drips, document connections and documents.
 //
 //   GET  /drips[?before=<iso>]      list my drips (with progress), newest first, 100 at a time
@@ -346,10 +346,19 @@ function planResponse(plan: SessionPlan) {
   };
 }
 
+function checkedPlan(input: Parameters<typeof planSession>[0]): SessionPlan {
+  try {
+    return planSession(input);
+  } catch (error) {
+    if (error instanceof FormattingComplexityError) throw new HttpError(413, error.message);
+    throw error;
+  }
+}
+
 async function previewPlan(userId: string, req: Request): Promise<Response> {
   const input = readPlanInput(await readJson<PlanBody>(req));
   const { plan, expiresAt } = await userPlan(userId);
-  return json({ plan: planResponse(planSession({ ...input, plan, accessExpiresAt: expiresAt })) });
+  return json({ plan: planResponse(checkedPlan({ ...input, plan, accessExpiresAt: expiresAt })) });
 }
 
 async function createDrip(userId: string, req: Request): Promise<Response> {
@@ -421,7 +430,7 @@ async function createDrip(userId: string, req: Request): Promise<Response> {
   if (tier !== "pro" && target) throw new HttpError(403, PRO_ONLY_MESSAGES.headings);
 
   // Splits the text and builds the complete schedule before anything starts.
-  const plan = planSession({ ...input, plan: tier, accessExpiresAt: expiresAt });
+  const plan = checkedPlan({ ...input, plan: tier, accessExpiresAt: expiresAt });
   if (!plan.ok) return json({ error: plan.problems[0].message, problems: plan.problems }, 422);
   if (tier === "day_pass" && expiresAt && input.startsAt + (plan.schedule.at(-1) ?? 0) >= Date.parse(expiresAt)) {
     throw new HttpError(

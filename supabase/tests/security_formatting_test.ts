@@ -1,7 +1,8 @@
-import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
+import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1.0.13";
 import {
   createFormatSlicer,
   formatsForUnits,
+  FormattingComplexityError,
   type ParsedMarkdown,
   type SpanRange,
 } from "../functions/_shared/markdown.ts";
@@ -77,4 +78,12 @@ Deno.test("security: disjoint rich-text ranges do not rescan every style on ever
     assertEquals(slice(from, from + 1).spans, [{ start: 0, end: 1, bold: true }]);
   }
   assert(reads < 200000, `Formatting inspected ${reads} range fields for 2,000 steps.`);
+});
+
+Deno.test("security: overlapping styles cannot multiply into unbounded compiled output", () => {
+  const spans = Array.from({ length: 1000 }, () => ({ start: 0, end: 1000, bold: true }));
+  const slice = createFormatSlicer({ plain: "x".repeat(1000), paragraphs: [], spans });
+  assertThrows(() => {
+    for (let i = 0; i < 1000; i++) slice(i, i + 1);
+  }, FormattingComplexityError);
 });

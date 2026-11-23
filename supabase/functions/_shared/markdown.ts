@@ -106,32 +106,43 @@ export function formatsForUnits(parsed: ParsedMarkdown, units: string[]): ChunkF
  * Index formatting once per compilation. Overlapping and out-of-order spans
  * retain their original order, including when a revision revisits an old range.
  */
+export class FormattingComplexityError extends RangeError {}
+
 export function createFormatSlicer(parsed: ParsedMarkdown): (from: number, to: number) => ChunkFormat {
   const paragraphs = new FormatRangeIndex(parsed.paragraphs);
   const spans = new FormatRangeIndex(parsed.spans);
-  return (from, to) => ({
-    paragraphs: paragraphs.overlapping(from, to).flatMap(({ value: p, index }) => {
-      if (p.start < from) return [];
-      const previous = parsed.paragraphs[index - 1];
-      if (p.kind === "normal" && index > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) {
-        return [];
-      }
-      return [{
-        start: p.start - from,
-        end: Math.min(p.end, to) - from,
-        kind: p.kind,
-        ...(p.alignment || previous?.alignment ? { alignment: p.alignment ?? "left" } : {}),
-        ...(["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)
-          ? { after_bullet: true }
-          : {}),
-      }];
-    }),
-    spans: spans.overlapping(from, to).map(({ value: s }) => ({
-      ...s,
-      start: Math.max(s.start, from) - from,
-      end: Math.min(s.end, to) - from,
-    })),
-  });
+  let emittedRanges = 0;
+  return (from, to) => {
+    const paragraphMatches = paragraphs.overlapping(from, to);
+    const spanMatches = spans.overlapping(from, to);
+    emittedRanges += paragraphMatches.length + spanMatches.length;
+    if (emittedRanges > 100_000) {
+      throw new FormattingComplexityError("The formatting is too complex for this step size. Choose larger steps.");
+    }
+    return {
+      paragraphs: paragraphMatches.flatMap(({ value: p, index }) => {
+        if (p.start < from) return [];
+        const previous = parsed.paragraphs[index - 1];
+        if (p.kind === "normal" && index > 0 && previous?.kind === "normal" && !p.alignment && !previous.alignment) {
+          return [];
+        }
+        return [{
+          start: p.start - from,
+          end: Math.min(p.end, to) - from,
+          kind: p.kind,
+          ...(p.alignment || previous?.alignment ? { alignment: p.alignment ?? "left" } : {}),
+          ...(["bullet", "numbered"].includes(previous?.kind ?? "") && !["bullet", "numbered"].includes(p.kind)
+            ? { after_bullet: true }
+            : {}),
+        }];
+      }),
+      spans: spanMatches.map(({ value: s }) => ({
+        ...s,
+        start: Math.max(s.start, from) - from,
+        end: Math.min(s.end, to) - from,
+      })),
+    };
+  };
 }
 
 interface IndexedRange<T> {
