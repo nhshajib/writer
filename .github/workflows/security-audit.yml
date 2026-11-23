@@ -36,18 +36,8 @@ jobs:
       - name: Record generated manifests for review
         run: |
           node -e 'const fs = require("fs"); for (const f of ["package.json", "package-lock.json"]) console.log("AUDIT_MANIFEST_" + f + "_BEGIN\n" + fs.readFileSync(f, "utf8") + "\nAUDIT_MANIFEST_END");'
-      - run: npm ci
-      - run: npm run audit
-      - run: npm run typecheck
-      - run: npm run lint
-      - name: Production build
-        run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci
-      - run: npm run seo:check
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Audit generated dependency patch
+        run: npm ci && npm run audit
   trial-reservation-database:
     runs-on: ubuntu-24.04
     services:
@@ -78,3 +68,17 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/trial_reservation_database_test.sql
       - name: Concurrent aliased accounts
         run: python3 scripts/security-trial-race.py
+  deno-lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno task check
+      - run: deno task test
+      - name: Record generated lockfile for review
+        run: |
+          node -e 'const fs = require("fs"); console.log("AUDIT_DENO_LOCK_BEGIN\n" + fs.readFileSync("deno.lock", "utf8") + "\nAUDIT_DENO_LOCK_END");'

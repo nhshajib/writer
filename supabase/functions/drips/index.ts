@@ -1,3 +1,4 @@
+import { validatePlanSource } from "../_shared/input.ts";
 import { withAccountDeletionBilling } from "../_shared/accountDeletion.ts";
 import { acceptClientDiagnostic } from "../_shared/clientDiagnostics.ts";
 import { validateConfirmPatch, validateEngineEvents } from "../_shared/engineProtocol.ts";
@@ -260,6 +261,7 @@ function readPlanInput(body: PlanBody) {
     throw new HttpError(400, "Choose a supported writing rhythm.");
   }
   const text = typeof body.text === "string" ? body.text : "";
+  validatePlanSource(text);
   const unit = body.insertion_unit ?? DEFAULT_INSERTION_UNIT;
   const mode = body.mode ?? "scheduled";
   const durationMinutes = Number(body.duration_minutes);
@@ -852,6 +854,7 @@ async function editPausedSettings(userId: string, id: string, req: Request): Pro
     if (body.remaining_text !== undefined && typeof body.remaining_text !== "string") {
       throw new Error("Remaining text must be text.");
     }
+    if (body.remaining_text !== undefined) validatePlanSource(body.remaining_text);
     if (body.remaining_text !== undefined && body.remaining_sha256 !== await sha256Hex(body.remaining_text)) {
       throw new Error("Approve the exact remaining text before saving.");
     }
