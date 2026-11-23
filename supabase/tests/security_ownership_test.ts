@@ -13,6 +13,7 @@ Deno.test("security: another user's session cannot be read, paused or controlled
     Deno.env.set(names[0], "http://database.invalid");
     Deno.env.set(names[1], "fixture-service");
     globalThis.fetch = (async (input, init) => {
+      await Promise.resolve();
       const url = new URL(String(input));
       if (url.pathname === "/auth/v1/user") {
         const caller = new Headers(init?.headers).get("authorization")?.endsWith("fixture-owner") ? owner : outsider;
