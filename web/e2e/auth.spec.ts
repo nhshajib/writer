@@ -17,8 +17,8 @@ test("signing in returns to the page that asked for it", async ({ page }) => {
   await page.goto("/app/sessions/");
   await page.waitForURL(/\/login\/?\?next=%2Fapp%2Fsessions%2F/);
   await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
-  await page.getByLabel("Email").fill("me@gmail.com");
-  await page.getByLabel("Password").fill("correct horse battery");
+  await page.getByLabel("Email", { exact: true }).fill("me@gmail.com");
+  await page.getByLabel("Password", { exact: true }).fill("correct horse battery");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/app\/sessions\/?$/);
 });
@@ -26,8 +26,8 @@ test("signing in returns to the page that asked for it", async ({ page }) => {
 test("a sign-in link can't send people to another site", async ({ page }) => {
   await page.goto("/login/?next=//evil.example/steal");
   await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
-  await page.getByLabel("Email").fill("me@gmail.com");
-  await page.getByLabel("Password").fill("correct horse battery");
+  await page.getByLabel("Email", { exact: true }).fill("me@gmail.com");
+  await page.getByLabel("Password", { exact: true }).fill("correct horse battery");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/app\/?$/);
 });
@@ -86,7 +86,7 @@ test("sign in has one flow and Create an account preserves the destination", asy
 test("Terms, Privacy and the agreement open in place and close with Escape", async ({ page }) => {
   await page.goto("/login/");
   await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
-  await page.getByLabel("Email").fill("me@gmail.com");
+  await page.getByLabel("Email", { exact: true }).fill("me@gmail.com");
   for (const [button, title] of [["Terms of Service", "Terms of Service"], ["Privacy Policy", "Privacy Policy"], ["Responsible use", "Responsible Use Agreement"]]) {
     await page.getByRole("navigation", { name: "Policies and help" }).getByRole("button", { name: button }).click();
     const dialog = page.getByRole("dialog", { name: title });
@@ -96,7 +96,7 @@ test("Terms, Privacy and the agreement open in place and close with Escape", asy
     await expect(dialog).toBeHidden();
   }
   // Nothing typed was lost.
-  await expect(page.getByLabel("Email")).toHaveValue("me@gmail.com");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue("me@gmail.com");
 });
 
 const year = new Date().getFullYear();
@@ -111,19 +111,19 @@ test("sign-up creates the account first without asking for age", async ({ page, 
   await page.goto("/signup/");
   await expect(page.getByLabel("Country you live in")).toHaveCount(0);
   await expect(page.getByLabel("Month you were born")).toHaveCount(0);
-  await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(page.getByRole("checkbox", { name: /I agree to the Terms/ })).not.toBeChecked();
   await expectNoAxeViolations(page);
   await page.getByRole("button", { name: "Create free account" }).click();
-  await expect(page.getByLabel("Email")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByText("Use at least 8 characters.")).toBeVisible();
   await expect(page.getByText("Tick the box to accept the Terms and Responsible Use Agreement.")).toBeVisible();
-  await expect(page.getByLabel("Email")).toBeFocused();
+  await expect(page.getByLabel("Email", { exact: true })).toBeFocused();
   await expectNoAxeViolations(page);
-  await page.getByLabel("Email").fill("fixture@gmail.com");
-  await page.getByLabel("Password").fill("a good password");
+  await page.getByLabel("Email", { exact: true }).fill("fixture@gmail.com");
+  await page.getByLabel("Password", { exact: true }).fill("a good password");
   await page.getByLabel(/I agree to the Terms/).check();
   await page.getByRole("button", { name: "Create free account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
@@ -139,8 +139,8 @@ async function signInUnconfirmed(page: Page, request: APIRequestContext) {
   await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null } });
   await page.goto("/login/");
   await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
-  await page.getByLabel("Email").fill("fixture@gmail.com");
-  await page.getByLabel("Password").fill("a good password");
+  await page.getByLabel("Email", { exact: true }).fill("fixture@gmail.com");
+  await page.getByLabel("Password", { exact: true }).fill("a good password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "One last step" })).toBeVisible();
 }
@@ -234,8 +234,8 @@ test("an immediate email signup goes straight to birthday confirmation before th
     await route.fulfill({status:200,json:{access_token:"fixture-token",refresh_token:"fixture-refresh",token_type:"bearer",expires_in:3600,user:{id:"u1",aud:"authenticated",role:"authenticated",email:"fixture@gmail.com",app_metadata:{},user_metadata:{}}}});
   });
   await page.goto("/signup/?next=%2Fapp%2Fsessions%2F");
-  await page.getByLabel("Email").fill("fixture@gmail.com");
-  await page.getByLabel("Password").fill("a good password");
+  await page.getByLabel("Email", { exact: true }).fill("fixture@gmail.com");
+  await page.getByLabel("Password", { exact: true }).fill("a good password");
   await page.getByLabel(/I agree to the Terms/).check();
   await page.getByRole("button", { name: "Create free account" }).click();
   await expect(page.getByRole("heading", { name: "One last step" })).toBeVisible();

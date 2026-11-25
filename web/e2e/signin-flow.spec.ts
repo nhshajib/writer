@@ -77,7 +77,7 @@ test("last-used email changes only after successful authentication", async ({ pa
     status: 400, json: { error: "invalid_grant", error_description: "Invalid login credentials" },
   }));
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("The email or password is incorrect.");
+  await expect(page.locator(".signin-feedback[role=alert]")).toContainText("The email or password is incorrect.");
   expect(await page.evaluate(key => localStorage.getItem(key), LAST_SIGN_IN_KEY)).toBe("discord");
   await page.unroute("**/auth/v1/token**");
   await page.getByLabel("Password", { exact: true }).fill("correct fixture password");

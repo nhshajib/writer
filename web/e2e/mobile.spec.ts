@@ -180,6 +180,7 @@ test("the compact homepage on a phone links to its details without a long landin
 
 test("passwords can be shown before signing in", async ({ page }) => {
   await page.goto("/login/");
+  await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
   const password = page.locator("#password");
   await password.fill("a long passphrase");
   await expect(password).toHaveAttribute("type", "password");
