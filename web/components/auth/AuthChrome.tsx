@@ -24,11 +24,11 @@ export function AuthTabs() {
 }
 
 /** The policies open in place, so reading them doesn't lose what's been typed. */
-export function AuthFooter() {
+export function AuthFooter({ fullNames = false }: { fullNames?: boolean }) {
   return (
     <nav className="auth-side-foot" aria-label="Policies and help">
-      <LegalDialog doc="privacy" className="foot-link">Privacy</LegalDialog>
-      <LegalDialog doc="terms" className="foot-link">Terms</LegalDialog>
+      <LegalDialog doc="privacy" className="foot-link">{fullNames ? "Privacy Policy" : "Privacy"}</LegalDialog>
+      <LegalDialog doc="terms" className="foot-link">{fullNames ? "Terms of Service" : "Terms"}</LegalDialog>
       <LegalDialog doc="agreement" className="foot-link">Responsible use</LegalDialog>
       <Link href="/support/">Help</Link>
     </nav>

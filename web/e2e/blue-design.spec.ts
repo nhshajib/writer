@@ -13,6 +13,7 @@ for (const theme of ["light", "dark"] as const) {
     }
     await page.screenshot({path:testInfo.outputPath(`signup-${theme}.png`),fullPage:true});
     await page.goto("/login/");
+    await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
     await page.getByLabel("Email").fill("fixture@gmail.com");
     await page.getByLabel("Password").fill("a good password");
     await page.getByRole("button",{name:"Sign in",exact:true}).click();

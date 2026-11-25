@@ -1,3 +1,4 @@
+import { beginSocialSignIn, clearPendingSignIn } from "./signInPreference";
 import { supabase } from "./supabase";
 import { safeNext } from "./nextPath";
 import { CURRENT_TERMS_VERSION } from "./terms";
@@ -29,13 +30,16 @@ export async function continueWithProvider(provider: SocialProvider, options: Si
     // Storage blocked: the dashboard will ask for the agreement instead.
   }
   const next = safeNext(options.next);
+  beginSocialSignIn(provider);
   try {
     const { error } = await supabase().auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}${next}` },
     });
+    if (error) clearPendingSignIn();
     return error ? error.message : null;
   } catch {
+    clearPendingSignIn();
     return `${provider === "discord" ? "Discord" : "Google"} sign-in could not start. Check your connection and try again.`;
   }
 

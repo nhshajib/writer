@@ -1,11 +1,22 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { AuthFooter, AuthTabs } from "@/components/auth/AuthChrome";
 import { AuthVisual } from "@/components/auth/AuthVisual";
 import { Icon } from "@/components/Icons";
 import { Logo, Wordmark } from "@/components/Logo";
 
-/** Sign in, sign up and password reset: one card, the story on the left and the form on the right. */
+/** A focused sign-in shell; signup and recovery retain their established layout. */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  // Sign-in has a focused, card-free shell; signup and recovery keep their existing layouts.
+  if (pathname === "/login" || pathname === "/login/") return (
+    <div className="signin-page">
+      <main id="main" tabIndex={-1} className="signin-main">{children}</main>
+      <AuthFooter fullNames />
+    </div>
+  );
   return (
     <div className="auth-page">
       <div className="auth-split">

@@ -16,6 +16,7 @@ test.beforeEach(async ({ request }) => {
 test("signing in returns to the page that asked for it", async ({ page }) => {
   await page.goto("/app/sessions/");
   await page.waitForURL(/\/login\/?\?next=%2Fapp%2Fsessions%2F/);
+  await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
   await page.getByLabel("Email").fill("me@gmail.com");
   await page.getByLabel("Password").fill("correct horse battery");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -24,6 +25,7 @@ test("signing in returns to the page that asked for it", async ({ page }) => {
 
 test("a sign-in link can't send people to another site", async ({ page }) => {
   await page.goto("/login/?next=//evil.example/steal");
+  await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
   await page.getByLabel("Email").fill("me@gmail.com");
   await page.getByLabel("Password").fill("correct horse battery");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -69,19 +71,23 @@ test("reset links that land on the home page are forwarded", async ({ page }) =>
   await page.waitForURL(/\/reset-password\//);
 });
 
-test("sign in comes first, and Join is one click away", async ({ page }) => {
-  await page.goto("/login/");
-  const tabs = page.getByRole("navigation", { name: "Sign in or join" });
-  await expect(tabs.getByRole("link", { name: "Sign in" })).toHaveAttribute("aria-current", "page");
-  await tabs.getByRole("link", { name: "Join" }).click();
-  await page.waitForURL(/\/signup\/?$/);
+test("sign in has one flow and Create an account preserves the destination", async ({ page }) => {
+  await page.goto("/login/?next=%2Fapp%2Fsessions%2F");
+  await expect(page.getByRole("navigation", { name: "Sign in or join" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sign in to TypeWit" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with Google", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Continue with Email", exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "Create an account", exact: true }).click();
+  await page.waitForURL(url => (url.pathname === "/signup" || url.pathname === "/signup/") && url.searchParams.get("next") === "/app/sessions/");
   await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
 });
 
 test("Terms, Privacy and the agreement open in place and close with Escape", async ({ page }) => {
   await page.goto("/login/");
+  await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
   await page.getByLabel("Email").fill("me@gmail.com");
-  for (const [button, title] of [["Terms", "Terms of Service"], ["Privacy", "Privacy Policy"], ["Responsible use", "Responsible Use Agreement"]]) {
+  for (const [button, title] of [["Terms of Service", "Terms of Service"], ["Privacy Policy", "Privacy Policy"], ["Responsible use", "Responsible Use Agreement"]]) {
     await page.getByRole("navigation", { name: "Policies and help" }).getByRole("button", { name: button }).click();
     const dialog = page.getByRole("dialog", { name: title });
     await expect(dialog).toBeVisible();
@@ -132,6 +138,7 @@ test("sign-up creates the account first without asking for age", async ({ page, 
 async function signInUnconfirmed(page: Page, request: APIRequestContext) {
   await request.post("/__test/profile", { data: { age_confirmed_at: null, birth_year: null, birth_month: null } });
   await page.goto("/login/");
+  await page.getByRole("button", { name: "Continue with Email", exact: true }).click();
   await page.getByLabel("Email").fill("fixture@gmail.com");
   await page.getByLabel("Password").fill("a good password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();

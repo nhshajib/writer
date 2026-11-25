@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
 import { MobileViewport } from "@/components/MobileViewport";
+import { SignInPreferenceTracker } from "@/components/auth/SignInPreferenceTracker";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 import { ErrorReporting } from "@/components/ErrorReporting";
 import { PUBLIC_ROBOTS, SITE_URL } from "@/lib/seo";
@@ -52,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <a href="#main" className="skip-link">Skip to main content</a>
-        <MobileViewport /><RecoveryRedirect /><ErrorReporting />
+        <MobileViewport /><RecoveryRedirect /><ErrorReporting /><SignInPreferenceTracker />
         {children}
       </body>
     </html>
