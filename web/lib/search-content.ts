@@ -280,6 +280,7 @@ export const GUIDES: Guide[] = [
         "Check names, punctuation and paragraph breaks after dictation. Voice input may supply plain text without headings or emphasis; add supported styles in the editor, then approve the exact passage you want entered.",
       ] },
     ], sources: [{ label: "Google Docs: type with your voice", url: "https://support.google.com/docs/answer/4492226" }],
+  },
   {
     slug: "how-to-auto-type-in-microsoft-word", published: "2026-11-26", updated: "2026-11-26",
     title: "How to Auto Type in Microsoft Word",
@@ -395,7 +396,6 @@ export const GUIDES: Guide[] = [
       { label: "TypeWit: how to choose a Google Docs auto typer", url: "https://typewit.com/guides/choose-google-docs-auto-typer/" },
     ],
   },
-  },
 ];
 
 /** Task-related reading instead of repeating the entire guide catalogue on every article. */
@@ -406,7 +406,7 @@ export const RELATED_GUIDES: Record<string, string[]> = {
   "google-docs-version-history": ["schedule-text-google-docs", "choose-google-docs-auto-typer", "auto-typer-extension-vs-cloud"],
   "auto-typer-extension-vs-cloud": ["choose-google-docs-auto-typer", "schedule-text-google-docs", "google-docs-version-history"],
   "auto-type-text-microsoft-word": ["voice-typing-google-docs", "paste-text-keep-formatting-google-docs"],
-  "voice-typing-google-docs": ["paste-text-keep-formatting-google-docs", "auto-type-text-microsoft-word"],,
+  "voice-typing-google-docs": ["paste-text-keep-formatting-google-docs", "auto-type-text-microsoft-word"],
   "how-to-auto-type-in-microsoft-word": ["auto-type-text-microsoft-word", "paste-text-keep-formatting-google-docs", "auto-typer-not-working"],
   "auto-typer-not-working": ["schedule-text-google-docs", "how-to-auto-type-in-microsoft-word", "is-auto-typer-worth-it"],
   "is-auto-typer-worth-it": ["choose-google-docs-auto-typer", "schedule-text-google-docs", "how-to-auto-type-in-microsoft-word"],
