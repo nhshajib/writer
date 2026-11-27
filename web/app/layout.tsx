@@ -48,6 +48,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Search Console verification for the Vercel test copy (writer-one-gilt.vercel.app), so it can be removed from Google search. Keep after verification. */}
+        <meta name="google-site-verification" content="7zR3nvdoPhwU-n6OqOB-VX-p48ylFJrn4YRWIIs2T20" />
         {/* Apply a Light or Dark choice before the first paint, so the page doesn't flash. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
