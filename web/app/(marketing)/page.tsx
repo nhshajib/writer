@@ -8,7 +8,7 @@ import { GUIDES } from "@/lib/search-content";
 import { DAY_PASS_PRICE, FACEBOOK_URL, PRO_PRICE, SAASHUB_URL, SUPPORT_EMAIL } from "@/lib/site";
 import { ORGANIZATION_ID, SOFTWARE } from "@/lib/structured-data";
 
-const HOME_TITLE = "TypeWit — Auto Typer for Google Docs & Word";
+const HOME_TITLE = "TypeWit — Free Auto Typer for Google Docs & Word";
 const HOME_DESCRIPTION = "TypeWit schedules text entry into Google Docs without a Chrome extension, plus Microsoft Word via an add-in. Keep formatting and start free.";
 
 export const metadata: Metadata = {
