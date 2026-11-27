@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   robots: PUBLIC_ROBOTS,
   appleWebApp: { capable: true, title: "TypeWit", statusBarStyle: "default" },
   title: {
-    default: "TypeWit — Auto Typer for Google Docs & Word",
+    default: "TypeWit — Free Auto Typer for Google Docs & Word",
     template: "%s · TypeWit",
   },
   description:
@@ -25,8 +25,8 @@ export const metadata: Metadata = {
     : {}),
   twitter: { card: "summary_large_image", images: [`${SITE_URL}/twitter-image.png`] },
   openGraph: {
-    title: "TypeWit",
-    description: "Scheduled, formatted text entry for Google Docs and Word.",
+    title: "TypeWit — Free Auto Typer for Google Docs & Word",
+    description: "TypeWit schedules text entry into Google Docs without a Chrome extension, plus Microsoft Word via an add-in. Keep formatting and start free.",
     url: SITE_URL,
     siteName: "TypeWit",
     type: "website",
