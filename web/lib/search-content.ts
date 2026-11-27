@@ -280,6 +280,121 @@ export const GUIDES: Guide[] = [
         "Check names, punctuation and paragraph breaks after dictation. Voice input may supply plain text without headings or emphasis; add supported styles in the editor, then approve the exact passage you want entered.",
       ] },
     ], sources: [{ label: "Google Docs: type with your voice", url: "https://support.google.com/docs/answer/4492226" }],
+  {
+    slug: "how-to-auto-type-in-microsoft-word", published: "2026-11-26", updated: "2026-11-26",
+    title: "How to Auto Type in Microsoft Word",
+    description: "Auto type prepared text in Microsoft Word with the TypeWit add-in. Set up the add-in, paste formatted text, choose a pace and keep the document open.",
+    summary: "Word will not type a prepared passage for you on its own. The TypeWit add-in does it inside your open document, at a pace you choose, and it stops the moment you close the document or the panel.",
+    sections: [
+      { heading: "Before you start", paragraphs: [
+        "You need three things: a Word document saved in OneDrive or SharePoint, permission to edit it, and the text itself, already written. TypeWit does not write for you. It enters the words you approve, nothing more.",
+        "Free covers 250 words a day. That is enough to test the whole flow on a real document before you spend anything.",
+      ] },
+      { heading: "Add the TypeWit add-in", paragraphs: [
+        "This part takes a few minutes the first time, then you never do it again.",
+        "If the upload option is missing in Word, your organisation has switched sideloading off. That is a Microsoft setting, not a TypeWit one, so ask your administrator. On Word for Windows and Mac, an administrator can deploy the add-in for you instead.",
+      ], steps: [
+        "In your TypeWit dashboard, open Connected accounts and find the Word setup instructions. Download the add-in manifest from that page.",
+        "In Word on the web, use the add-in upload option and select the manifest file.",
+        "Open the TypeWit panel and sign in.",
+      ] },
+      { heading: "Start your first session", paragraphs: [
+        "Paste your text into the panel. The visual editor keeps supported bold, italic, headings, bullets and highlights, so you do not need to turn anything into Markdown first.",
+        "Pick a rhythm and a finish time, then read the preview. Check the exact words, the document and the timing. Nothing starts until you approve it.",
+      ], steps: [
+        "Paste your prepared text into the TypeWit panel.",
+        "Choose Natural or Steady, and set how long the session should run.",
+        "Review the text and the finish time, approve it, and start.",
+      ] },
+      { heading: "What happens to your formatting", paragraphs: [
+        "Bold, italic, headings, bullets and highlights come through. Font and page layout do not, and heading styles depend on what your Word host supports through its API. That is worth knowing before you test a heavily styled document.",
+        "Look at the document after the first few sentences. It takes ten seconds, and it beats discovering a formatting surprise at the end.",
+      ] },
+      { heading: "Pause, resume, and stop", paragraphs: [
+        "The controls are in the panel, and in your dashboard too. Pause when you need to think, resume when you are ready, stop when you are done.",
+        "Closing the document or the panel stops entry. When you resume, the rest of the schedule moves later. It does not dump the delayed text in one burst.",
+        "On Pro, pause before you edit the remaining text or timing. The words already entered stay where they are, so review the replacement before you resume.",
+      ] },
+      { heading: "When Word is the wrong tool", paragraphs: [
+        "If you need the typing to keep going after you close the laptop, Word cannot do that. Google Docs sessions run on TypeWit servers instead, so that is the one to use.",
+        "For a snippet you reuse every day, AutoCorrect or Quick Parts are faster. For speech, use Dictate. The add-in earns its keep when a prepared passage needs to arrive gradually, in an open Word document, at a pace you set.",
+      ] },
+    ], sources: [
+      { label: "TypeWit: Microsoft Word auto typer add-in", url: "https://typewit.com/word-auto-typer/" },
+      { label: "Microsoft: dictate in Microsoft 365", url: "https://support.microsoft.com/office/dictate-in-microsoft-365-eab203e1-d030-43c1-84ef-999b0b9675fe" },
+    ],
+  },
+  {
+    slug: "auto-typer-not-working", published: "2026-11-26", updated: "2026-11-26",
+    title: "Auto Typer Not Working? Fix It Step by Step",
+    description: "Your auto typer stopped or will not start? Check the Google connection, the open Word document, your session limits and the activity log, then retry safely.",
+    summary: "Most stopped sessions tell you what went wrong, if you look in the right place. Read the session message first, check the one thing that changed, and do not start a second session on top of the first.",
+    sections: [
+      { heading: "Read the message first", paragraphs: [
+        "Open the session and read its attention message. Then check the activity log. It records what happened, in order, and it is usually more useful than guessing.",
+        "Do not start an overlapping session while the first one is still open. Two sessions writing to the same document will fight each other, and the log gets hard to read.",
+      ] },
+      { heading: "A Google Docs session stopped", paragraphs: [
+        "The usual cause is access. If TypeWit can no longer reach your Google account, go to your dashboard and choose Connect Google again. This happens when access was removed in your Google account settings.",
+        "The other common cause is a provider delay. The finish time is a target, not a promise. If Google is slow, entry pauses and resumes when it can. Give it a little time before you retry.",
+      ] },
+      { heading: "A Word session stopped", paragraphs: [
+        "Word entry only runs while the document and the TypeWit panel are open. Close either one and entry stops. That is by design, because the add-in lives inside the document.",
+        "Reopen both, then resume from the dashboard. The remaining schedule moves later to make up for the gap. It does not catch up all at once.",
+      ] },
+      { heading: "Nothing is being typed", paragraphs: [
+        "Check where the text is supposed to go. If someone changed the insertion point in a shared document, entry pauses for your review. It does not overwrite their work.",
+        "Also check that you approved the session. Nothing starts until the text, the destination and the timing have all been approved. On Pro, pause before editing the remaining text, then approve the replacement before resuming.",
+      ] },
+      { heading: "You hit a limit", paragraphs: [
+        "Free covers 250 words a day, sessions up to 60 minutes, and one active session. If you have used the words up, the next session waits until tomorrow.",
+        "A $3.99 Day Pass lifts the word cap for 24 hours. Pro lifts it further, with up to three active sessions and sessions up to a week. If you are on the 7-day Pro trial, check whether it has ended.",
+      ] },
+      { heading: "Still stuck", paragraphs: [
+        "Email support at support@typewit.com. Say what you were doing, what happened, the error message and the session time. A screenshot helps.",
+        "Do not send passwords or card numbers. Support will never ask for them.",
+      ] },
+    ], sources: [
+      { label: "TypeWit: support", url: "https://typewit.com/support/" },
+      { label: "TypeWit: Google Docs auto typer", url: "https://typewit.com/google-docs-auto-typer/" },
+      { label: "TypeWit: Microsoft Word auto typer add-in", url: "https://typewit.com/word-auto-typer/" },
+    ],
+  },
+  {
+    slug: "is-auto-typer-worth-it", published: "2026-11-26", updated: "2026-11-26",
+    title: "Is an Auto Typer Worth It? Free vs Day Pass vs Pro",
+    description: "Is an auto typer worth paying for? Compare TypeWit Free, the $3.99 Day Pass and Pro at $6.99 a month, and try every Pro feature free for 7 days.",
+    summary: "An auto typer does not write for you. It enters text you already wrote, gradually, at a pace you set. Whether that is worth paying for depends on how often you need it, and for how long.",
+    sections: [
+      { heading: "What you are actually paying for", paragraphs: [
+        "Paced entry. You write the words, check them, approve them, and TypeWit enters them over a time you choose, keeping supported formatting. That is the whole product.",
+        "If all you need is the text in the document right now, paste it. That is free, and it is faster. The auto typer earns its keep when the timing matters: a demonstration, a scheduled test, a document that needs to fill gradually.",
+      ] },
+      { heading: "Start free, and mean it", paragraphs: [
+        "Free has no time limit and needs no card. You get 250 words a day, about half a page, sessions up to 60 minutes, one active session, and the Natural and Steady rhythms.",
+        "That is enough to run a real test on a real document. If Free does the job, stay on Free. There is no reason to pay for a tool you use once a month for ten minutes.",
+      ] },
+      { heading: "The $3.99 Day Pass", paragraphs: [
+        "One payment, $3.99, for 24 hours from payment confirmation. Unlimited words, one active session, writing hours and blocks, and priority dispatch. It does not renew.",
+        "This is the right choice for a single long test. A day of unlimited entry, then it is over. Just make sure every restart and the finish fit before the 24 hours run out, because an unfinished session pauses when access ends.",
+      ] },
+      { heading: "Pro, and the 7-day trial", paragraphs: [
+        "Pro is $6.99 a month, or $60 a year, which works out at $5 a month. You get up to three active sessions, sessions up to a week, scheduled starts, the Drafting rhythm, and editing of paused-session text.",
+        "You can try every Pro feature free for 7 days. Stripe asks for a card when you start, but nothing is charged until the trial ends. Cancel before then and you pay nothing. Each person can use the trial once.",
+      ] },
+      { heading: "Do the maths for your week", paragraphs: [
+        "One long test, once: a Day Pass at $3.99 beats a month of Pro. A test every week for a month: Pro at $6.99 a month is cheaper than four Day Passes, and the yearly price is cheaper still.",
+        "The honest test is a month of real use. If you reach for it twice a week, Pro pays for itself. If you reach for it twice a year, buy Day Passes.",
+      ] },
+      { heading: "When to skip it", paragraphs: [
+        "Skip it when paste does the job, when dictation does the job, or when a snippet tool like AutoCorrect or Quick Parts does the job. Those are built in, they are free, and they are faster.",
+        "And skip the paid plans until you have run the free test. Same sample, same document, check the formatting, check the timing, check it keeps running when you close the laptop on Google Docs. Then decide with evidence, not a sales page.",
+      ] },
+    ], sources: [
+      { label: "TypeWit: pricing", url: "https://typewit.com/pricing/" },
+      { label: "TypeWit: how to choose a Google Docs auto typer", url: "https://typewit.com/guides/choose-google-docs-auto-typer/" },
+    ],
+  },
   },
 ];
 
@@ -291,7 +406,10 @@ export const RELATED_GUIDES: Record<string, string[]> = {
   "google-docs-version-history": ["schedule-text-google-docs", "choose-google-docs-auto-typer", "auto-typer-extension-vs-cloud"],
   "auto-typer-extension-vs-cloud": ["choose-google-docs-auto-typer", "schedule-text-google-docs", "google-docs-version-history"],
   "auto-type-text-microsoft-word": ["voice-typing-google-docs", "paste-text-keep-formatting-google-docs"],
-  "voice-typing-google-docs": ["paste-text-keep-formatting-google-docs", "auto-type-text-microsoft-word"],
+  "voice-typing-google-docs": ["paste-text-keep-formatting-google-docs", "auto-type-text-microsoft-word"],,
+  "how-to-auto-type-in-microsoft-word": ["auto-type-text-microsoft-word", "paste-text-keep-formatting-google-docs", "auto-typer-not-working"],
+  "auto-typer-not-working": ["schedule-text-google-docs", "how-to-auto-type-in-microsoft-word", "is-auto-typer-worth-it"],
+  "is-auto-typer-worth-it": ["choose-google-docs-auto-typer", "schedule-text-google-docs", "how-to-auto-type-in-microsoft-word"],
 };
 
 /** When each public page last changed substantively; the sitemap's lastmod. Pages not listed use CONTENT_UPDATED. */
