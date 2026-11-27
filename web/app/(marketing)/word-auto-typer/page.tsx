@@ -5,7 +5,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { PageByline } from "@/components/seo/PageByline";
 import { PAGE_UPDATED } from "@/lib/search-content";
 import { pageMeta } from "@/lib/seo";
-import { webPage } from "@/lib/structured-data";
+import { SOFTWARE, webPage } from "@/lib/structured-data";
 import { DAY_PASS_PRICE } from "@/lib/site";
 const TITLE = "Microsoft Word Auto Typer Add-in";
 const DESCRIPTION = "Enter approved text into Microsoft Word with the TypeWit add-in. Choose pacing and supported formatting, then pause or resume while the document stays open.";
@@ -40,6 +40,6 @@ export default function WordAutoTyper() {
       { q: "Can Word type text automatically without an add-in?", a: <>For text you reuse, yes: AutoCorrect and Quick Parts insert saved snippets, and Dictate types what you say. Our guide on <Link href="/guides/auto-type-text-microsoft-word/">how to auto type text in Word</Link> explains when each fits.</> },
       { q: "Is the Word auto typer free?", a: <>Yes, on the Free plan with 250 words a day. Free, Day Pass and Pro cover both Word and Google Docs; compare them on the <Link href="/pricing/">pricing page</Link>.</> },
     ]} />
-    <JsonLd data={{ "@context": "https://schema.org", ...webPage({ path: "/word-auto-typer/", name: TITLE, description: DESCRIPTION, published: "2026-10-22", updated: PAGE_UPDATED["/word-auto-typer/"] }) }} />
+    <JsonLd data={{ "@context": "https://schema.org", "@graph": [{ ...webPage({ path: "/word-auto-typer/", name: TITLE, description: DESCRIPTION, published: "2026-10-22", updated: PAGE_UPDATED["/word-auto-typer/"] }), mainEntity: { "@id": SOFTWARE["@id"] } }, SOFTWARE] }} />
   </article>;
 }

@@ -5,7 +5,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { PageByline } from "@/components/seo/PageByline";
 import { PAGE_UPDATED } from "@/lib/search-content";
 import { pageMeta } from "@/lib/seo";
-import { webPage } from "@/lib/structured-data";
+import { SOFTWARE, webPage } from "@/lib/structured-data";
 import { DAY_PASS_PRICE, PRO_PRICE } from "@/lib/site";
 const TITLE = "Google Docs Auto Typer, No Extension Needed";
 const DESCRIPTION = "A Google Docs auto typer that runs in the cloud, with no Chrome extension. Paste formatted text, pick a rhythm and finish time, then close your laptop.";
@@ -46,6 +46,6 @@ export default function GoogleDocsAutoTyper() {
       { q: "How fast does it type?", a: "You choose when it should finish, from a few minutes up to 60 minutes on Free, a day with a Day Pass, or a week on Pro. Pro can also set a typing speed from 20 to 150 words per minute, with timing variation and breaks." },
       { q: "Does it work with Google Slides or Sheets?", a: <>No. TypeWit works with Google Docs and Microsoft Word. For Word, see the <Link href="/word-auto-typer/">Word auto typer</Link>.</> },
     ]} />
-    <JsonLd data={{ "@context": "https://schema.org", ...webPage({ path: "/google-docs-auto-typer/", name: TITLE, description: DESCRIPTION, published: "2026-10-22", updated: PAGE_UPDATED["/google-docs-auto-typer/"] }) }} />
+    <JsonLd data={{ "@context": "https://schema.org", "@graph": [{ ...webPage({ path: "/google-docs-auto-typer/", name: TITLE, description: DESCRIPTION, published: "2026-10-22", updated: PAGE_UPDATED["/google-docs-auto-typer/"] }), mainEntity: { "@id": SOFTWARE["@id"] } }, SOFTWARE] }} />
   </article>;
 }

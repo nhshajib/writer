@@ -92,8 +92,8 @@ export const GUIDES: Guide[] = [
     ], sources: [{ label: "Google Docs: find changes and version history", url: "https://support.google.com/docs/answer/190843" }],
   },
   {
-    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-14", title: "Copy & Paste in Google Docs Without Losing Format",
-    description: "Keep formatting with Ctrl+V, or paste text only with Ctrl+Shift+V to match your document. Fix lost bold and headings, and paste Markdown from AI chats.",
+    slug: "paste-text-keep-formatting-google-docs", published: "2026-10-21", updated: "2026-11-14", title: "Paste Text in Google Docs Without Losing Formatting",
+    description: "Paste into Google Docs without losing formatting \u2014 free TypeWit guide: keep bold and headings with Ctrl+V, paste text only, and paste Markdown from AI chats.",
     summary: "To copy and paste in Google Docs without losing formatting, copy from the formatted original and use normal Paste: Ctrl+V on Windows or ChromeOS, Command+V on Mac. If you want the pasted text to take on your document’s format instead, use Paste without formatting: Ctrl+Shift+V, or Command+Shift+V on Mac.",
     sections: [
       { heading: "Which paste do you need?", paragraphs: [
